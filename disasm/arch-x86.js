@@ -37,7 +37,7 @@ function Nop() {
         }
     };
 }
-function Mem(addr, size) {
+var Mem = exports.Mem = function Mem(addr, size) {
     if(typeof addr === 'object' && 'value' in addr) addr = addr.value;
     return {
         fn: 'Mem', addr: addr, size: size,

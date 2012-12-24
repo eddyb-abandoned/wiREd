@@ -13,7 +13,7 @@ String.prototype.padRight = function padRight(n, p) {
   return s;
 };
 var analyzer = new EventEmitter;
-analyzer.on('L1.initContext', (function(ctx) {
+analyzer.on('L1.initContext', function(ctx) {
   for (var $i in arch.R) {
     try {
       throw undefined;
@@ -35,8 +35,8 @@ analyzer.on('L1.initContext', (function(ctx) {
     }
   }
   ctx.SP0 = arch.SP.value;
-}));
-analyzer.on('L1.saveContext', (function(ctx) {
+});
+analyzer.on('L1.saveContext', function(ctx) {
   ctx.R = {};
   ctx.F = {};
   for (var $i in arch.R) {
@@ -59,8 +59,8 @@ analyzer.on('L1.saveContext', (function(ctx) {
   if (arch.SP.value) {
     if (arch.SP.value == ctx.SP0) ctx.SPdiff = 0; else if (arch.SP.value.op == '+' && arch.SP.value.a == ctx.SP0 && arch.known(arch.SP.value.b)) ctx.SPdiff = arch.SP.value.b;
   }
-}));
-analyzer.on('L1.restoreContext', (function(ctx) {
+});
+analyzer.on('L1.restoreContext', function(ctx) {
   for (var $i in arch.R) {
     try {
       throw undefined;
@@ -78,26 +78,27 @@ analyzer.on('L1.restoreContext', (function(ctx) {
     }
   }
   ctx.R = ctx.F = ctx.SPdiff = null;
-}));
-analyzer.on('L1.preOp', (function(ctx) {
+});
+analyzer.on('L1.preOp', function(ctx) {
   arch.IP.value = ctx.IP;
   ctx.IPwritten = false;
-}));
-analyzer.on('L1.op', (function(ctx, x) {
+});
+analyzer.on('L1.op', function(ctx, x) {
   if (x.op == '=') {
     if (x.a.fn == 'Mem') {
-      if (x.a.addr.op == '+' && x.a.addr.a == ctx.SP0) console.log('SP[' + arch.inspect(x.a.addr.b) + ']' + (traceur.runtime.elementGet([, 'b', 'w',, 'dw',,,, 'qw'], + x.a.size) || ''), '<-', arch.inspect(x.b));
+      if (x.a.addr.op == '+' && x.a.addr.a == ctx.SP0) console.log((this.indent + "SP" + arch.inspect(arch.Mem(x.a.addr.b, x.a.size))), '<-', arch.inspect(x.b));
     } else {
       x.a.value = x.b;
       if (x.a == arch.IP) ctx.IPwritten = true;
     }
   }
-}));
-analyzer.nBlocks = 0;
-analyzer.on('L1.postOp', (function(ctx) {
+});
+analyzer.blockDepth = 0;
+analyzer.indent = '';
+analyzer.on('L1.postOp', function(ctx) {
   if (ctx.IPwritten && arch.IP.value != ctx.IPnext) {
     if (arch.IP.value == ctx.IP) throw new Error('Infinite loop');
-    console.log('-->', arch.inspect(arch.IP.value));
+    console.log((this.indent + "-->"), arch.inspect(arch.IP.value));
     if (arch.IP.value && arch.IP.value.fn == 'Mem') {
       if (arch.IP.value.addr == ctx.SP0) ctx.returns = true; else {
         console.error('HACK: Assuming return');
@@ -107,15 +108,23 @@ analyzer.on('L1.postOp', (function(ctx) {
       try {
         throw undefined;
       } catch (newCtx) {
-        if (analyzer.nBlocks++ > 16) throw new Error('Nested too deep');
-        analyzer.emit('L1.saveContext', ctx);
-        newCtx = analyzer.decodeBlock(ctx.base, ctx.buf, arch.IP.value - ctx.base, ctx.end);
-        analyzer.emit('L1.restoreContext', ctx);
-        if (!arch.known(newCtx.SPdiff)) console.error('Missing stack difference!'); else arch.SP.value = arch.Add(arch.SP.value, newCtx.SPdiff);
+        try {
+          throw undefined;
+        } catch (oldIdent) {
+          if (this.blockDepth++ >= 5) throw new Error('Nested too deep');
+          this.emit('L1.saveContext', ctx);
+          oldIdent = this.indent;
+          this.indent += '    ';
+          newCtx = this.decodeBlock(ctx.base, ctx.buf, arch.IP.value - ctx.base, ctx.end);
+          this.indent = oldIdent;
+          this.blockDepth--;
+          this.emit('L1.restoreContext', ctx);
+          if (!arch.known(newCtx.SPdiff)) console.error('Missing stack difference!'); else arch.SP.value = arch.Add(arch.SP.value, newCtx.SPdiff);
+        }
       }
     } else throw new Error('Cannot handle jump');
   }
-}));
+});
 analyzer.decodeBlock = function decodeBlock(base, buf) {
   var start = traceur.runtime.elementGet(arguments, 2) !== (void 0) ? traceur.runtime.elementGet(arguments, 2): 0;
   var end = traceur.runtime.elementGet(arguments, 3) !== (void 0) ? traceur.runtime.elementGet(arguments, 3): buf.length;
@@ -124,7 +133,7 @@ analyzer.decodeBlock = function decodeBlock(base, buf) {
     buf: buf,
     end: end
   };
-  console.log('\n>>> ' + (base + start).toString(16).padLeft(8, '0'));
+  console.log(("\n" + this.indent + ">>> ") + (base + start).toString(16).padLeft(8, '0'));
   this.emit('L1.initContext', ctx);
   for (var i = start; i < end;) {
     ctx.IP = base + i;
@@ -137,17 +146,17 @@ analyzer.decodeBlock = function decodeBlock(base, buf) {
     }
     if (!r || err) console.error('Failed at', buf.slice(i));
     if (err) throw err;
-    if (!r) return;
+    if (!r) return ctx;
     var bytes = traceur.runtime.elementGet(r, 0);
     ctx.IPnext = ctx.IP + bytes;
     r = r.slice(1).map((function(x, i) {
       this.emit('L1.op', ctx, x);
       x = arch.inspect(x);
       return i ? ''.padRight(8 + i) + '╲'.padRight(18 - i, i == r.length - 1 ? '_': ' ') + ' ' + x: x;
-    }).bind(this)).join('\n');
-    console.log((base + i).toString(16).padLeft(8, '0'), buf.slice(i, i + bytes).toString('hex').padRight(18) + r);
+    }).bind(this)).join('\n' + this.indent);
+    console.log(this.indent + (base + i).toString(16).padLeft(8, '0'), buf.slice(i, i + bytes).toString('hex').padRight(18) + r);
     this.emit('L1.postOp', ctx);
-    if (ctx.returns) return console.log('<<<\n'), this.emit('L1.saveContext', ctx), ctx;
+    if (ctx.returns) return console.log((this.indent + "<<<\n")), this.emit('L1.saveContext', ctx), ctx;
     i += bytes;
   }
   return ctx;
@@ -203,7 +212,7 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                 analyzer.decodeBlock(baseAddress, buf, symbol.offset);
               } finally {
                 t = process.hrtime(t);
-                console.log(("Decoded " + analyzer.decodedInstructions + " instructions (" + Math.round(analyzer.decodedBytes / 1024 * 100) / 100 + "KB) in " + (traceur.runtime.elementGet(t, 0) + traceur.runtime.elementGet(t, 1) / 1e9) + "s"));
+                console.log(("Decoded " + decodedInstructions + " instructions (" + Math.round(decodedBytes / 1024 * 100) / 100 + "KB) in " + (traceur.runtime.elementGet(t, 0) + traceur.runtime.elementGet(t, 1) / 1e9) + "s"));
               }
             }
           }

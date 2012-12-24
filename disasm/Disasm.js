@@ -125,7 +125,7 @@ exportedFn.Mem = (addr, size)=>({
     codeGen: ()=>'Mem('+codeGen(addr)+(size?', '+size:'')+')',
     runtimeKnown: false
 });
-codeGen.runtime.push(`function Mem(addr, size) {
+codeGen.runtime.push(`var Mem = exports.Mem = function Mem(addr, size) {
     if(typeof addr === 'object' && 'value' in addr) addr = addr.value;
     return {
         fn: 'Mem', addr: addr, size: size,

@@ -16,14 +16,14 @@ String.prototype.padRight = function padRight(n, p) {
 };
 
 var analyzer = new EventEmitter;
-analyzer.on('L1.initContext', (ctx)=>{
+analyzer.on('L1.initContext', function(ctx) {
     for(let i in arch.R)
         arch.R[i].value = {inspect: ()=>arch.inspect(arch.R[i])+'₀'};
     for(let i in arch.F)
         arch.F[i].value = {inspect: ()=>arch.inspect(arch.F[i])+'₀'};
     ctx.SP0 = arch.SP.value;
 });
-analyzer.on('L1.saveContext', (ctx)=>{
+analyzer.on('L1.saveContext', function(ctx) {
     ctx.R = {};
     ctx.F = {};
     for(let i in arch.R)
@@ -38,22 +38,22 @@ analyzer.on('L1.saveContext', (ctx)=>{
             ctx.SPdiff = arch.SP.value.b;
     }
 });
-analyzer.on('L1.restoreContext', (ctx)=>{
+analyzer.on('L1.restoreContext', function(ctx) {
     for(let i in arch.R)
         arch.R[i].value = ctx.R[i];
     for(let i in arch.F)
         arch.F[i].value = ctx.F[i];
     ctx.R = ctx.F = ctx.SPdiff = null;
 });
-analyzer.on('L1.preOp', (ctx)=>{
+analyzer.on('L1.preOp', function(ctx) {
     arch.IP.value = ctx.IP;
     ctx.IPwritten = false;
 });
-analyzer.on('L1.op', (ctx, x)=>{
+analyzer.on('L1.op', function(ctx, x) {
     if(x.op == '=') {
         if(x.a.fn == 'Mem') {
             if(x.a.addr.op == '+' && x.a.addr.a == ctx.SP0)
-                console.log('SP['+arch.inspect(x.a.addr.b)+']'+([,'b','w',,'dw',,,,'qw'][+x.a.size] || ''), '<-', arch.inspect(x.b));
+                console.log(`${this.indent}SP${arch.inspect(arch.Mem(x.a.addr.b, x.a.size))}`, '<-', arch.inspect(x.b));
         } else {
             x.a.value = x.b;
             if(x.a == arch.IP)
@@ -61,12 +61,13 @@ analyzer.on('L1.op', (ctx, x)=>{
         }
     }
 });
-analyzer.nBlocks = 0;
-analyzer.on('L1.postOp', (ctx)=>{
+analyzer.blockDepth = 0;
+analyzer.indent = '';
+analyzer.on('L1.postOp', function(ctx) {
     if(ctx.IPwritten && arch.IP.value != ctx.IPnext) {
         if(arch.IP.value == ctx.IP)
             throw new Error('Infinite loop');
-        console.log('-->', arch.inspect(arch.IP.value));
+        console.log(`${this.indent}-->`, arch.inspect(arch.IP.value));
         if(arch.IP.value && arch.IP.value.fn == 'Mem') {
             if(arch.IP.value.addr == ctx.SP0)
                 ctx.returns = true;
@@ -75,11 +76,15 @@ analyzer.on('L1.postOp', (ctx)=>{
                 ctx.returns = true;
             }
         } else if(arch.known(arch.IP.value)) {
-            if(analyzer.nBlocks++ > 16)
+            if(this.blockDepth++ >= 5) // HACK Prevents entering a dangerous zone (for the output size) in the test DLL.
                 throw new Error('Nested too deep');
-            analyzer.emit('L1.saveContext', ctx);
-            let newCtx = analyzer.decodeBlock(ctx.base, ctx.buf, arch.IP.value-ctx.base, ctx.end);
-            analyzer.emit('L1.restoreContext', ctx);
+            this.emit('L1.saveContext', ctx);
+            let oldIdent = this.indent;
+            this.indent += '    ';
+            let newCtx = this.decodeBlock(ctx.base, ctx.buf, arch.IP.value-ctx.base, ctx.end);
+            this.indent = oldIdent;
+            this.blockDepth--;
+            this.emit('L1.restoreContext', ctx);
             if(!arch.known(newCtx.SPdiff))
                 console.error('Missing stack difference!');
             else
@@ -91,7 +96,7 @@ analyzer.on('L1.postOp', (ctx)=>{
 
 analyzer.decodeBlock = function decodeBlock(base, buf, start=0, end=buf.length) {
     var ctx = {base, buf, end};
-    console.log('\n>>> '+(base+start).toString(16).padLeft(8, '0'));
+    console.log(`\n${this.indent}>>> `+(base+start).toString(16).padLeft(8, '0'));
     this.emit('L1.initContext', ctx);
     for(var i = start; i < end;) {
         ctx.IP = base+i;
@@ -107,18 +112,18 @@ analyzer.decodeBlock = function decodeBlock(base, buf, start=0, end=buf.length) 
         if(err)
             throw err;
         if(!r)
-            return;
+            return ctx;
         var bytes = r[0];
         ctx.IPnext = ctx.IP+bytes;
         r = r.slice(1).map((x, i)=>{
             this.emit('L1.op', ctx, x);
             x = arch.inspect(x);
             return i ? ''.padRight(8+i)+'╲'.padRight(18-i, i==r.length-1?'_':' ')+' '+x : x;
-        }).join('\n');
-        console.log((base+i).toString(16).padLeft(8, '0'), buf.slice(i, i+bytes).toString('hex').padRight(18)+r);
+        }).join('\n'+this.indent);
+        console.log(this.indent+(base+i).toString(16).padLeft(8, '0'), buf.slice(i, i+bytes).toString('hex').padRight(18)+r);
         this.emit('L1.postOp', ctx);
         if(ctx.returns)
-            return console.log('<<<\n'), this.emit('L1.saveContext', ctx), ctx;
+            return console.log(`${this.indent}<<<\n`), this.emit('L1.saveContext', ctx), ctx;
         i += bytes;
     }
     return ctx;
@@ -159,6 +164,6 @@ if(process.argv.length < 3)
         analyzer.decodeBlock(baseAddress, buf, symbol.offset);
     } finally {
         t = process.hrtime(t);
-        console.log(`Decoded ${analyzer.decodedInstructions} instructions (${Math.round(analyzer.decodedBytes/1024*100)/100}KB) in ${t[0]+t[1]/1e9}s`);
+        console.log(`Decoded ${decodedInstructions} instructions (${Math.round(decodedBytes/1024*100)/100}KB) in ${t[0]+t[1]/1e9}s`);
     }
 }

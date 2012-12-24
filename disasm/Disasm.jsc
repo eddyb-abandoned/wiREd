@@ -106,7 +106,7 @@ exportedFn.Mem = (function(addr, size) {
     runtimeKnown: false
   });
 });
-codeGen.runtime.push("function Mem(addr, size) {\n    if(typeof addr === 'object' && 'value' in addr) addr = addr.value;\n    return {\n        fn: 'Mem', addr: addr, size: size,\n        inspect: function() {\n            return '['+inspect(addr)+']'+([,'b','w',,'dw',,,,'qw'][+size] || '');\n        }\n    };\n}");
+codeGen.runtime.push("var Mem = exports.Mem = function Mem(addr, size) {\n    if(typeof addr === 'object' && 'value' in addr) addr = addr.value;\n    return {\n        fn: 'Mem', addr: addr, size: size,\n        inspect: function() {\n            return '['+inspect(addr)+']'+([,'b','w',,'dw',,,,'qw'][+size] || '');\n        }\n    };\n}");
 exportedFn.Not = (function(a) {
   return ({
     fn: 'Not',
