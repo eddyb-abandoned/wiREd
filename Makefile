@@ -1,12 +1,12 @@
 
 all: analyzer.jsc
 
-analyzer.jsc: disasm/arch-x86.js node_modules
+analyzer.jsc: disasm/arch-x86.js | node_modules
 
 test: all Password.dll.analyzed
 
 out/%.compiled.js: %.js
-	@deps/traceur-compiler/traceurc --freeVariableChecker=false --sourceMaps=true "$<"
+	@deps/traceur-compiler/traceurc --source-maps --freeVariableChecker=false "$<"
 
 %.jsc: out/%.compiled.js
 	@echo "!global.traceur && (0,eval)(require('fs').readFileSync(__dirname+'/deps/traceur-compiler/bin/traceur.js', 'utf8'));" | cat - "$<" > "$@"
