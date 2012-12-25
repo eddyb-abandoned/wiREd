@@ -9,52 +9,53 @@ Number.prototype.toBinary = function(n=-1) {
 
 let raw = ({raw: s}, ...args)=>s.map((x, i)=>i?args[i-1]+x:x).join('');
 
-let R = (reg, size=4, type=''+size*8)=>({size, bitsof: size*8, inspect: ()=>'r'+util.inspect(reg)+'/'+size*8, codeGen: ()=>'R'+type+'['+dis.codeGen(reg)+']'});
+let R = (reg, bits=32, type=''+bits)=>({bitsof: bits, signed: false, inspect: ()=>'r'+inspect(reg)+'/'+bits, get code() {return 'R'+type+'['+reg.code+']';}});
 dis.codeGen.runtime.push(`var R = exports.R = {}, R8 = [], R16 = [], R32 = [], RS = [];`);
 {
-    let r = (name, reg, size=4, type=''+size*8)=>{
-        R[name] = R(reg, size, type);
-        dis.codeGen.runtime.push(`R.${name} = R${type}[${reg}] = {inspect: function() {return '${name}';}};`);
+    let r = (name, reg, bits=32, type=''+bits)=>{
+        R[name] = R(reg, bits, type);
+        dis.codeGen.runtime.push(`R.${name} = R${type}[${reg}] = {bitsof: ${bits}, signed: false, inspect: function() {return '${name}';}};`);
     };
     'ACDB'.split('').forEach((x,i)=>{
-        r(x+'L',    i, 1);
-        r(x+'H',    i+4, 1);
-        r(x+'X',    i, 2);
-        r('E'+x+'X',i, 4);
+        r(x+'L',    i, 8);
+        r(x+'H',    i+4, 8);
+        r(x+'X',    i, 16);
+        r('E'+x+'X',i, 32);
     });
     'ECSDFSG'.split('').forEach((x,i)=>{
-        r(x+'S', i, 2, 'S');
+        r(x+'S', i, 16, 'S');
     });
     'SP BP SI DI IP'.split(' ').forEach((x,i)=>{
-        r(x, i+4, 2);
-        r('E'+x, i+4, 4);
+        r(x, i+4, 16);
+        r('E'+x, i+4, 32);
     });
 }
-let F = (f, name='f'+util.inspect(f))=>({bitsof: 1, inspect: ()=>name, codeGen: ()=>'F['+dis.codeGen(f)+']'});
-dis.codeGen.runtime.push(`var F = exports.F = [];`);
+let F = (f, name='f'+util.inspect(f))=>({bitsof: 1, signed: false, inspect: ()=>name, get code() {return 'F1['+f.code+']';}});
+dis.codeGen.runtime.push(`var F = exports.F = {}, F1 = [];`);
 'OCZSPVDI'.split('').forEach((x,i)=>{
     F[x] = F(i, x+'F');
-    dis.codeGen.runtime.push(`F.${x} = F[${i}] = {inspect: function() {return '${x}F';}};`);
+    dis.codeGen.runtime.push(`F.${x} = F1[${i}] = {bitsof: 1, signed: false, inspect: function() {return '${x}F';}};`);
 });
 
+// HACK They're functions because otherwise only the first usage gets a value and subsequent ones reference an empty variable.
 let Cond = {
-    O: F.O, NO: Not(F.O),
-    B: F.C, AE: Not(F.C),
-    Z: F.Z, NZ: Not(F.Z),
-    BE: Or(F.C, F.Z), A: And(Not(F.C), Not(F.Z)),
-    S: F.S, NS: Not(F.S),
-    P: F.P, NP: Not(F.P),
-    L: Not(Eq(F.O, F.S)), GE: Eq(F.O, F.S),
-    LE: Or(F.Z, Not(Eq(F.O, F.S))), G: And(Not(F.Z), Eq(F.O, F.S)),
+    O: ()=>F.O, NO: ()=>Not(F.O),
+    B: ()=>F.C, AE: ()=>Not(F.C),
+    Z: ()=>F.Z, NZ: ()=>Not(F.Z),
+    BE: ()=>Or(F.C, F.Z), A: ()=>And(Not(F.C), Not(F.Z)),
+    S: ()=>F.S, NS: ()=>Not(F.S),
+    P: ()=>F.P, NP: ()=>Not(F.P),
+    L: ()=>Not(Eq(F.O, F.S)), GE: ()=>Eq(F.O, F.S),
+    LE: ()=>Or(F.Z, Not(Eq(F.O, F.S))), G: ()=>And(Not(F.Z), Eq(F.O, F.S)),
 };
 function _op(def, b, fn) {
     b = b.map((x)=>x.toBinary(8));
     var args = [], hasModRM, ModRM, immIdx, byteLen, imm = [], ctReg = false, reg = 'Reg';
     def = def.replace(/^reg=(\d+):/i, (s, x)=>((ctReg = true, reg = (+x).toBinary(3)), ''));
-    var getSize = (s)=>{ // FIXME 16bit 64bit.
-        if(s == 'b') return 1;
-        if(s == 'c' || s == 'w') return 2;
-        if(s == 'd' || s == 'v' || s == 'z') return 4;
+    var getBits = (s)=>{ // FIXME 16bit 64bit.
+        if(s == 'b') return 8;
+        if(s == 'c' || s == 'w') return 16;
+        if(s == 'd' || s == 'v' || s == 'z') return 32;
         throw new TypeError('Unimplemented operand size '+s);
     };
     
@@ -71,22 +72,22 @@ function _op(def, b, fn) {
         else {
             if(!/^[A-Z][a-z]$/.test(x))
                 throw new TypeError('Unimplemented operand specifier '+x);
-            let kind = x[0], size = getSize(x[1]);
+            let kind = x[0], bits = getBits(x[1]);
             if(kind == 'E')
-                hasModRM = 1, args[i] = (...args)=>ModRM(size, ...args.slice(ctReg?0:1));
+                hasModRM = 1, args[i] = (...args)=>ModRM(bits, ...args.slice(ctReg?0:1));
             else if(kind == 'G')
-                hasModRM = 1, args[i] = (reg)=>R(reg, size);
+                hasModRM = 1, args[i] = (reg)=>R(reg, bits);
             else if(kind == 'S')
-                hasModRM = 1, args[i] = (reg)=>R(reg, 4, 'S');
+                hasModRM = 1, args[i] = (reg)=>R(reg, 32, 'S');
             else if(kind == 'I') {
-                let j = imm.push(['Imm_____', 'Imm_____________', null, 'Imm_____________________________'][size-1])-1;
+                let j = imm.push(['Imm_____', 'Imm_____________', null, 'Imm_____________________________'][bits/8-1])-1;
                 args[i] = ()=>arguments[immIdx+j];
             } else if(kind == 'J') { // FIXME negative offsets.
-                let j = imm.push(['Imm_____', 'Imm_____________', null, 'Imm_____________________________'][size-1])-1;
-                args[i] = ()=>Add(R.EIP, Add(arguments[immIdx+j], byteLen));
+                let j = imm.push(['Imm_____', 'Imm_____________', null, 'Imm_____________________________'][bits/8-1])-1;
+                args[i] = ()=>Add(R.EIP, Add(signed(arguments[immIdx+j]), byteLen));
             } else if(kind == 'O') {
                 let j = imm.push('Offset__________________________')-1;
-                args[i] = ()=>Mem(arguments[immIdx+j], size);
+                args[i] = ()=>IntSize(Mem(arguments[immIdx+j]), bits);
             } else
                 throw new TypeError('Unimplemented operand kind '+kind);
         }
@@ -106,25 +107,25 @@ function _op(def, b, fn) {
     else {
         if(hasModRM != 3) {
             let applySIB = (mod, extra=[], n=0, fn=(x)=>x)=>{ // FIXME 16bit 64bit.
-                op([mod+reg+'Rm_', ...extra], 1+n, (size, RM, ...rest)=>Mem(fn(R(RM), ...rest), size));
-                op([mod+reg+'100', 'SiIdxBas', ...extra], 3+n, (size, scale, idx, base, ...rest)=>Mem(fn(Add(R(base), LSL(R(idx), scale)), ...rest), size));
-                op([mod+reg+'100', 'Si100Bas', ...extra], 2+n, (size, scale, base, ...rest)=>Mem(fn(R(base), ...rest), size));
+                op([mod+reg+'Rm_', ...extra], 1+n, (bits, RM, ...rest)=>IntSize(Mem(fn(R(RM), ...rest)), bits));
+                op([mod+reg+'100', 'SiIdxBas', ...extra], 3+n, (bits, scale, idx, base, ...rest)=>IntSize(Mem(fn(Add(R(base), LSL(R(idx), scale)), ...rest)), bits));
+                op([mod+reg+'100', 'Si100Bas', ...extra], 2+n, (bits, scale, base, ...rest)=>IntSize(Mem(fn(R(base), ...rest)), bits));
                 let newFn = (...x)=>Add(R.EBP, fn(...x));
                 if(mod == '00') {
                     extra = ['Disp____________________________'];
                     n = 1;
                     newFn = (x, disp32)=>Add(x, disp32);
                 }
-                op([mod+reg+'100', 'SiIdx101', ...extra], 2+n, (size, scale, idx, ...rest)=>Mem(newFn(LSL(R(idx), scale), ...rest), size));
-                op([mod+reg+'100', 'Si100101', ...extra], 1+n, (size, scale, ...rest)=>Mem(newFn(0, ...rest), size));
+                op([mod+reg+'100', 'SiIdx101', ...extra], 2+n, (bits, scale, idx, ...rest)=>IntSize(Mem(newFn(LSL(R(idx), scale), ...rest)), bits));
+                op([mod+reg+'100', 'Si100101', ...extra], 1+n, (bits, scale, ...rest)=>IntSize(Mem(newFn(0, ...rest)), bits));
             };
             applySIB('00');
-            applySIB('01', ['Disp____'], 1, (x, disp8)=>Add(x, ExtS(disp8)));
-            applySIB('10', ['Disp____________________________'], 1, (x, disp32)=>Add(x, ExtS(disp32)));
-            op(['00'+reg+'101', 'Disp____________________________'], 1, (size, disp32)=>Mem(disp32, size));
+            applySIB('01', ['Disp____'], 1, (x, disp8)=>Add(x, signed(disp8)));
+            applySIB('10', ['Disp____________________________'], 1, (x, disp32)=>Add(x, signed(disp32)));
+            op(['00'+reg+'101', 'Disp____________________________'], 1, (bits, disp32)=>IntSize(Mem(disp32), bits));
         }
         if(hasModRM != 2)
-            op(['11'+reg+'Rm_'], 1, (size, RM)=>R(RM, size));
+            op(['11'+reg+'Rm_'], 1, (bits, RM)=>R(RM, bits));
     }
 }
 
@@ -148,11 +149,10 @@ let $ = (s, ...args)=>(base, fn=base)=>{
 let [ADD, OR, ADC, SBB, AND, SUB, XOR, INC, DEC, NOT, NEG] = [Add, Or, (a, b)=>Add(a, Add(b, F.C)), (a, b)=>Sub(b, Add(Sub(a, F.C), 1)), And, Sub, Xor, (x)=>Add(x, 1), (x)=>Sub(x, 1), Not, (x)=>Sub(0, x)].map(opMov);
 let CMP = (a, b, v=Sub(a, b))=>[Mov(F.Z, v.ZF || Eq(v, 0)), Mov(F.C, v.CF || 0)]; // FIXME all teh flags.
 let TEST = (a, b, v=And(a, b))=>[Mov(F.Z, v.ZF || Eq(v, 0))]; // FIXME all teh flags.
-let PUSH = (x, size=sizeof(x, true))=>[SUB(R.ESP, size), Mov(Mem(R.ESP, size), x)];
-let POP =  (x, size=sizeof(x, true))=>[Mov(x, Mem(R.ESP, size)), ADD(R.ESP, size)];
+let PUSH = (x, bits=bitsof(x, true))=>[SUB(R.ESP, bits/8), Mov(IntSize(Mem(R.ESP), bits), x)];
+let POP =  (x, bits=bitsof(x, true))=>[Mov(x, IntSize(Mem(R.ESP), bits)), ADD(R.ESP, bits/8)];
 let INT = Interrupt;
 let JMPN = (j)=>Mov(R.EIP, j), CALLN = (EIP, j)=>[...PUSH(EIP), Mov(R.EIP, j)];
-let MOVZX = (a, b)=>Mov(a, Ext(b, bitsof(a, true)));
 
 /// One-byte opcodes.
 ///\00-0F
@@ -193,13 +193,13 @@ $`68:Iz`(PUSH);/*d64*/
 $`6A:Ib`(PUSH);/*d64*/
 
 ///\70-7F
-Object.keys(Cond).map((x, i)=>$`Jb`(0x70+i, (j)=>If(Cond[x], JMPN(j))));
+Object.keys(Cond).map((x, i)=>$`Jb`(0x70+i, (j)=>If(Cond[x](), JMPN(j))));
 
 ///\80-8F
 [ADD, OR, ADC, SBB, AND, SUB, XOR, CMP].map((fn, i)=>$`80:reg=${i}:Eb Ib;Ev Iz;Eb Ib;Ev Ib`(fn));/*82 i64*/
 $`84:Eb Gb;Ev Gv`(TEST); $`86:Eb Gb;Ev Gv`(Swap);
 $`88:Eb Gb;Ev Gv;Gb Eb;Gv Ev`(Mov);
-$`8C:Ev Sw`(Mov); $`8D:Gv M`((a, b)=>Mov(a, b.addr)); $`8E:Sw Ew`(Mov);
+$`8C:Ev Sw`(Mov); $`8D:Gv M`((a, b)=>Mov(a, b.a)); $`8E:Sw Ew`(Mov);
 $`8F:reg=0:Ev`(POP);
 
 ///\90-9F
@@ -251,16 +251,16 @@ $`FF:reg=6:Ev`(PUSH);/*d64*/
 
 /// Two-byte opcodes.
 ///\0F80-0F8F
-Object.keys(Cond).map((x, i)=>$`Jz`([0x0F, 0x80+i], (j)=>If(Cond[x], Mov(R.EIP, j))));
+Object.keys(Cond).map((x, i)=>$`Jz`([0x0F, 0x80+i], (j)=>If(Cond[x](), Mov(R.EIP, j))));
 
 ///\0F90-0F9F
-Object.keys(Cond).map((x, i)=>$`Eb`([0x0F, 0x90+i], (a)=>Mov(a, Cond[x])));
+Object.keys(Cond).map((x, i)=>$`Eb`([0x0F, 0x90+i], (a)=>Mov(a, Cond[x]())));
 
 ///\0FA0-0FAF
-$`0FAC:Ev Gv Ib;Ev Gv CL`(opMov((dest, src, count)=>Or(LSR(dest, count), And(src, LSL(Sub(LSL(1, count), 1), Sub(32, count))))));
+$`0FAC:Ev Gv Ib;Ev Gv CL`(opMov((dest, src, count)=>Or(LSR(dest, count), And(src, LSL(Sub(u32(LSL(1, count)), 1), Sub(32, count))))));
 
 ///\0FB0-0FBF
-$`0FB6:Gv Eb;Gv Ew`(MOVZX);
+$`0FB6:Gv Eb;Gv Ew`(Mov);
 
 ///\0FC0-0FCF
 $`0FC8:rAX;rCX;rDX;rBX;rSP;rBP;rSI;rDI`(Nop); // FIXME bswap.

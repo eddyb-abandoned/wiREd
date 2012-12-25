@@ -1,7 +1,7 @@
 var fs = require('fs'), util = require('util');
 
 function inspect(x, p) {
-    if(known(x) && x > 100)
+    if(known(x) && x >= 100)
         return '0x'+x.toString(16);
     if(typeof x === 'object' && x.inspect)
         return x.inspect(0, p || 16);
@@ -11,9 +11,17 @@ function inspect(x, p) {
 function known(x) {
     return typeof x === 'number';
 }
-function runtimeKnown(x) {
-    return known(x) || x.runtimeKnown;
-}
+
+Object.defineProperties(Number.prototype, {
+    known: {value: true},
+    runtimeKnown: {value: true},
+    code: {get() {
+        if(this >= 100)
+            return '0x'+this.toString(16);
+        return this.toString();
+    }},
+});
+
 function bitsof(x, fatal) {
     if(typeof x === 'object' && known(x.bitsof))
         return x.bitsof;
@@ -27,41 +35,208 @@ function sizeof(x, fatal) {
         return Math.ceil(x/8);
 }
 
-var codeGen = exports.codeGen = function codeGen(x) {
-    if(known(x))
-        return x.toString();
-    if(!x || !x.codeGen)
-        throw new TypeError('Invalid codeGen source '+inspect(x));
-    return x.codeGen();
+var codeGen = exports.codeGen = {
+    intBits: 32
 };
 
 codeGen.runtime = [
-    `var util = require('util');`,
-    
-    `var known = exports.known = function known(x) {
-        return typeof x === 'number';
-    }`,
-    
-    /*`var bitsof = exports.bitsof = function bitsof(x) {
-        if(typeof x === 'object' && 'bitsof' in x)
-            return x.bitsof;
-        throw new TypeError('Missing bit size for '+inspect(x));
-    }`,
+//BEGIN runtime
+`var util = require('util');`,
 
-    `var sizeof = exports.sizeof = function sizeof(x) {
-        return Math.ceil(bitsof(x)/8);
-    }`,*/
-    
-    `var inspect = exports.inspect = function inspect(x, p) {
-        if(known(x) && x > 100)
-            return '0x'+x.toString(16);
-        if(typeof x === 'object' && x.inspect)
-            return x.inspect(0, p || 16);
-        return util.inspect(x);
-    }`
+`var known = exports.known = function known(x) {
+    return typeof x === 'number';
+}`,
+
+`var bitsof = exports.bitsof = function bitsof(x) {
+    if(typeof x === 'object' && 'bitsof' in x)
+        return x.bitsof;
+    throw new TypeError('Missing bit size for '+inspect(x));
+}`,
+
+`var sizeof = exports.sizeof = function sizeof(x) {
+    return Math.ceil(bitsof(x)/8);
+}`,
+
+`var valueof = exports.valueof = function valueof(x) {
+    if(known(x))
+        return x;
+    var v = x.value;
+    if(v === null || v === void 0)
+        return x;
+    return v;
+}`,
+
+`var lvalueof = exports.lvalueof = function lvalueof(x) {
+    if(typeof x !== 'object' || !('lvalue' in x))
+        return valueof(x);
+    var v = x.lvalue;
+    if(v === null || v === void 0)
+        return x;
+    return v;
+}`,
+
+`var inspect = exports.inspect = function inspect(x, p) {
+    if(known(x) && x >= 100)
+        return '0x'+x.toString(16);
+    if(typeof x === 'object' && x.inspect)
+        return x.inspect(0, p || 16);
+    return util.inspect(x);
+}`
+//END runtime
 ];
 
-var exportedFn = {inspect, known, runtimeKnown, bitsof, sizeof};
+{
+    let fn = {};
+    codeGen.int = (bits, signed)=>{
+        var id = (signed ? 'i' : 'u')+bits;
+        if(!fn[id]) {
+            fn[id] = true;
+//BEGIN runtime
+codeGen.runtime.push(`function ${id}(x) {
+    if(known(x))
+        return ${signed ? (bits == codeGen.intBits ? '(x&~0)' : '((x<<'+(codeGen.intBits-bits)+')>>>'+(codeGen.intBits-bits)+')')
+                        : (bits == codeGen.intBits ? '((x = x&~0), (x = x < 0 ? x+0x100000000 : x))' : '(x&0x'+((1<<bits)-1).toString(16)+')')};
+    if(x.bitsof === ${bits} && x.signed === ${signed})
+        return x;
+    if(x.hasOwnProperty('fn') && x.fn == 'Mem')${signed?'':' {'}
+        x.bitsof = ${bits};${signed?'':`
+        return Object.create(x, {
+            value: {get: function() {
+                var v = valueof(x);
+                if(v !== x)
+                    return v.fn == 'Mem' ? ${id}(v) : v;
+            }},
+            lvalue: {get: function() {
+                var v = lvalueof(x);
+                if(v !== x)
+                    return v.fn == 'Mem' ? ${id}(v) : v;
+            }},
+        });
+    }`}
+    return Object.create(x, {
+        bitsof: {value: ${bits}},
+        signed: {value: ${signed}},
+        value: {get: function() {
+            var v = valueof(x);
+            if(v !== x)
+                return ${id}(v);
+        }},
+        lvalue: {get: function() {
+            if(x.fn != 'Mem')
+                return;
+            var v = lvalueof(x);
+            if(v !== x)
+                return ${id}(v);
+        }},
+        inspect: {value: function() {
+            return '${id}('+inspect(x)+')';
+        }}
+    });
+}`);
+//END runtime
+        }
+        return id;
+    };
+}
+
+codeGen.runtime.vars = codeGen.runtime.maxVars = 0;
+
+codeGen.getVar = ()=>{
+    var name = '$'+(codeGen.runtime.vars++);
+    if(codeGen.runtime.vars > codeGen.runtime.maxVars)
+        codeGen.runtime.maxVars = codeGen.runtime.vars;
+    return name;
+};
+
+codeGen.mark = (a, props)=>{
+    var refCount = 0, varName;
+    if(a.hasOwnProperty('args'))
+        a.args.forEach((x)=>x.touch && x.touch());
+    else if(a.hasOwnProperty('a')) {
+        a.a.touch && a.a.touch();
+        if(a.hasOwnProperty('b'))
+            a.b.touch && a.b.touch();
+    } else if(a.touch)
+        a.touch();
+    a.touch = ()=>(refCount++, null);
+    if(props)
+        a = Object.create(a, props);
+    return Object.create(a, {code: {get: ()=>{
+        if(refCount <= 1)
+            return a.code;
+        if(!varName) {
+            varName = codeGen.getVar();
+            return '('+varName+' = '+a.code+')';
+        }
+        return varName;
+    }}});
+};
+
+codeGen.normalize = (a)=>{
+    if(typeof a.bitsof !== 'number' || typeof a.signed !== 'boolean') // FIXME this might skip some normalizations.
+        return codeGen.mark(a);
+    var bits = bitsof(a, true), props = {};
+    if(a.runtimeKnown) {
+        if(a.signed) {
+            if(bits == codeGen.intBits)
+                props.code = {get: ()=>'('+a.code+'&~0)'};
+            else
+                props.code = {get: ()=>'(('+a.code+'<<'+(codeGen.intBits-bits)+')>>>'+(codeGen.intBits-bits)+')'};
+        } else {
+            if(bits == codeGen.intBits) {
+                var temp = codeGen.getVar();
+                props.code = {get: ()=>`((${temp} = ${a.code}&~0), (${temp} < 0 ? ${temp}+0x100000000 : ${temp}))`};
+            } else
+                props.code = {get: ()=>'('+a.code+'&0x'+((1<<bits)-1).toString(16)+')'};
+        }
+    } else
+        props.code = {get: ()=>codeGen.int(bits, a.signed)+'('+a.code+')'};
+    
+    props.inspect = {value: (_, p)=>codeGen.int(bits, a.signed)+'('+inspect(a, p)+')'};
+    return codeGen.mark(a, props);
+};
+
+var exportedFn = {
+    inspect, known, bitsof, sizeof,
+    
+    Sub: (a, b)=>Add(a, Neg(b)),
+    ROL: (a, b, bitsa=bitsof(a, true))=>Or(LSL(a, b), LSR(a, Sub(bitsa, b))),
+    ROR: (a, b, bitsa=bitsof(a, true))=>Or(LSR(a, b), LSL(a, Sub(bitsa, b))),
+    
+    IntSize(a, bits) {
+        if(bitsof(a) == bits)
+            return a;
+        a = Object.create(a);
+        a.bitsof = bits;
+        if(!('signed' in a))
+            a.signed = false; // HACK deal with it.
+        return codeGen.normalize(a);
+    },
+    
+    IntSigned(a, signed) {
+        if(a.signed === signed)
+            return a;
+        a = Object.create(a);
+        a.signed = signed;
+        return codeGen.normalize(a);
+    },
+    
+    IntSizeSigned(a, bits, signed) {
+        if(bitsof(a) == bits && a.signed === signed)
+            return a;
+        a = Object.create(a);
+        a.bitsof = bits;
+        a.signed = signed;
+        return codeGen.normalize(a);
+    },
+    
+    signed: (a)=>IntSigned(a, true),
+    unsigned: (a)=>IntSigned(a, false),
+};
+
+for(let [signed, pfx] of [[true, 'i'], [false, 'u']])
+    for(let bits of [8, 16, 32])
+        exportedFn[pfx+bits] = (a)=>IntSizeSigned(a, bits, signed);
 
 var precendence = {
     '()':1, '[]':1,
@@ -80,202 +255,235 @@ var precendence = {
     ',':14
 };
 
-/*RRX,SignBit,*/'Interrupt,If,Nop'.split(',').forEach(function(fn) {
-    exportedFn[fn] = (...args)=>({
+'Nop,Interrupt,If'.split(',').forEach(function(fn) {
+    exportedFn[fn] = (...args)=>codeGen.mark({
         inspect: ()=>fn+'('+args.map((x)=>inspect(x)).join(', ')+')',
-        codeGen: ()=>fn+'('+args.map((x)=>codeGen(x)).join(', ')+')',
+        get code() {return fn+'('+args.map((x)=>x.code).join(', ')+')';},
         runtimeKnown: false
     });
+    
+//BEGIN runtime
 codeGen.runtime.push(`function ${fn}() {
     var args = [].slice.call(arguments);
     return {
-        fn: '${fn}', args: args,
+        constructor: ${fn}, fn: '${fn}', args: args,
+        get value() {
+            var changes = false, v = args.map(function(x) {
+                var v = valueof(x);
+                if(v !== x)
+                    changes = true;
+                return v;
+            });
+            if(changes) return ${fn}.apply(null, v);
+        },
         inspect: function() {
-            return '${fn}('+args.map(function(x) {return inspect(typeof x === 'object' && 'value' in x ? x.value : x);}).join(', ')+')';
+            return '${fn}('+args.map(function(x) {return inspect(x);}).join(', ')+')';
         }
     };
 }`);
+//END runtime
 });
 
-exportedFn.Ext = function(a, bits=32, bitsa=bitsof(a, true)) {
-    if(bitsa <= bits) {
-        a = Object.create(a);
-        a.bitsof = bits;
-        return a;
-    }
-    throw new TypeError;
+exportedFn.Mem = (a, size=null)=>{
+    if(size !== null)
+        throw new Error('Deprecated size argument for Mem');//, IntSize(Mem(a), size*8);
+    return codeGen.mark({
+        fn: 'Mem', a,
+        inspect() {return '['+inspect(a)+']'+(this.bitsof || '');},
+        get code() {return 'Mem('+a.code+')';},
+        runtimeKnown: false
+    });
 };
 
-exportedFn.ExtS = function(a, bits=32, bitsa=bitsof(a, true)) {
-    if(bitsa <= bits) {
-        a = ASR(LSL(a, bits-bitsa), bits-bitsa);
-        a.bitsof = bits;
-        return a;
-    }
-    //if('len' in a)
-    //    return ASR(LSL(a, 32-a.len), 32-a.len);
-    //else if(a.op === '<<' && 'len' in a.a && typeof a.b === 'number')
-    //    return ASR(LSL(a.a, 32-a.a.len), 32-a.a.len-a.b);
-    throw new TypeError;
-}; // HACK no runtime version, it uses ASR and LSL.
-
-exportedFn.Mem = (addr, size)=>({
-    fn: 'Mem', addr, size, bitsof: size && size*8,
-    inspect: ()=>'['+inspect(addr)+']'+([,'b','w',,'dw',,,,'qw'][+size] || ''),
-    codeGen: ()=>'Mem('+codeGen(addr)+(size?', '+size:'')+')',
-    runtimeKnown: false
-});
-codeGen.runtime.push(`var Mem = exports.Mem = function Mem(addr, size) {
-    if(typeof addr === 'object' && 'value' in addr) addr = addr.value;
+//BEGIN runtime
+codeGen.runtime.push(`var Mem = exports.Mem = function Mem(a) {
     return {
-        fn: 'Mem', addr: addr, size: size,
+        constructor: Mem, fn: 'Mem', a: a,
+        get lvalue() {
+            var v = valueof(a);
+            if(v !== a) return Mem(v);
+        },
+        get value() {
+            var v = valueof(a), m = Mem.read(v, bitsof(this));
+            if(m !== null && m !== void 0)
+                return m;
+            if(v !== a) return Mem(v);
+        },
+        set value(v) {
+            return Mem.write(valueof(a), bitsof(this), valueof(v));
+        },
         inspect: function() {
-            return '['+inspect(addr)+']'+([,'b','w',,'dw',,,,'qw'][+size] || '');
+            return '['+inspect(a)+']'+(this.bitsof || '');
         }
     };
-}`);
+}
+Mem.read = function(address, bits) {
+    console.error('Non-implemented Mem read ['+inspect(address)+']'+bits);
+};
+Mem.write = function(address, bits, value) {
+    console.error('Non-implemented Mem write ['+inspect(address)+']'+bits+' = '+inspect());
+};
+`);
+//END runtime
 
-exportedFn.Not = (a)=>({
-    fn: 'Not', op: '~', a, bitsof: bitsof(a),
+exportedFn.Not = (a)=>known(a) ? ~a : codeGen.normalize({ // FIXME type not enforced on constants.
+    fn: 'Not', op: '~', a, bitsof: bitsof(a), signed: a.signed,
     inspect: ()=>'~'+inspect(a, precendence['~']),
-    codeGen: function() {return this.runtimeKnown ? '~'+codeGen(a) : 'Not('+codeGen(a)+')';},
-    runtimeKnown: runtimeKnown(a)
+    get code() {return a.runtimeKnown ? '~'+a.code : 'Not('+a.code+')'},
+    runtimeKnown: a.runtimeKnown
 });
+
+//BEGIN runtime
 codeGen.runtime.push(`function Not(a) {
-    if(typeof a === 'object' && 'value' in a) a = a.value;
+    if(known(a)) return ~a;
     return {
-        fn: 'Not', op: '~', a: a,
+        constructor: Not, fn: 'Not', op: '~', a: a,
+        get value() {
+            var v = valueof(a);
+            if(v !== a) return Not(v);
+        },
         inspect: function(_, p) {
             var expr = '~'+inspect(a, ${precendence['~']});
             return ${precendence['~']} <= p ? expr : '('+expr+')';
         }
     };
 }`);
+//END runtime
 
-exportedFn.Neg = (a)=>({
-    fn: 'Neg', op: '-', a, bitsof: bitsof(a),
+exportedFn.Neg = (a)=>known(a) ? -a : codeGen.normalize({ // FIXME type not enforced on constants.
+    fn: 'Neg', op: '-', a, bitsof: bitsof(a), signed: true,
     inspect: ()=>'-'+inspect(a, precendence['~']),
-    codeGen: function() {return this.runtimeKnown ? '-'+codeGen(a) : 'Neg('+codeGen(a)+')';},
-    runtimeKnown: runtimeKnown(a)
+    get code() {return a.runtimeKnown ? '-'+a.code : 'Neg('+a.code+')'},
+    runtimeKnown: a.runtimeKnown
 });
+
+//BEGIN runtime
 codeGen.runtime.push(`function Neg(a) {
-    if(typeof a === 'object' && 'value' in a) a = a.value;
-    if(known(a))
-        return -a;
+    if(known(a)) return -a;
     return {
-        fn: 'Neg', op: '-', a: a,
+        constructor: Neg, fn: 'Neg', op: '-', a: a,
+        get value() {
+            var v = valueof(a);
+            if(v !== a) return Neg(v);
+        },
         inspect: function(_, p) {
             var expr = '-'+inspect(a, ${precendence['~']});
             return ${precendence['~']} <= p ? expr : '('+expr+')';
         }
     };
 }`);
-
-exportedFn.Sub = (a, b)=>Add(a, Neg(b)); // HACK no runtime version, it uses Add and Neg.
+//END runtime
 
 var binaryOps = {
     Mov:'=', Swap:'<->',
     Add:'+', Mul:'*',
     And:'&', Or:'|', Xor:'^',
     Eq:'==', Lt:'<',
-    LSL:'<<', LSR:'>>>', ASR:'>>',
-    ROR:'ROR', ROL:'ROL'
+    LSL:'<<', LSR:'>>>', ASR:'>>'
 };
 Object.keys(binaryOps).forEach(function(fn) {
     var op = binaryOps[fn], prec = precendence[op];
     var prologue = '', p = (s, ...args)=>prologue += '\n    '+s.map((x, i)=>i?args[i-1]+x:x).join('');
     
-    if(op != '=' && op != '<->')
-        p`if(typeof a === 'object' && 'value' in a) a = a.value;`;
-    if(op != '<->')
-        p`if(typeof b === 'object' && 'value' in b) b = b.value;`;
-    if(op == '+') {
-        p`if(!a) return b;`;
-        //p`if(b < 0) return Sub(a, -b);`;
-    }
-    if(op == '+' /*|| op == '-'*/ || op == '^' || op == '<<' || op == '>>' || op == '>>>' || op == 'ROR' || op == 'ROL')
-        p`if(!b) return a;`;
+    if(op == '+' || op == '&' || op == '|' || op == '^')
+        p`if(known(a) && !known(b)) return ${fn}(b, a);`;
+    if(op == '+' || op == '|' || op == '^')
+        p`if(a == 0) return b;`;
+    if(op == '+' || op == '|' || op == '^' || op == '<<' || op == '>>' || op == '>>>')
+        p`if(b == 0) return a;`;
     if(op == '^')
         p`if(a === b) return 0;`;
     if(op == '&' || op == '|')
         p`if(a === b) return a;`;
-    if(op == '+' /*|| op == '-'*/)
-        p`if(known(a) && known(b)) return a ${op} b;`;
+    if(op != '=' && op != '<->')
+        p`if(known(a) && known(b)) return +(a ${op} b);`;
     if(op == '+')
         p`if(a.op == '+' && known(a.b) && known(b)) return Add(a.a, a.b+b);`;
     
-    var prologueFn = eval(`(function(a, b) {${prologue} return [a, b];})`);
+    var prologueFn = eval(`(function(a, b) {${prologue}})`);
     
     exportedFn[fn] = function(a, b) {
         var o = prologueFn(a, b);
-        if(!Array.isArray(o))
+        if(typeof o !== 'undefined')
             return o;
-        [a, b] = o;
-        var bitsa = bitsof(a), bitsb = bitsof(b);
         o = {
             fn, op, a, b,
             inspect: function(_, p) {
                 var op = this.op, a = this.a, b = this.b;
                 if(op == '+' && b < 0)
                     op = '-', b = -b;
-                if(op == '=' && (b.op == '+' || b.op == '-' || b.op == '*' || b.op == '^' || b.op == '<<' || b.op == '>>' || b.op == '>>>') && b.a === a) {
+                if(op == '=' && b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.a === a) {
                     op = b.op+'=';
                     b = b.b;
                 }
                 var expr = inspect(a, prec)+' '+op+' '+inspect(b, prec);
                 return prec <= p ? expr : '('+expr+')';
             },
-            codeGen: function() {
-                if(!this.runtimeKnown)
-                    return fn+'('+codeGen(a)+', '+codeGen(b)+')';
-                if(op == 'ROR')
-                    return codeGen(Or(LSR(a, b), LSL(a, Sub(32, b))));
-                if(op == 'ROL')
-                    return codeGen(Or(LSR(a, Sub(32, b)), LSL(a, b)));
-                return '('+codeGen(a)+' '+op+' '+codeGen(b)+')';
-            },
-            runtimeKnown: runtimeKnown(a) && runtimeKnown(b),
+            get code() {return a.runtimeKnown && b.runtimeKnown ? '('+a.code+' '+op+' '+b.code+')' : fn+'('+a.code+', '+b.code+')';},
+            runtimeKnown: a.runtimeKnown && b.runtimeKnown,
             CF: 0, NF: 0, OF: 0 // TODO flags.
         };
-        var shiftOrRot = op == '<<' || op == '>>' || op == '>>>' || op == 'ROL' || op == 'ROR';
         if(op == '==' || op == '<')
-            o.bitsof = 1;
-        else if(known(bitsa) && (shiftOrRot || known(b) || known(bitsb))) {
-            if(!shiftOrRot && bitsa != bitsb) {
-                console.error(fn+' called with differently sizeof operands ('+bitsa+', '+bitsb+'): '+inspect(a)+', '+inspect(b));
-                if(bitsb > bitsa)
-                    bitsa = bitsb;
+            o.bitsof = 1, o.signed = false;
+        else {
+            var bitsa = bitsof(a);
+            if(op == '<<' || op == '>>' || op == '>>>')
+                o.bitsof = bitsa, o.signed = a.signed;
+            else if(op != '<->' && known(bitsa) && known(b))
+                o.bitsof = bitsa, o.signed = a.signed; // FIXME type not enforced on constants.
+            else {
+                var bitsb = bitsof(b);
+                if(op != '=' && op != '<->' && known(bitsa) && known(bitsb)) {
+                    if(bitsa != bitsb) {
+                        console.error(fn+' called with differently typed operands ('+(a.signed)+'/'+bitsa+', '+(b.signed)+'/'+bitsb+'): '+inspect(a)+', '+inspect(b));
+                        if(bitsb > bitsa)
+                            bitsa = bitsb;
+                    }
+                    o.bitsof = bitsa;
+                    o.signed = a.signed !== b.signed ? false : a.signed;
+                }
             }
-            o.bitsof = bitsa;
         }
-        if(op == '+' && b.fn == 'Neg') {
+        if(op == '==' || op == '<' || op == '=' || op == '<->')
+            return codeGen.mark(o);
+        if(op == '+' && b.fn == 'Neg') { // HACK a + -b == a - b.a
             o.ZF = Eq(a, b.a);
             o.CF = Lt(a, b.a);
-        } else if(op != '==' && op != '<') {
+        } else {
             o.ZF = Eq(o, 0);
             o.NF = Lt(o, 0);
-        } 
-        return o;
+        }
+        return codeGen.normalize(o);
     };
     
+//BEGIN runtime
 codeGen.runtime.push(`var ${fn} = exports.${fn} = function ${fn}(a, b) {${prologue}
     return {
-        fn: '${fn}', op: '${op}', a: a, b: b,
+        constructor: ${fn}, fn: '${fn}', op: '${op}', a: a, b: b,
+        get value() {
+            var va = ${op == '=' || op == '<->' ? 'lvalueof' : 'valueof'}(a), vb = ${op == '<->' ? 'lvalueof' : 'valueof'}(b);
+            if(va !== a || vb !== b) return ${fn}(va, vb);
+        },
         inspect: function(_, p) {
             var a = this.a, b = this.b;${op == '=' || op == '+' ? `
             var op = '${op}';
             ` : ''}${op == '+' ? `if(b < 0) {
                 op = '-';
                 b = -b;
-            }` : ''}${op == '=' ? `if((b.op == '+' || b.op == '-' || b.op == '*' || b.op == '^' || b.op == '<<' || b.op == '>>' || b.op == '>>>') && b.a === a) {
-                op = b.op+'=';
-                b = b.b;
+            }` : ''}${op == '=' ? `if(b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.a === a) {
+                if(b.op == '+' && b.b < 0) {
+                    op = '-=';
+                    b = -b.b;
+                } else {
+                    op = b.op+'=';
+                    b = b.b;
+                }
             }` : ''}var expr = inspect(a, ${prec})+' ${op=='=' || op=='+' ?`'+op+'`:op} '+inspect(b, ${prec});
             return ${prec} <= p ? expr : '('+expr+')';
         }
     };
 }`);
-
+//END runtime
 });
 
 for(var i in exportedFn)
@@ -284,8 +492,9 @@ for(var i in exportedFn)
 exports.filters = {};
 
 function Var(name, pos, len, bigEndian) {
-    return {
-        name, pos, len, bitsof: len,
+    return codeGen.mark({
+        name, pos, len, bitsof: len, // FIXME len/bitsof are redundant.
+        signed: len == codeGen.intBits,
         posAt: function(d) {
             if(!(d >= 0 && d < this.len))
                 throw new RangeError('Offset '+d+' is outside the bit range');
@@ -298,8 +507,8 @@ function Var(name, pos, len, bigEndian) {
         inspect: function() {
             return '<'+this.pos+(this.len > 1 ? ':'+(this.pos+this.len-1) : '')+'>';
         },
-        codeGen: function() {
-            if(this.len > 32)
+        get code() {
+            if(this.len > codeGen.intBits)
                 throw new RangeError('Too many ('+this.len+') bits to decode');
 
             var bytes = [];
@@ -332,7 +541,7 @@ function Var(name, pos, len, bigEndian) {
                 return next(ct[this.pos] = 0), next(ct[this.pos] = 1);
             next(this);
         }
-    };
+    });
 }
 exports.totals = 0;
 exports.maps = {};
@@ -355,13 +564,12 @@ exports.op = function op(def, fn) {
 
         nBits += n;
     });
-    //if(fn.length != vars.length)
-    //    fn = eval('('+fn.toString().replace(/^\s*function\s*\(/, 'function('+vars.map(function(x){return x.name;}).join(','))+')');
     function make(ct, vals) {
         var res = fn.apply(this, vals);
         if(!res)
             return;
         res = res.filter((x)=>x);
+        res.forEach((x)=>x.touch && x.touch());
         function niceCT(ct) {
             var s = '';
             for(var i = nBits-1; i >= 0; i--)
@@ -426,7 +634,7 @@ exports.out = function out(outFile, fn) {
         var cstart = 0, cend = 0;
         var cmask = ct.replace(/^[^01]+/, (s)=>{cstart += s.length; return '';}).replace(/[^01]+$/, (s)=>{cend += s.length; return '';});
         if(cmask.length) {
-            cmask = Var(' ', cend, ct.length-cend-cstart, self.bigEndian).codeGen()+' & 0x'+parseInt(cmask.replace(/0/g,'1').replace(/[^1]/g,'0'), 2).toString(16);
+            cmask = Var(' ', cend, ct.length-cend-cstart, self.bigEndian).code+' & 0x'+parseInt(cmask.replace(/0/g,'1').replace(/[^1]/g,'0'), 2).toString(16);
 
             console.log(ct.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'));
             var cval = '0x'+parseInt(ct.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'), 2).toString(16);
@@ -437,7 +645,7 @@ exports.out = function out(outFile, fn) {
         var mask = ct.replace(/^[^K]+/, (s)=>{cstart += s.length; return '';}).replace(/[^K]+$/, (s)=>{cend += s.length; return '';});
         mask = parseInt(mask.replace(/[^K]/g,'0').replace(/K/g,'1'), 2);
         
-        var val = mask ? Var(' ', cend, ct.length-cend-cstart, self.bigEndian).codeGen()+' & 0x'+mask.toString(16) : '0';
+        var val = mask ? Var(' ', cend, ct.length-cend-cstart, self.bigEndian).code+' & 0x'+mask.toString(16) : '0';
         
         code += cond+'\n\tswitch('+val+') {\n';
         console.log('  \''+ct.replace(/K/g,'#').replace(/x/g,'_')+'\': {');
@@ -445,12 +653,19 @@ exports.out = function out(outFile, fn) {
             if(j !== '$ct') {
                 console.log('    \''+j+'\': ', v[j]);
                 val = '0x'+(parseInt(j.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'), 2)&mask).toString(16);
-                code += '\tcase '+val+': return ['+ct.length/8+', '+v[j].map((x)=>codeGen(x)).join(',')+'];\n';
+                codeGen.runtime.vars = 0;
+                code += '\tcase '+val+': return ['+ct.length/8+', '+v[j].map((x)=>x.code).join(',')+'];\n';
+                codeGen.runtime.vars = 0;
             }
         console.log('  }');
         code += '\t}\n';
     });
-    console.log('}');
-    console.log();
-    fs.writeFileSync(outFile, fn(code)/*fs.readFileSync(baseFile, 'utf8').replace(/\$DIS_CODE/, code)*/);
+    if(codeGen.runtime.maxVars) {
+        let s = '\n\tvar $0';
+        for(var i = 1; i < codeGen.runtime.maxVars; i++)
+            s += ', $'+i;
+        code = s+';'+code;
+    }
+    console.log('}\n');
+    fs.writeFileSync(outFile, fn(code));
 }
