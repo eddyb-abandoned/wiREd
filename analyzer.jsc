@@ -18,14 +18,31 @@ Number.prototype.toSubString = function toSubString() {
   });
 };
 var analyzer = new EventEmitter;
+analyzer.blockDepth = 0;
+analyzer.indent = '';
+analyzer.blocksVisited = [];
 analyzer.on('useArch', function(arch) {
   this.arch = arch;
+  var makeLvalue = (function(self) {
+    return self.lvalue = {
+      inspect: (function() {
+        return arch.inspect(self) + self.nthValue.toSubString();
+      }),
+      freeze: function() {
+        self.value = self.lvalue;
+        self.nthValue++;
+      },
+      set value(v) {
+        self.value = v;
+      }
+    };
+  });
   for (var $i in arch.R) {
     try {
       throw undefined;
     } catch (i) {
       i = $i;
-      traceur.runtime.elementGet(arch.R, i).lvalue = null;
+      makeLvalue(traceur.runtime.elementGet(arch.R, i));
     }
   }
   for (var $i in arch.F) {
@@ -33,7 +50,7 @@ analyzer.on('useArch', function(arch) {
       throw undefined;
     } catch (i) {
       i = $i;
-      traceur.runtime.elementGet(arch.F, i).lvalue = null;
+      makeLvalue(traceur.runtime.elementGet(arch.F, i));
     }
   }
 });
@@ -44,7 +61,7 @@ analyzer.on('L1.initContext', function(ctx) {
       throw undefined;
     } catch (i) {
       i = $i;
-      traceur.runtime.elementGet(arch.R, i).nthValue = 0;
+      traceur.runtime.elementGet(arch.R, i).nthValue = 1;
       traceur.runtime.elementGet(arch.R, i).value = {
         bitsof: traceur.runtime.elementGet(arch.R, i).bitsof,
         signed: traceur.runtime.elementGet(arch.R, i).signed,
@@ -59,7 +76,7 @@ analyzer.on('L1.initContext', function(ctx) {
       throw undefined;
     } catch (i) {
       i = $i;
-      traceur.runtime.elementGet(arch.F, i).nthValue = 0;
+      traceur.runtime.elementGet(arch.F, i).nthValue = 1;
       traceur.runtime.elementGet(arch.F, i).value = {
         bitsof: traceur.runtime.elementGet(arch.F, i).bitsof,
         signed: traceur.runtime.elementGet(arch.F, i).signed,
@@ -141,50 +158,60 @@ analyzer.on('L1.op', function(ctx, x) {
   if (x.op == '=') {
     try {
       throw undefined;
-    } catch (hasMem) {
-      hasMem = (function(x) {
-        return x.fn == 'Mem' || x.a && hasMem(x.a) || x.b && hasMem(x.b) || x.args && x.args.some(hasMem);
+    } catch (needsFreeze) {
+      needsFreeze = (function(x) {
+        var d = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): 0;
+        return d > 8 || x.fn == 'Mem' || x.a && needsFreeze(x.a, d + 1) || x.b && needsFreeze(x.b, d + 1) || x.args && x.args.some((function(x) {
+          return needsFreeze(x, d + 1);
+        }));
       });
-      if (!hasMem(x.a) && hasMem(x.b)) x.a.value = {
-        bitsof: x.a.bitsof,
-        signed: x.a.signed,
-        inspect: (function() {
-          return arch.inspect(x.a) + (++x.a.nthValue).toSubString();
-        })
-      }; else x.a.value = x.b;
-      if (x.a == arch.IP) ctx.IPwritten = true;
+      if (x.a.freeze && needsFreeze(x.b)) x.a.freeze(); else x.a.value = x.b;
+      if (x.a == arch.IP.lvalue) ctx.IPwritten = true;
     }
   }
 });
-analyzer.blockDepth = 0;
-analyzer.indent = '';
 analyzer.on('L1.postOp', function(ctx) {
   var arch = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): this.arch;
-  if (ctx.IPwritten && arch.IP.value != ctx.IPnext) {
-    if (arch.IP.value == ctx.IP) throw new Error('Infinite loop');
-    console.log((this.indent + "-->"), arch.inspect(arch.IP.value));
-    if (!arch.known(arch.IP.value)) {
-      if (arch.IP.value == ctx.retIP) ctx.returns = true; else {
-        console.error('Unknown jump, ending block');
-        ctx.returns = true;
-      }
-    } else {
+  if (ctx.IPwritten) {
+    try {
+      throw undefined;
+    } catch (childCtx) {
       try {
         throw undefined;
-      } catch (newCtx) {
-        try {
-          throw undefined;
-        } catch (oldIdent) {
-          if (this.blockDepth++ >= 5) throw new Error('Nested too deep');
-          if (arch.IP.value < ctx.base || arch.IP.value >= ctx.base + ctx.end) throw new Error('Jump to unknown');
-          this.emit('L1.saveContext', ctx);
-          oldIdent = this.indent;
-          this.indent += '    ';
-          newCtx = this.decodeBlock(ctx.base, ctx.buf, arch.IP.value - ctx.base, ctx.end);
-          this.indent = oldIdent;
-          this.blockDepth--;
-          this.emit('L1.restoreContext', ctx);
-          if (!arch.known(newCtx.SPdiff)) console.error('Missing stack difference!'); else arch.SP.value = arch.Add(arch.SP.value, newCtx.SPdiff);
+      } catch (IP) {
+        IP = arch.IP.value;
+        if (IP != ctx.IPnext) {
+          if (IP == ctx.IP) throw new Error('Infinite loop');
+          console.log((this.indent + "-->"), arch.inspect(IP));
+          if (!arch.known(IP)) {
+            if (IP == ctx.retIP) ctx.returns = true; else if (IP.fn == 'Function') {
+              childCtx = IP.ctx;
+              if (!childCtx) {
+                console.error('Jump to unknown imported function, ending block');
+                ctx.returns = true;
+              }
+            } else {
+              console.error('Unknown jump, ending block');
+              ctx.returns = true;
+            }
+          } else {
+            try {
+              throw undefined;
+            } catch (oldIdent) {
+              if (this.blockDepth++ >= 16) throw new Error('Nested too deep');
+              if (IP < ctx.base || arch.IP.value >= ctx.base + ctx.end) throw new Error('Jump to unknown');
+              this.emit('L1.saveContext', ctx);
+              oldIdent = this.indent;
+              this.indent += '    ';
+              childCtx = this.decodeBlock(ctx.base, ctx.buf, arch.IP.value - ctx.base, ctx.end);
+              this.indent = oldIdent;
+              this.blockDepth--;
+              this.emit('L1.restoreContext', ctx);
+            }
+          }
+          if (childCtx) {
+            if (!arch.known(childCtx.SPdiff)) console.error('Missing stack difference!'); else arch.SP.value = arch.Add(arch.SP.value, childCtx.SPdiff);
+          }
         }
       }
     }
@@ -196,8 +223,11 @@ analyzer.decodeBlock = function decodeBlock(base, buf) {
   var ctx = {
     base: base,
     buf: buf,
+    start: start,
     end: end
   };
+  if (traceur.runtime.elementGet(this.blocksVisited, ctx.start)) return console.error('Already been here'), traceur.runtime.elementGet(this.blocksVisited, ctx.start);
+  traceur.runtime.elementSet(this.blocksVisited, ctx.start, ctx);
   console.log(("\n" + this.indent + ">>>"));
   this.emit('L1.initContext', ctx);
   for (var i = start; i < end;) {
@@ -216,13 +246,14 @@ analyzer.decodeBlock = function decodeBlock(base, buf) {
     ctx.IPnext = ctx.IP + bytes;
     r = r.slice(1).map((function(x, i) {
       var v = this.arch.valueof(x);
-      var s = this.arch.inspect(v) + ' // ' + this.arch.inspect(x);
+      var s = this.arch.inspect(x);
       this.emit('L1.op', ctx, v);
-      return i ? ''.padRight(8 + i) + '╲'.padRight(18 - i, i == r.length - 1 ? '_': ' ') + ' ' + s: s;
+      s = this.arch.inspect(v) + ' // ' + s;
+      return i ? ''.padRight(8 + i) + '╲'.padRight(22 - i, i == r.length - 1 ? '_': ' ') + ' ' + s: s;
     }).bind(this)).join('\n' + this.indent);
-    console.log(this.indent + (base + i).toString(16).padLeft(8, '0'), buf.slice(i, i + bytes).toString('hex').padRight(18) + r);
+    console.log(this.indent + '0x' + (base + i).toString(16).padLeft(8, '0') + ' 0x' + buf.slice(i, i + bytes).toString('hex').padRight(18) + r);
     this.emit('L1.postOp', ctx);
-    if (ctx.returns) return console.log((this.indent + "<<<\n")), this.emit('L1.saveContext', ctx), ctx;
+    if (ctx.returns) return this.emit('L1.saveContext', ctx), console.log((this.indent + "<<< " + ctx.SPdiff + "\n")), ctx;
     i += bytes;
   }
   return ctx;
@@ -240,110 +271,191 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
       } catch ($__2) {
         try {
           throw undefined;
-        } catch (sections) {
+        } catch (importsByOffset) {
           try {
             throw undefined;
-          } catch (arch) {
+          } catch (imports) {
             try {
               throw undefined;
-            } catch (buf) {
+            } catch (importHeaders) {
               try {
                 throw undefined;
-              } catch (binInfo) {
+              } catch (isWin) {
                 try {
                   throw undefined;
-                } catch (baseAddress) {
+                } catch (sections) {
                   try {
                     throw undefined;
-                  } catch (fileName) {
+                  } catch (arch) {
                     try {
                       throw undefined;
-                    } catch (b) {
+                    } catch (buf) {
                       try {
                         throw undefined;
-                      } catch (r2) {
-                        r2 = require('radare2.js');
-                        {
-                          b = new r2.RBin();
-                          fileName = traceur.runtime.elementGet(process.argv, 2);
-                        }
-                        if (!b.load(fileName, false)) console.error('Cannot open ' + fileName), process.exit(1);
-                        {
-                          baseAddress = b.get_baddr();
-                          binInfo = b.get_info();
-                          buf = b.cur.buf.buf;
-                        }
-                        buf.type = Object.create(buf.type);
-                        buf.type.size = b.cur.buf.length;
-                        buf = buf.ref().deref();
-                        arch = require('./disasm/arch-' + binInfo.arch);
-                        analyzer.emit('useArch', arch);
-                        sections = [];
-                        b.get_sections().forEach((function(x) {
-                          return sections.push({
-                            name: x.name,
-                            offset: x.offset,
-                            size: x.size,
-                            srwx: x.srwx
-                          });
-                        }));
-                        {
-                          $__2 = arch.Mem;
-                          read = $__2.read;
-                          write = $__2.write;
-                        }
-                        arch.Mem.read = (function(addr, bits) {
-                          var $__3;
-                          if (baseAddress <= addr && addr < baseAddress + buf.length) {
+                      } catch (binInfo) {
+                        try {
+                          throw undefined;
+                        } catch (baseAddress) {
+                          try {
+                            throw undefined;
+                          } catch (fileName) {
                             try {
                               throw undefined;
-                            } catch (a) {
-                              a = addr - baseAddress;
-                              {
-                                var $__0 = traceur.runtime.getIterator(sections);
+                            } catch (b) {
+                              try {
+                                throw undefined;
+                              } catch (fs) {
                                 try {
-                                  while ($__0.moveNext()) {
-                                    try {
-                                      throw undefined;
-                                    } catch (x) {
-                                      x = $__0.current;
-                                      if (x.offset <= a && a < x.offset + x.size) {
-                                        if (x.srwx & 2) break;
-                                        return ($__3 = buf, traceur.runtime.elementGet($__3, 'readUInt' + bits + 'LE').call($__3, a));
+                                  throw undefined;
+                                } catch (r2) {
+                                  {
+                                    r2 = require('radare2.js');
+                                    fs = require('fs');
+                                  }
+                                  {
+                                    b = new r2.RBin();
+                                    fileName = traceur.runtime.elementGet(process.argv, 2);
+                                  }
+                                  if (!b.load(fileName, false)) console.error('Cannot open ' + fileName), process.exit(1);
+                                  {
+                                    baseAddress = b.get_baddr();
+                                    binInfo = b.get_info();
+                                    buf = b.cur.buf.buf;
+                                  }
+                                  buf.type = Object.create(buf.type);
+                                  buf.type.size = b.cur.buf.length;
+                                  buf = buf.ref().deref();
+                                  arch = require('./disasm/arch-' + binInfo.arch);
+                                  analyzer.emit('useArch', arch);
+                                  sections = [];
+                                  b.get_sections().forEach((function(x) {
+                                    return sections.push({
+                                      name: x.name,
+                                      offset: x.offset,
+                                      size: x.size,
+                                      srwx: x.srwx
+                                    });
+                                  }));
+                                  {
+                                    isWin = /\.(dll|exe)$/i.test(fileName);
+                                    importHeaders = [];
+                                  }
+                                  if (isWin) importHeaders.push(fs.readFileSync('windows.h'));
+                                  {
+                                    imports = [];
+                                    importsByOffset = [];
+                                  }
+                                  b.get_imports().forEach((function(x) {
+                                    x = traceur.runtime.elementSet(importsByOffset, x.offset, {
+                                      name: x.name,
+                                      bind: x.bind,
+                                      type: x.type,
+                                      offset: x.offset
+                                    });
+                                    imports.push(x);
+                                    var fn = x.name;
+                                    if (isWin) fn = fn.replace(/^[A-Z]+(32|64|)\.dll_/, '');
+                                    var args, fnRE = new RegExp('\\b' + fn + '\\b\\s*\\(([^()]*)\\)');
+                                    {
+                                      var $__0 = traceur.runtime.getIterator(importHeaders);
+                                      try {
+                                        while ($__0.moveNext()) {
+                                          try {
+                                            throw undefined;
+                                          } catch (header) {
+                                            header = $__0.current;
+                                            if (args = fnRE.exec(header)) {
+                                              args = traceur.runtime.elementGet(args, 1).trim();
+                                              console.log(("Import " + x.name + "(" + args + ")"));
+                                              if (!args || args == 'void') args = 0; else args = args.split(',').length * 4;
+                                              x.ctx = {SPdiff: args + 4};
+                                              return;
+                                            }
+                                          }
+                                        }
+                                      } finally {
+                                        if ($__0.close) $__0.close();
                                       }
                                     }
+                                    console.error('Unknown import ' + x.name);
+                                  }));
+                                  {
+                                    $__2 = arch.Mem;
+                                    read = $__2.read;
+                                    write = $__2.write;
                                   }
-                                } finally {
-                                  if ($__0.close) $__0.close();
+                                  arch.Mem.read = (function(addr, bits) {
+                                    var $__3;
+                                    if (baseAddress <= addr && addr < baseAddress + buf.length) {
+                                      try {
+                                        throw undefined;
+                                      } catch (a) {
+                                        a = addr - baseAddress;
+                                        if (bits == 32) {
+                                          try {
+                                            throw undefined;
+                                          } catch (imp) {
+                                            imp = traceur.runtime.elementGet(importsByOffset, a);
+                                            if (imp) return {
+                                              fn: 'Function',
+                                              ctx: imp.ctx,
+                                              inspect: (function() {
+                                                return imp.name + ' (' + imp.bind + ' ' + imp.type + ')';
+                                              })
+                                            };
+                                          }
+                                        }
+                                        {
+                                          var $__0 = traceur.runtime.getIterator(sections);
+                                          try {
+                                            while ($__0.moveNext()) {
+                                              try {
+                                                throw undefined;
+                                              } catch (x) {
+                                                x = $__0.current;
+                                                if (x.offset <= a && a < x.offset + x.size) {
+                                                  if (x.srwx & 2) break;
+                                                  return ($__3 = buf, traceur.runtime.elementGet($__3, 'readUInt' + bits + 'LE').call($__3, a));
+                                                }
+                                              }
+                                            }
+                                          } finally {
+                                            if ($__0.close) $__0.close();
+                                          }
+                                        }
+                                      }
+                                    }
+                                    return read(addr, bits);
+                                  });
+                                  var symbol;
+                                  b.get_symbols().forEach((function(x) {
+                                    if (x.type != 'FUNC') return;
+                                    if (symbol) console.error('Ignoring ' + x.name + '@' + (baseAddress + x.offset).toString(16).padLeft(8, '0')); else symbol = x;
+                                  }));
+                                  if (!symbol) console.error('No usable symbols'), process.exit(1);
+                                  console.log('Analyzing ' + symbol.name + '@' + (baseAddress + symbol.offset).toString(16).padLeft(8, '0'));
+                                  var t = process.hrtime(), decodedInstructions = 0, decodedBytes = 0;
+                                  analyzer.on('L1.postOp', (function(ctx) {
+                                    decodedInstructions++;
+                                    decodedBytes += ctx.IPnext - ctx.IP;
+                                  }));
+                                  process.on('exit', (function() {
+                                    t = process.hrtime(t);
+                                    console.log(("Decoded " + decodedInstructions + " instructions (" + Math.round(decodedBytes / 1024 * 100) / 100 + "KB) in " + (traceur.runtime.elementGet(t, 0) + traceur.runtime.elementGet(t, 1) / 1e9) + "s"));
+                                  }));
+                                  process.on('SIGINT', (function() {
+                                    return process.exit();
+                                  }));
+                                  try {
+                                    analyzer.decodeBlock(baseAddress, buf, symbol.offset);
+                                  } catch (e) {
+                                    process.emit('exit');
+                                    throw e;
+                                  }
                                 }
                               }
                             }
                           }
-                          return read(addr, bits);
-                        });
-                        var symbol;
-                        b.get_symbols().forEach((function(x) {
-                          if (x.type != 'FUNC') return;
-                          if (symbol) console.error('Ignoring ' + x.name + '@' + (baseAddress + x.offset).toString(16).padLeft(8, '0')); else symbol = x;
-                        }));
-                        if (!symbol) console.error('No usable symbols'), process.exit(1);
-                        console.log('Analyzing ' + symbol.name + '@' + (baseAddress + symbol.offset).toString(16).padLeft(8, '0'));
-                        var t = process.hrtime(), decodedInstructions = 0, decodedBytes = 0;
-                        analyzer.on('L1.postOp', (function(ctx) {
-                          decodedInstructions++;
-                          decodedBytes += ctx.IPnext - ctx.IP;
-                        }));
-                        process.on('exit', (function() {
-                          t = process.hrtime(t);
-                          console.log(("Decoded " + decodedInstructions + " instructions (" + Math.round(decodedBytes / 1024 * 100) / 100 + "KB) in " + (traceur.runtime.elementGet(t, 0) + traceur.runtime.elementGet(t, 1) / 1e9) + "s"));
-                        }));
-                        process.on('SIGINT', (function() {
-                          return process.exit();
-                        }));
-                        try {
-                          analyzer.decodeBlock(baseAddress, buf, symbol.offset);
-                        } finally {
-                          process.emit('exit');
                         }
                       }
                     }

@@ -22,20 +22,33 @@ Number.prototype.toSubString = function toSubString() {
 };
 
 var analyzer = new EventEmitter;
+analyzer.blockDepth = 0;
+analyzer.indent = '';
+analyzer.blocksVisited = [];
 analyzer.on('useArch', function(arch) {
     this.arch = arch;
+    let makeLvalue = (self)=>self.lvalue = {
+        inspect: ()=>arch.inspect(self)+self.nthValue.toSubString(),
+        freeze() {
+            self.value = self.lvalue;
+            self.nthValue++;
+        },
+        set value(v) {
+            self.value = v;
+        }
+    };
     for(let i in arch.R)
-        arch.R[i].lvalue = null;
+        makeLvalue(arch.R[i]);
     for(let i in arch.F)
-        arch.F[i].lvalue = null;
+        makeLvalue(arch.F[i]);
 });
 analyzer.on('L1.initContext', function(ctx, arch=this.arch) {
     for(let i in arch.R) {
-        arch.R[i].nthValue = 0;
+        arch.R[i].nthValue = 1;
         arch.R[i].value = {bitsof: arch.R[i].bitsof, signed: arch.R[i].signed, inspect: ()=>arch.inspect(arch.R[i])+'₀'};
     }
     for(let i in arch.F) {
-        arch.F[i].nthValue = 0;
+        arch.F[i].nthValue = 1;
         arch.F[i].value = {bitsof: arch.F[i].bitsof, signed: arch.F[i].signed, inspect: ()=>arch.inspect(arch.F[i])+'₀'};
     }
     
@@ -79,51 +92,63 @@ analyzer.on('L1.preOp', function(ctx, arch=this.arch) {
 });
 analyzer.on('L1.op', function(ctx, x, arch=this.arch) {
     if(x.op == '=') {
-        let hasMem = (x)=>x.fn == 'Mem' || x.a && hasMem(x.a) || x.b && hasMem(x.b) || x.args && x.args.some(hasMem);
-        if(!hasMem(x.a) && hasMem(x.b))
-            x.a.value = {bitsof: x.a.bitsof, signed: x.a.signed, inspect: ()=>arch.inspect(x.a)+(++x.a.nthValue).toSubString()};
+        let needsFreeze = (x, d=0)=>d > 8 || x.fn == 'Mem' || x.a && needsFreeze(x.a, d+1) || x.b && needsFreeze(x.b, d+1) || x.args && x.args.some((x)=>needsFreeze(x, d+1));
+        if(x.a.freeze && needsFreeze(x.b))
+            x.a.freeze();
         else
             x.a.value = x.b;
-        if(x.a == arch.IP)
+        if(x.a == arch.IP.lvalue)
             ctx.IPwritten = true;
     }
 });
-analyzer.blockDepth = 0;
-analyzer.indent = '';
 analyzer.on('L1.postOp', function(ctx, arch=this.arch) {
-    if(ctx.IPwritten && arch.IP.value != ctx.IPnext) {
-        if(arch.IP.value == ctx.IP)
-            throw new Error('Infinite loop');
-        console.log(`${this.indent}-->`, arch.inspect(arch.IP.value));
-        if(!arch.known(arch.IP.value)) {
-            if(arch.IP.value == ctx.retIP)
-                ctx.returns = true;
-            else {
-                console.error('Unknown jump, ending block');
-                ctx.returns = true;
+    if(ctx.IPwritten) {
+        let IP = arch.IP.value, childCtx;
+        if(IP != ctx.IPnext) {
+            if(IP == ctx.IP)
+                throw new Error('Infinite loop');
+            console.log(`${this.indent}-->`, arch.inspect(IP));
+            if(!arch.known(IP)) {
+                if(IP == ctx.retIP)
+                    ctx.returns = true;
+                else if(IP.fn == 'Function') {
+                    childCtx = IP.ctx;
+                    if(!childCtx) {
+                        console.error('Jump to unknown imported function, ending block');
+                        ctx.returns = true;
+                    }
+                } else {
+                    console.error('Unknown jump, ending block');
+                    ctx.returns = true;
+                }
+            } else {
+                if(this.blockDepth++ >= 16) // HACK Prevents entering a dangerous zone (for the output size) in the test DLL.
+                    throw new Error('Nested too deep');
+                if(IP < ctx.base || arch.IP.value >= ctx.base+ctx.end)
+                    throw new Error('Jump to unknown');
+                this.emit('L1.saveContext', ctx);
+                let oldIdent = this.indent;
+                this.indent += '    ';
+                childCtx = this.decodeBlock(ctx.base, ctx.buf, arch.IP.value-ctx.base, ctx.end);
+                this.indent = oldIdent;
+                this.blockDepth--;
+                this.emit('L1.restoreContext', ctx);
             }
-        } else {
-            if(this.blockDepth++ >= 5) // HACK Prevents entering a dangerous zone (for the output size) in the test DLL.
-                throw new Error('Nested too deep');
-            if(arch.IP.value < ctx.base || arch.IP.value >= ctx.base+ctx.end)
-                throw new Error('Jump to unknown');
-            this.emit('L1.saveContext', ctx);
-            let oldIdent = this.indent;
-            this.indent += '    ';
-            let newCtx = this.decodeBlock(ctx.base, ctx.buf, arch.IP.value-ctx.base, ctx.end);
-            this.indent = oldIdent;
-            this.blockDepth--;
-            this.emit('L1.restoreContext', ctx);
-            if(!arch.known(newCtx.SPdiff))
-                console.error('Missing stack difference!');
-            else
-                arch.SP.value = arch.Add(arch.SP.value, newCtx.SPdiff);
+            if(childCtx) {
+                if(!arch.known(childCtx.SPdiff))
+                    console.error('Missing stack difference!');
+                else
+                    arch.SP.value = arch.Add(arch.SP.value, childCtx.SPdiff);
+            }
         }
     }
 });
 
 analyzer.decodeBlock = function decodeBlock(base, buf, start=0, end=buf.length) {
-    var ctx = {base, buf, end};
+    var ctx = {base, buf, start, end};
+    if(this.blocksVisited[ctx.start])
+        return console.error('Already been here'), this.blocksVisited[ctx.start];
+    this.blocksVisited[ctx.start] = ctx;
     console.log(`\n${this.indent}>>>`);
     this.emit('L1.initContext', ctx);
     for(var i = start; i < end;) {
@@ -145,14 +170,15 @@ analyzer.decodeBlock = function decodeBlock(base, buf, start=0, end=buf.length) 
         ctx.IPnext = ctx.IP+bytes;
         r = r.slice(1).map((x, i)=>{
             var v = this.arch.valueof(x);
-            var s = this.arch.inspect(v) + ' // ' + this.arch.inspect(x);
+            var s = /*this.arch.inspect(v) + ' // ' +*/ this.arch.inspect(x);
             this.emit('L1.op', ctx, v);
-            return i ? ''.padRight(8+i)+'╲'.padRight(18-i, i==r.length-1?'_':' ')+' '+s : s;
+            s = this.arch.inspect(v)+' // '+s;
+            return i ? ''.padRight(8+i)+'╲'.padRight(22-i, i==r.length-1?'_':' ')+' '+s : s;
         }).join('\n'+this.indent);
-        console.log(this.indent+(base+i).toString(16).padLeft(8, '0'), buf.slice(i, i+bytes).toString('hex').padRight(18)+r);
+        console.log(this.indent+'0x'+(base+i).toString(16).padLeft(8, '0')+' 0x'+buf.slice(i, i+bytes).toString('hex').padRight(18)+r);
         this.emit('L1.postOp', ctx);
         if(ctx.returns)
-            return console.log(`${this.indent}<<<\n`), this.emit('L1.saveContext', ctx), ctx;
+            return this.emit('L1.saveContext', ctx), console.log(`${this.indent}<<< ${ctx.SPdiff}\n`), ctx;
         i += bytes;
     }
     return ctx;
@@ -161,7 +187,7 @@ analyzer.decodeBlock = function decodeBlock(base, buf, start=0, end=buf.length) 
 if(process.argv.length < 3)
     console.error('Usage: analyzer FILE'), process.exit(1);
 {
-    let r2 = require('radare2.js');
+    let r2 = require('radare2.js'), fs = require('fs');
     let b = new r2.RBin(), fileName = process.argv[2];
     if(!b.load(fileName, false))
         console.error('Cannot open '+fileName), process.exit(1);
@@ -177,10 +203,41 @@ if(process.argv.length < 3)
     let sections = [];
     b.get_sections().forEach((x)=>sections.push({name: x.name, offset: x.offset, size: x.size, srwx: x.srwx}));
     
+    let isWin = /\.(dll|exe)$/i.test(fileName), importHeaders = [];
+    if(isWin)
+        importHeaders.push(fs.readFileSync('windows.h'));
+    let imports = [], importsByOffset = [];
+    b.get_imports().forEach((x)=>{
+        x = importsByOffset[x.offset] = {name: x.name, bind: x.bind, type: x.type, offset: x.offset};
+        imports.push(x);
+        
+        var fn = x.name;
+        if(isWin)
+            fn = fn.replace(/^[A-Z]+(32|64|)\.dll_/, '');
+        var args, fnRE = new RegExp('\\b'+fn+'\\b\\s*\\(([^()]*)\\)');
+        for(let header of importHeaders)
+            if(args = fnRE.exec(header)) {
+                args = args[1].trim();
+                console.log(`Import ${x.name}(${args})`);
+                if(!args || args == 'void')
+                    args = 0;
+                else
+                    args = args.split(',').length*4; // HACK Assuming 32bit arguments.
+                x.ctx = {SPdiff: args+4}; // HACK Assuming stdcall (callee cleans the stack).
+                return;
+            }
+        console.error('Unknown import '+x.name);
+    });
+    
     let {read, write} = arch.Mem;
     arch.Mem.read = (addr, bits)=>{
         if(baseAddress <= addr && addr < baseAddress + buf.length) {
             let a = addr-baseAddress;
+            if(bits == 32) {
+                let imp = importsByOffset[a];
+                if(imp)
+                    return {fn: 'Function', ctx: imp.ctx, inspect: ()=>imp.name+' ('+imp.bind+' '+imp.type+')'};
+            }
             for(let x of sections)
                 if(x.offset <= a && a < x.offset+x.size) {
                     if(x.srwx & 2) // Writable, not good.
@@ -215,7 +272,8 @@ if(process.argv.length < 3)
     process.on('SIGINT', ()=>process.exit());
     try {
         analyzer.decodeBlock(baseAddress, buf, symbol.offset);
-    } finally {
+    } catch(e) {
         process.emit('exit');
+        throw e;
     }
 }

@@ -20,14 +20,17 @@ disasm/arch-%.js: disasm/%.jsc disasm/Disasm.jsc
 node_modules: package.json
 	@npm install
 
-%.analyzed: % analyzer.jsc
+%.analyzed: % analyzer.jsc | windows.h
 	@node analyzer.jsc "$<" > "$@" 2>&1
 
+windows.h:
+	@echo '#include <windows.h>' | winegcc -I/usr/include/wine/windows/ -m32 -DMIDL_PASS -E -P - > "$@"
+
 Password.dll:
-	wget -O "$@" http://eu.depot.battle.net:1119/8f52906a2c85b416a595702251570f96d3522f39237603115f2f1ab24962043c.auth
+	@wget -O "$@" http://eu.depot.battle.net:1119/8f52906a2c85b416a595702251570f96d3522f39237603115f2f1ab24962043c.auth
 
 clean:
-	rm -rf out disasm/*.jsc disasm/arch-*.js *.jsc *.analyzed
+	-rm -rf out disasm/*.jsc disasm/arch-*.js *.jsc *.analyzed
 
 .PRECIOUS: node_modules %.jsc disasm/%.jsc disasm/arch-%.js %.analyzed
 
