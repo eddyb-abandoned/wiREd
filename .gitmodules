@@ -1,0 +1,3 @@
+[submodule "deps/traceur-compiler"]
+	path = deps/traceur-compiler
+	url = https://code.google.com/p/traceur-compiler/
