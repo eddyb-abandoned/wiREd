@@ -19,6 +19,7 @@ disasm/arch-%.js: disasm/%.jsc disasm/Disasm.jsc
 
 node_modules: package.json
 	@npm install
+	@touch node_modules
 
 %.analyzed: % analyzer.jsc | windows.h
 	@node --stack_trace_limit=64 analyzer.jsc "$<" > "$@" 2>&1
