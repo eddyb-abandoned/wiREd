@@ -1,5 +1,5 @@
 !global.traceur && (0,eval)(require('fs').readFileSync(__dirname+'/../deps/traceur-compiler/bin/traceur.js', 'utf8'));
-var $__0 = Object.freeze(Object.defineProperties(["if(known(a) && !known(b)) return ", "(b, a);"], {raw: {value: Object.freeze(["if(known(a) && !known(b)) return ", "(b, a);"])}})), $__1 = Object.freeze(Object.defineProperties(["if(a == 0) return b;"], {raw: {value: Object.freeze(["if(a == 0) return b;"])}})), $__2 = Object.freeze(Object.defineProperties(["if(b == 0) return a;"], {raw: {value: Object.freeze(["if(b == 0) return a;"])}})), $__3 = Object.freeze(Object.defineProperties(["if(a === b) return 0;"], {raw: {value: Object.freeze(["if(a === b) return 0;"])}})), $__4 = Object.freeze(Object.defineProperties(["if(a === b) return a;"], {raw: {value: Object.freeze(["if(a === b) return a;"])}})), $__5 = Object.freeze(Object.defineProperties(["if(known(a) && known(b)) return +(a ", " b);"], {raw: {value: Object.freeze(["if(known(a) && known(b)) return +(a ", " b);"])}})), $__6 = Object.freeze(Object.defineProperties(["if(a.op == '+' && known(a.b) && known(b)) return Add(a.a, a.b+b);"], {raw: {value: Object.freeze(["if(a.op == '+' && known(a.b) && known(b)) return Add(a.a, a.b+b);"])}}));
+var $__0 = Object.freeze(Object.defineProperties(["if(known(a) && !known(b)) return ", "(b, a);"], {raw: {value: Object.freeze(["if(known(a) && !known(b)) return ", "(b, a);"])}})), $__1 = Object.freeze(Object.defineProperties(["if(a == 0) return b;"], {raw: {value: Object.freeze(["if(a == 0) return b;"])}})), $__2 = Object.freeze(Object.defineProperties(["if(b == 0) return a;"], {raw: {value: Object.freeze(["if(b == 0) return a;"])}})), $__3 = Object.freeze(Object.defineProperties(["if(a === b) return 0;"], {raw: {value: Object.freeze(["if(a === b) return 0;"])}})), $__4 = Object.freeze(Object.defineProperties(["if(a === b) return a;"], {raw: {value: Object.freeze(["if(a === b) return a;"])}})), $__5 = Object.freeze(Object.defineProperties(["if(known(a) && known(b)) return +(a ", " b);"], {raw: {value: Object.freeze(["if(known(a) && known(b)) return +(a ", " b);"])}})), $__6 = Object.freeze(Object.defineProperties(["if(b == -1 || !known(a) && a.bitsof && b == Math.pow(2, a.bitsof)-1) return ", ";"], {raw: {value: Object.freeze(["if(b == -1 || !known(a) && a.bitsof && b == Math.pow(2, a.bitsof)-1) return ", ";"])}})), $__7 = Object.freeze(Object.defineProperties(["if(a.op == '+' && known(a.b) && known(b)) return Add(a.a, a.b+b);"], {raw: {value: Object.freeze(["if(a.op == '+' && known(a.b) && known(b)) return Add(a.a, a.b+b);"])}})), $__8 = Object.freeze(Object.defineProperties(["if(a.op == '-' && a.a == b || b.op == '-' && b.a == a) return 0;"], {raw: {value: Object.freeze(["if(a.op == '-' && a.a == b || b.op == '-' && b.a == a) return 0;"])}}));
 var fs = require('fs'), util = require('util');
 function inspect(x, p) {
   if (known(x) && x >= 100) return '0x' + x.toString(16);
@@ -35,7 +35,7 @@ codeGen.runtime = ["var util = require('util');", "var known = exports.known = f
       var id = (signed ? 'i': 'u') + bits;
       if (!traceur.runtime.elementGet(fn, id)) {
         traceur.runtime.elementSet(fn, id, true);
-        codeGen.runtime.push(("function " + id + "(x) {\n    if(known(x))\n        return " + (signed ? (bits == codeGen.intBits ? '(x&~0)': '((x<<' + (codeGen.intBits - bits) + ')>>>' + (codeGen.intBits - bits) + ')'): (bits == codeGen.intBits ? '((x = x&~0), (x = x < 0 ? x+0x100000000 : x))': '(x&0x' + ((1 << bits) - 1).toString(16) + ')')) + ";\n    if(x.bitsof === " + bits + " && x.signed === " + signed + ")\n        return x;\n    if(x.hasOwnProperty('fn') && x.fn == 'Mem')" + (signed ? '': ' {') + "\n        x.bitsof = " + bits + ";" + (signed ? '': ("\n        return Object.create(x, {\n            value: {get: function() {\n                var v = valueof(x);\n                if(v !== x)\n                    return v.fn == 'Mem' ? " + id + "(v) : v;\n            }},\n            lvalue: {get: function() {\n                var v = lvalueof(x);\n                if(v !== x)\n                    return v.fn == 'Mem' ? " + id + "(v) : v;\n            }},\n        });\n    }")) + "\n    return Object.create(x, {\n        bitsof: {value: " + bits + "},\n        signed: {value: " + signed + "},\n        value: {get: function() {\n            var v = valueof(x);\n            if(v !== x)\n                return " + id + "(v);\n        }},\n        lvalue: {get: function() {\n            if(x.fn != 'Mem')\n                return;\n            var v = lvalueof(x);\n            if(v !== x)\n                return " + id + "(v);\n        }},\n        inspect: {value: function() {\n            return '" + id + "('+inspect(x)+')';\n        }}\n    });\n}"));
+        codeGen.runtime.push(("function " + id + "(x) {\n    if(known(x))\n        return " + (signed ? (bits == codeGen.intBits ? '(x&~0)': '((x<<' + (codeGen.intBits - bits) + ')>>' + (codeGen.intBits - bits) + ')'): (bits == codeGen.intBits ? '((x = x&~0), (x = x < 0 ? x+0x100000000 : x))': '(x&0x' + ((1 << bits) - 1).toString(16) + ')')) + ";\n    if(x.bitsof === " + bits + " && x.signed === " + signed + ")\n        return x;\n    if(x.hasOwnProperty('fn') && x.fn == 'Mem')" + (signed ? '': ' {') + "\n        x.bitsof = " + bits + ";" + (signed ? '': ("\n        return Object.create(x, {\n            value: {get: function() {\n                var v = valueof(x);\n                if(v !== x)\n                    return v.fn == 'Mem' ? " + id + "(v) : v;\n            }, set: function(v) {\n                x.value = v;\n            }},\n            lvalue: {get: function() {\n                var v = lvalueof(x);\n                if(v !== x)\n                    return v.fn == 'Mem' ? " + id + "(v) : v;\n            }},\n        });\n    }")) + "\n    return Object.create(x, {\n        bitsof: {value: " + bits + "},\n        signed: {value: " + signed + "},\n        value: {get: function() {\n            var v = valueof(x);\n            if(v !== x)\n                return " + id + "(v);\n        }, set: function(v) {\n            x.value = v;\n        }},\n        lvalue: {get: function() {\n            if(x.fn != 'Mem')\n                return;\n            var v = lvalueof(x);\n            if(v !== x)\n                return " + id + "(v);\n        }},\n        inspect: {value: function(_, p) {\n            var wrap = ('bitsof' in x) && x.bitsof != " + bits + ";\n            var ix = x.inspect ? x.inspect.call(this, _, !wrap && p || 16) : inspect(x, !wrap && p);\n            return wrap ? '" + id + "('+ix+')' : ix;\n        }}\n    });\n}"));
       }
       return id;
     });
@@ -76,7 +76,7 @@ codeGen.normalize = (function(a) {
       if (bits == codeGen.intBits) props.code = {get: (function() {
           return '(' + a.code + '&~0)';
         })}; else props.code = {get: (function() {
-          return '((' + a.code + '<<' + (codeGen.intBits - bits) + ')>>>' + (codeGen.intBits - bits) + ')';
+          return '((' + a.code + '<<' + (codeGen.intBits - bits) + ')>>' + (codeGen.intBits - bits) + ')';
         })};
     } else {
       if (bits == codeGen.intBits) {
@@ -102,6 +102,7 @@ var exportedFn = {
   bitsof: bitsof,
   sizeof: sizeof,
   Sub: (function(a, b) {
+    if (a == b) return 0;
     return Add(a, Neg(b));
   }),
   ROL: (function(a, b) {
@@ -140,9 +141,9 @@ var exportedFn = {
   })
 };
 {
-  var $__8 = traceur.runtime.getIterator([[true, 'i'], [false, 'u']]);
+  var $__10 = traceur.runtime.getIterator([[true, 'i'], [false, 'u']]);
   try {
-    while ($__8.moveNext()) {
+    while ($__10.moveNext()) {
       try {
         throw undefined;
       } catch (pfx) {
@@ -151,27 +152,27 @@ var exportedFn = {
         } catch (signed) {
           try {
             throw undefined;
-          } catch ($__9) {
+          } catch ($__11) {
             {
-              $__9 = $__8.current;
-              signed = traceur.runtime.elementGet($__9, 0);
-              pfx = traceur.runtime.elementGet($__9, 1);
+              $__11 = $__10.current;
+              signed = traceur.runtime.elementGet($__11, 0);
+              pfx = traceur.runtime.elementGet($__11, 1);
             }
             {
-              var $__7 = traceur.runtime.getIterator([8, 16, 32]);
+              var $__9 = traceur.runtime.getIterator([8, 16, 32]);
               try {
-                while ($__7.moveNext()) {
+                while ($__9.moveNext()) {
                   try {
                     throw undefined;
                   } catch (bits) {
-                    bits = $__7.current;
+                    bits = $__9.current;
                     traceur.runtime.elementSet(exportedFn, pfx + bits, (function(a) {
                       return IntSizeSigned(a, bits, signed);
                     }));
                   }
                 }
               } finally {
-                if ($__7.close) $__7.close();
+                if ($__9.close) $__9.close();
               }
             }
           }
@@ -179,7 +180,7 @@ var exportedFn = {
       }
     }
   } finally {
-    if ($__8.close) $__8.close();
+    if ($__10.close) $__10.close();
   }
 }
 var precendence = {
@@ -200,9 +201,10 @@ var precendence = {
   '^': 9,
   '|': 10,
   '=': 13,
+  '<->': 13,
   ',': 14
 };
-'Nop,Interrupt,If'.split(',').forEach(function(fn) {
+'Nop,Interrupt'.split(',').forEach(function(fn) {
   traceur.runtime.elementSet(exportedFn, fn, (function() {
     var args = Array.prototype.slice.call(arguments, 0);
     return codeGen.mark({
@@ -221,6 +223,23 @@ var precendence = {
   }));
   codeGen.runtime.push(("function " + fn + "() {\n    var args = [].slice.call(arguments);\n    return {\n        constructor: " + fn + ", fn: '" + fn + "', args: args,\n        get value() {\n            var changes = false, v = args.map(function(x) {\n                var v = valueof(x);\n                if(v !== x)\n                    changes = true;\n                return v;\n            });\n            if(changes) return " + fn + ".apply(null, v);\n        },\n        inspect: function() {\n            return '" + fn + "('+args.map(function(x) {return inspect(x);}).join(', ')+')';\n        }\n    };\n}"));
 });
+exportedFn.If = (function(cond, then) {
+  if (arguments.length != 2) throw new RangeError('Wrong number of arguments to If');
+  return codeGen.mark({
+    fn: 'If',
+    args: [cond, then],
+    cond: cond,
+    then: then,
+    inspect: function() {
+      return 'if(' + inspect(cond) + ') ' + inspect(then) + ';';
+    },
+    get code() {
+      return 'If(' + cond.code + ', ' + then.code + ')';
+    },
+    runtimeKnown: false
+  });
+});
+codeGen.runtime.push("var If = exports.If = function If(cond, then) {\n    if(known(cond)) return cond ? then : Nop();\n    return {\n        constructor: If, fn: 'If', cond: cond, then: then,\n        get value() {\n            var vcond = valueof(cond);\n            if(vcond !== cond) {\n                if(known(vcond)) return cond ? valueof(then) : Nop();\n                return If(vcond, then);\n            }\n        },\n        inspect: function() {\n            return 'if('+inspect(cond)+') '+inspect(then)+';';\n        }\n    };\n};\n");
 exportedFn.Mem = (function(a) {
   var size = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): null;
   if (size !== null) throw new Error('Deprecated size argument for Mem');
@@ -236,7 +255,7 @@ exportedFn.Mem = (function(a) {
     runtimeKnown: false
   });
 });
-codeGen.runtime.push("var Mem = exports.Mem = function Mem(a) {\n    return {\n        constructor: Mem, fn: 'Mem', a: a,\n        get lvalue() {\n            var v = valueof(a);\n            if(v !== a) return Mem(v);\n        },\n        get value() {\n            var v = valueof(a), m = Mem.read(v, bitsof(this));\n            if(m !== null && m !== void 0)\n                return m;\n            if(v !== a) return Mem(v);\n        },\n        set value(v) {\n            return Mem.write(valueof(a), bitsof(this), valueof(v));\n        },\n        inspect: function() {\n            return '['+inspect(a)+']'+(this.bitsof || '');\n        }\n    };\n}\nMem.read = function(address, bits) {\n    console.error('Non-implemented Mem read ['+inspect(address)+']'+bits);\n};\nMem.write = function(address, bits, value) {\n    console.error('Non-implemented Mem write ['+inspect(address)+']'+bits+' = '+inspect());\n};\n");
+codeGen.runtime.push("var Mem = exports.Mem = function Mem(a) {\n    return {\n        constructor: Mem, fn: 'Mem', a: a,\n        get lvalue() {\n            var v = valueof(a);\n            if(v !== a) return Mem(v);\n        },\n        get value() {\n            var v = valueof(a), m = Mem.read(v, bitsof(this));\n            if(m !== null && m !== void 0)\n                return m;\n            if(v !== a) return Mem(v);\n        },\n        set value(v) {\n            return Mem.write(valueof(a), bitsof(this), v);\n        },\n        inspect: function() {\n            return '['+inspect(a)+']'+(this.bitsof || '');\n        }\n    };\n};\nMem.read = function(address, bits) {\n    console.error('Non-implemented Mem read ['+inspect(address)+']'+bits);\n};\nMem.write = function(address, bits, value) {\n    console.error('Non-implemented Mem write ['+inspect(address)+']'+bits+' = '+inspect(value));\n};\n");
 exportedFn.Not = (function(a) {
   return known(a) ? ~a: codeGen.normalize({
     fn: 'Not',
@@ -253,7 +272,7 @@ exportedFn.Not = (function(a) {
     runtimeKnown: a.runtimeKnown
   });
 });
-codeGen.runtime.push(("function Not(a) {\n    if(known(a)) return ~a;\n    return {\n        constructor: Not, fn: 'Not', op: '~', a: a,\n        get value() {\n            var v = valueof(a);\n            if(v !== a) return Not(v);\n        },\n        inspect: function(_, p) {\n            var expr = '~'+inspect(a, " + traceur.runtime.elementGet(precendence, '~') + ");\n            return " + traceur.runtime.elementGet(precendence, '~') + " <= p ? expr : '('+expr+')';\n        }\n    };\n}"));
+codeGen.runtime.push(("function Not(a) {\n    if(known(a)) return ~a;\n    if(a.op == '~') return a.a;\n    return {\n        constructor: Not, fn: 'Not', op: '~', a: a,\n        get value() {\n            var v = valueof(a);\n            if(v !== a) return Not(v);\n        },\n        inspect: function(_, p) {\n            if(this.bitsof == 1 && a.op == '==') {\n                var expr = inspect(a.a, " + traceur.runtime.elementGet(precendence, '==') + ")+' != '+inspect(a.b, " + traceur.runtime.elementGet(precendence, '==') + ");\n                return " + traceur.runtime.elementGet(precendence, '==') + " <= p ? expr : '('+expr+')'\n            }\n            if(this.bitsof == 1 && a.op == '<') {\n                var expr = inspect(a.a, " + traceur.runtime.elementGet(precendence, '<') + ")+' >= '+inspect(a.b, " + traceur.runtime.elementGet(precendence, '<') + ");\n                return " + traceur.runtime.elementGet(precendence, '<') + " <= p ? expr : '('+expr+')'\n            }\n            var expr = '~'+inspect(a, " + traceur.runtime.elementGet(precendence, '~') + ");\n            return " + traceur.runtime.elementGet(precendence, '~') + " <= p ? expr : '('+expr+')';\n        }\n    };\n}"));
 exportedFn.Neg = (function(a) {
   return known(a) ? - a: codeGen.normalize({
     fn: 'Neg',
@@ -267,10 +286,11 @@ exportedFn.Neg = (function(a) {
     get code() {
       return a.runtimeKnown ? '-' + a.code: 'Neg(' + a.code + ')';
     },
-    runtimeKnown: a.runtimeKnown
+    runtimeKnown: a.runtimeKnown,
+    CF: Not(Eq(a, 0))
   });
 });
-codeGen.runtime.push(("function Neg(a) {\n    if(known(a)) return -a;\n    return {\n        constructor: Neg, fn: 'Neg', op: '-', a: a,\n        get value() {\n            var v = valueof(a);\n            if(v !== a) return Neg(v);\n        },\n        inspect: function(_, p) {\n            var expr = '-'+inspect(a, " + traceur.runtime.elementGet(precendence, '~') + ");\n            return " + traceur.runtime.elementGet(precendence, '~') + " <= p ? expr : '('+expr+')';\n        }\n    };\n}"));
+codeGen.runtime.push(("function Neg(a) {\n    if(known(a)) return -a;\n    if(a.op == '-') return a.a;\n    return {\n        constructor: Neg, fn: 'Neg', op: '-', a: a,\n        get value() {\n            var v = valueof(a);\n            if(v !== a) return Neg(v);\n        },\n        inspect: function(_, p) {\n            var expr = '-'+inspect(a, " + traceur.runtime.elementGet(precendence, '~') + ");\n            return " + traceur.runtime.elementGet(precendence, '~') + " <= p ? expr : '('+expr+')';\n        }\n    };\n}"));
 var binaryOps = {
   Mov: '=',
   Swap: '<->',
@@ -299,7 +319,9 @@ Object.keys(binaryOps).forEach(function(fn) {
   if (op == '^') p($__3);
   if (op == '&' || op == '|') p($__4);
   if (op != '=' && op != '<->') p($__5, op);
-  if (op == '+') p($__6);
+  if (op == '|' || op == '&') p($__6, (op == '|' ? 'b': 'a'));
+  if (op == '+') p($__7);
+  if (op == '+') p($__8);
   var prologueFn = eval(("(function(a, b) {" + prologue + "})"));
   traceur.runtime.elementSet(exportedFn, fn, function(a, b) {
     var o = prologueFn(a, b);
@@ -312,7 +334,7 @@ Object.keys(binaryOps).forEach(function(fn) {
       inspect: function(_, p) {
         var op = this.op, a = this.a, b = this.b;
         if (op == '+' && b < 0) op = '-', b = - b;
-        if (op == '=' && b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.a === a) {
+        if (op == '=' && b.op && b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.a === a) {
           op = b.op + '=';
           b = b.b;
         }
@@ -351,7 +373,7 @@ Object.keys(binaryOps).forEach(function(fn) {
     }
     return codeGen.normalize(o);
   });
-  codeGen.runtime.push(("var " + fn + " = exports." + fn + " = function " + fn + "(a, b) {" + prologue + "\n    return {\n        constructor: " + fn + ", fn: '" + fn + "', op: '" + op + "', a: a, b: b,\n        get value() {\n            var va = " + (op == '=' || op == '<->' ? 'lvalueof': 'valueof') + "(a), vb = " + (op == '<->' ? 'lvalueof': 'valueof') + "(b);\n            if(va !== a || vb !== b) return " + fn + "(va, vb);\n        },\n        inspect: function(_, p) {\n            var a = this.a, b = this.b;" + (op == '=' || op == '+' ? ("\n            var op = '" + op + "';\n            "): '') + (op == '+' ? "if(b < 0) {\n                op = '-';\n                b = -b;\n            }": '') + (op == '=' ? "if(b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.a === a) {\n                if(b.op == '+' && b.b < 0) {\n                    op = '-=';\n                    b = -b.b;\n                } else {\n                    op = b.op+'=';\n                    b = b.b;\n                }\n            }": '') + "var expr = inspect(a, " + prec + ")+' " + (op == '=' || op == '+' ? "'+op+'": op) + " '+inspect(b, " + prec + ");\n            return " + prec + " <= p ? expr : '('+expr+')';\n        }\n    };\n}"));
+  codeGen.runtime.push(("var " + fn + " = exports." + fn + " = function " + fn + "(a, b) {" + prologue + "\n    return {\n        constructor: " + fn + ", fn: '" + fn + "', op: '" + op + "', a: a, b: b," + (op == '=' || op == '<' ? ' bitsof: 1,': '') + "\n        get value() {\n            var va = " + (op == '=' || op == '<->' ? 'lvalueof': 'valueof') + "(a), vb = " + (op == '<->' ? 'lvalueof': 'valueof') + "(b);\n            if(va !== a || vb !== b) return " + fn + "(va, vb);\n        },\n        inspect: function(_, p) {\n            var a = this.a, b = this.b;" + (op == '=' || op == '+' ? ("\n            var op = '" + op + "';\n            "): '') + (op == '+' ? "if(b < 0) {\n                op = '-';\n                b = -b;\n            } else if(b.op == '-') {\n                op = '-';\n                b = b.a;\n            }": '') + (op == '=' ? "if(b.op && b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.op != '-' && b.op != '~' && b.a === a) {\n                if(b.op == '+' && b.b < 0) {\n                    op = '-=';\n                    b = -b.b;\n                } else {\n                    op = b.op+'=';\n                    b = b.b;\n                }\n            }": '') + "var expr = inspect(a, " + prec + ")+' " + (op == '=' || op == '+' ? "'+op+'": op) + " '+inspect(b, " + prec + ");\n            return " + prec + " <= p ? expr : '('+expr+')';\n        }\n    };\n}"));
 });
 for (var i in exportedFn) traceur.runtime.elementSet(global, i, traceur.runtime.elementGet(exportedFn, i));
 exports.filters = {};

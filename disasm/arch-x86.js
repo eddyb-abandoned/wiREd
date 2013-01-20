@@ -70,24 +70,23 @@ function Interrupt() {
         }
     };
 }
-function If() {
-    var args = [].slice.call(arguments);
+var If = exports.If = function If(cond, then) {
+    if(known(cond)) return cond ? then : Nop();
     return {
-        constructor: If, fn: 'If', args: args,
+        constructor: If, fn: 'If', cond: cond, then: then,
         get value() {
-            var changes = false, v = args.map(function(x) {
-                var v = valueof(x);
-                if(v !== x)
-                    changes = true;
-                return v;
-            });
-            if(changes) return If.apply(null, v);
+            var vcond = valueof(cond);
+            if(vcond !== cond) {
+                if(known(vcond)) return cond ? valueof(then) : Nop();
+                return If(vcond, then);
+            }
         },
         inspect: function() {
-            return 'If('+args.map(function(x) {return inspect(x);}).join(', ')+')';
+            return 'if('+inspect(cond)+') '+inspect(then)+';';
         }
     };
-}
+};
+
 var Mem = exports.Mem = function Mem(a) {
     return {
         constructor: Mem, fn: 'Mem', a: a,
@@ -102,22 +101,23 @@ var Mem = exports.Mem = function Mem(a) {
             if(v !== a) return Mem(v);
         },
         set value(v) {
-            return Mem.write(valueof(a), bitsof(this), valueof(v));
+            return Mem.write(valueof(a), bitsof(this), v);
         },
         inspect: function() {
             return '['+inspect(a)+']'+(this.bitsof || '');
         }
     };
-}
+};
 Mem.read = function(address, bits) {
     console.error('Non-implemented Mem read ['+inspect(address)+']'+bits);
 };
 Mem.write = function(address, bits, value) {
-    console.error('Non-implemented Mem write ['+inspect(address)+']'+bits+' = '+inspect());
+    console.error('Non-implemented Mem write ['+inspect(address)+']'+bits+' = '+inspect(value));
 };
 
 function Not(a) {
     if(known(a)) return ~a;
+    if(a.op == '~') return a.a;
     return {
         constructor: Not, fn: 'Not', op: '~', a: a,
         get value() {
@@ -125,6 +125,14 @@ function Not(a) {
             if(v !== a) return Not(v);
         },
         inspect: function(_, p) {
+            if(this.bitsof == 1 && a.op == '==') {
+                var expr = inspect(a.a, 7)+' != '+inspect(a.b, 7);
+                return 7 <= p ? expr : '('+expr+')'
+            }
+            if(this.bitsof == 1 && a.op == '<') {
+                var expr = inspect(a.a, 6)+' >= '+inspect(a.b, 6);
+                return 6 <= p ? expr : '('+expr+')'
+            }
             var expr = '~'+inspect(a, 2);
             return 2 <= p ? expr : '('+expr+')';
         }
@@ -132,6 +140,7 @@ function Not(a) {
 }
 function Neg(a) {
     if(known(a)) return -a;
+    if(a.op == '-') return a.a;
     return {
         constructor: Neg, fn: 'Neg', op: '-', a: a,
         get value() {
@@ -146,7 +155,7 @@ function Neg(a) {
 }
 var Mov = exports.Mov = function Mov(a, b) {
     return {
-        constructor: Mov, fn: 'Mov', op: '=', a: a, b: b,
+        constructor: Mov, fn: 'Mov', op: '=', a: a, b: b, bitsof: 1,
         get value() {
             var va = lvalueof(a), vb = valueof(b);
             if(va !== a || vb !== b) return Mov(va, vb);
@@ -154,7 +163,7 @@ var Mov = exports.Mov = function Mov(a, b) {
         inspect: function(_, p) {
             var a = this.a, b = this.b;
             var op = '=';
-            if(b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.a === a) {
+            if(b.op && b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.op != '-' && b.op != '~' && b.a === a) {
                 if(b.op == '+' && b.b < 0) {
                     op = '-=';
                     b = -b.b;
@@ -175,8 +184,8 @@ var Swap = exports.Swap = function Swap(a, b) {
             if(va !== a || vb !== b) return Swap(va, vb);
         },
         inspect: function(_, p) {
-            var a = this.a, b = this.b;var expr = inspect(a, undefined)+' <-> '+inspect(b, undefined);
-            return undefined <= p ? expr : '('+expr+')';
+            var a = this.a, b = this.b;var expr = inspect(a, 13)+' <-> '+inspect(b, 13);
+            return 13 <= p ? expr : '('+expr+')';
         }
     };
 }
@@ -186,6 +195,7 @@ var Add = exports.Add = function Add(a, b) {
     if(b == 0) return a;
     if(known(a) && known(b)) return +(a + b);
     if(a.op == '+' && known(a.b) && known(b)) return Add(a.a, a.b+b);
+    if(a.op == '-' && a.a == b || b.op == '-' && b.a == a) return 0;
     return {
         constructor: Add, fn: 'Add', op: '+', a: a, b: b,
         get value() {
@@ -198,6 +208,9 @@ var Add = exports.Add = function Add(a, b) {
             if(b < 0) {
                 op = '-';
                 b = -b;
+            } else if(b.op == '-') {
+                op = '-';
+                b = b.a;
             }var expr = inspect(a, 4)+' '+op+' '+inspect(b, 4);
             return 4 <= p ? expr : '('+expr+')';
         }
@@ -221,6 +234,7 @@ var And = exports.And = function And(a, b) {
     if(known(a) && !known(b)) return And(b, a);
     if(a === b) return a;
     if(known(a) && known(b)) return +(a & b);
+    if(b == -1 || !known(a) && a.bitsof && b == Math.pow(2, a.bitsof)-1) return a;
     return {
         constructor: And, fn: 'And', op: '&', a: a, b: b,
         get value() {
@@ -239,6 +253,7 @@ var Or = exports.Or = function Or(a, b) {
     if(b == 0) return a;
     if(a === b) return a;
     if(known(a) && known(b)) return +(a | b);
+    if(b == -1 || !known(a) && a.bitsof && b == Math.pow(2, a.bitsof)-1) return b;
     return {
         constructor: Or, fn: 'Or', op: '|', a: a, b: b,
         get value() {
@@ -286,7 +301,7 @@ var Eq = exports.Eq = function Eq(a, b) {
 var Lt = exports.Lt = function Lt(a, b) {
     if(known(a) && known(b)) return +(a < b);
     return {
-        constructor: Lt, fn: 'Lt', op: '<', a: a, b: b,
+        constructor: Lt, fn: 'Lt', op: '<', a: a, b: b, bitsof: 1,
         get value() {
             var va = valueof(a), vb = valueof(b);
             if(va !== a || vb !== b) return Lt(va, vb);
@@ -342,7 +357,7 @@ var ASR = exports.ASR = function ASR(a, b) {
         }
     };
 }
-var R = exports.R = {}, R8 = [], R16 = [], R32 = [], RS = [];
+var R = exports.R = {}, R8 = [], R16 = [], R32 = [], RS = [], RFLAGS = [];
 R.AL = R8[0] = {bitsof: 8, signed: false, inspect: function() {return 'AL';}};
 R.AH = R8[4] = {bitsof: 8, signed: false, inspect: function() {return 'AH';}};
 R.AX = R16[0] = {bitsof: 16, signed: false, inspect: function() {return 'AX';}};
@@ -376,15 +391,16 @@ R.DI = R16[7] = {bitsof: 16, signed: false, inspect: function() {return 'DI';}};
 R.EDI = R32[7] = {bitsof: 32, signed: false, inspect: function() {return 'EDI';}};
 R.IP = R16[8] = {bitsof: 16, signed: false, inspect: function() {return 'IP';}};
 R.EIP = R32[8] = {bitsof: 32, signed: false, inspect: function() {return 'EIP';}};
-var F = exports.F = {}, F1 = [];
-F.O = F1[0] = {bitsof: 1, signed: false, inspect: function() {return 'OF';}};
-F.C = F1[1] = {bitsof: 1, signed: false, inspect: function() {return 'CF';}};
-F.Z = F1[2] = {bitsof: 1, signed: false, inspect: function() {return 'ZF';}};
-F.S = F1[3] = {bitsof: 1, signed: false, inspect: function() {return 'SF';}};
-F.P = F1[4] = {bitsof: 1, signed: false, inspect: function() {return 'PF';}};
-F.V = F1[5] = {bitsof: 1, signed: false, inspect: function() {return 'VF';}};
-F.D = F1[6] = {bitsof: 1, signed: false, inspect: function() {return 'DF';}};
-F.I = F1[7] = {bitsof: 1, signed: false, inspect: function() {return 'IF';}};
+R.EFLAGS = RFLAGS[0] = {bitsof: 32, signed: false, inspect: function() {return 'EFLAGS';}};
+var F = [];
+R.OF = F[0] = {bitsof: 1, signed: false, inspect: function() {return 'OF';}};
+R.CF = F[1] = {bitsof: 1, signed: false, inspect: function() {return 'CF';}};
+R.ZF = F[2] = {bitsof: 1, signed: false, inspect: function() {return 'ZF';}};
+R.SF = F[3] = {bitsof: 1, signed: false, inspect: function() {return 'SF';}};
+R.PF = F[4] = {bitsof: 1, signed: false, inspect: function() {return 'PF';}};
+R.VF = F[5] = {bitsof: 1, signed: false, inspect: function() {return 'VF';}};
+R.DF = F[6] = {bitsof: 1, signed: false, inspect: function() {return 'DF';}};
+R.IF = F[7] = {bitsof: 1, signed: false, inspect: function() {return 'IF';}};
 function u8(x) {
     if(known(x))
         return (x&0xff);
@@ -397,6 +413,8 @@ function u8(x) {
                 var v = valueof(x);
                 if(v !== x)
                     return v.fn == 'Mem' ? u8(v) : v;
+            }, set: function(v) {
+                x.value = v;
             }},
             lvalue: {get: function() {
                 var v = lvalueof(x);
@@ -412,6 +430,8 @@ function u8(x) {
             var v = valueof(x);
             if(v !== x)
                 return u8(v);
+        }, set: function(v) {
+            x.value = v;
         }},
         lvalue: {get: function() {
             if(x.fn != 'Mem')
@@ -420,8 +440,10 @@ function u8(x) {
             if(v !== x)
                 return u8(v);
         }},
-        inspect: {value: function() {
-            return 'u8('+inspect(x)+')';
+        inspect: {value: function(_, p) {
+            var wrap = ('bitsof' in x) && x.bitsof != 8;
+            var ix = x.inspect ? x.inspect.call(this, _, !wrap && p || 16) : inspect(x, !wrap && p);
+            return wrap ? 'u8('+ix+')' : ix;
         }}
     });
 }
@@ -437,6 +459,8 @@ function u32(x) {
                 var v = valueof(x);
                 if(v !== x)
                     return v.fn == 'Mem' ? u32(v) : v;
+            }, set: function(v) {
+                x.value = v;
             }},
             lvalue: {get: function() {
                 var v = lvalueof(x);
@@ -452,6 +476,8 @@ function u32(x) {
             var v = valueof(x);
             if(v !== x)
                 return u32(v);
+        }, set: function(v) {
+            x.value = v;
         }},
         lvalue: {get: function() {
             if(x.fn != 'Mem')
@@ -460,14 +486,16 @@ function u32(x) {
             if(v !== x)
                 return u32(v);
         }},
-        inspect: {value: function() {
-            return 'u32('+inspect(x)+')';
+        inspect: {value: function(_, p) {
+            var wrap = ('bitsof' in x) && x.bitsof != 32;
+            var ix = x.inspect ? x.inspect.call(this, _, !wrap && p || 16) : inspect(x, !wrap && p);
+            return wrap ? 'u32('+ix+')' : ix;
         }}
     });
 }
 function i8(x) {
     if(known(x))
-        return ((x<<24)>>>24);
+        return ((x<<24)>>24);
     if(x.bitsof === 8 && x.signed === true)
         return x;
     if(x.hasOwnProperty('fn') && x.fn == 'Mem')
@@ -479,6 +507,8 @@ function i8(x) {
             var v = valueof(x);
             if(v !== x)
                 return i8(v);
+        }, set: function(v) {
+            x.value = v;
         }},
         lvalue: {get: function() {
             if(x.fn != 'Mem')
@@ -487,75 +517,10 @@ function i8(x) {
             if(v !== x)
                 return i8(v);
         }},
-        inspect: {value: function() {
-            return 'i8('+inspect(x)+')';
-        }}
-    });
-}
-function u16(x) {
-    if(known(x))
-        return (x&0xffff);
-    if(x.bitsof === 16 && x.signed === false)
-        return x;
-    if(x.hasOwnProperty('fn') && x.fn == 'Mem') {
-        x.bitsof = 16;
-        return Object.create(x, {
-            value: {get: function() {
-                var v = valueof(x);
-                if(v !== x)
-                    return v.fn == 'Mem' ? u16(v) : v;
-            }},
-            lvalue: {get: function() {
-                var v = lvalueof(x);
-                if(v !== x)
-                    return v.fn == 'Mem' ? u16(v) : v;
-            }},
-        });
-    }
-    return Object.create(x, {
-        bitsof: {value: 16},
-        signed: {value: false},
-        value: {get: function() {
-            var v = valueof(x);
-            if(v !== x)
-                return u16(v);
-        }},
-        lvalue: {get: function() {
-            if(x.fn != 'Mem')
-                return;
-            var v = lvalueof(x);
-            if(v !== x)
-                return u16(v);
-        }},
-        inspect: {value: function() {
-            return 'u16('+inspect(x)+')';
-        }}
-    });
-}
-function i1(x) {
-    if(known(x))
-        return ((x<<31)>>>31);
-    if(x.bitsof === 1 && x.signed === true)
-        return x;
-    if(x.hasOwnProperty('fn') && x.fn == 'Mem')
-        x.bitsof = 1;
-    return Object.create(x, {
-        bitsof: {value: 1},
-        signed: {value: true},
-        value: {get: function() {
-            var v = valueof(x);
-            if(v !== x)
-                return i1(v);
-        }},
-        lvalue: {get: function() {
-            if(x.fn != 'Mem')
-                return;
-            var v = lvalueof(x);
-            if(v !== x)
-                return i1(v);
-        }},
-        inspect: {value: function() {
-            return 'i1('+inspect(x)+')';
+        inspect: {value: function(_, p) {
+            var wrap = ('bitsof' in x) && x.bitsof != 8;
+            var ix = x.inspect ? x.inspect.call(this, _, !wrap && p || 16) : inspect(x, !wrap && p);
+            return wrap ? 'i8('+ix+')' : ix;
         }}
     });
 }
@@ -573,6 +538,8 @@ function i32(x) {
             var v = valueof(x);
             if(v !== x)
                 return i32(v);
+        }, set: function(v) {
+            x.value = v;
         }},
         lvalue: {get: function() {
             if(x.fn != 'Mem')
@@ -581,8 +548,56 @@ function i32(x) {
             if(v !== x)
                 return i32(v);
         }},
-        inspect: {value: function() {
-            return 'i32('+inspect(x)+')';
+        inspect: {value: function(_, p) {
+            var wrap = ('bitsof' in x) && x.bitsof != 32;
+            var ix = x.inspect ? x.inspect.call(this, _, !wrap && p || 16) : inspect(x, !wrap && p);
+            return wrap ? 'i32('+ix+')' : ix;
+        }}
+    });
+}
+function u16(x) {
+    if(known(x))
+        return (x&0xffff);
+    if(x.bitsof === 16 && x.signed === false)
+        return x;
+    if(x.hasOwnProperty('fn') && x.fn == 'Mem') {
+        x.bitsof = 16;
+        return Object.create(x, {
+            value: {get: function() {
+                var v = valueof(x);
+                if(v !== x)
+                    return v.fn == 'Mem' ? u16(v) : v;
+            }, set: function(v) {
+                x.value = v;
+            }},
+            lvalue: {get: function() {
+                var v = lvalueof(x);
+                if(v !== x)
+                    return v.fn == 'Mem' ? u16(v) : v;
+            }},
+        });
+    }
+    return Object.create(x, {
+        bitsof: {value: 16},
+        signed: {value: false},
+        value: {get: function() {
+            var v = valueof(x);
+            if(v !== x)
+                return u16(v);
+        }, set: function(v) {
+            x.value = v;
+        }},
+        lvalue: {get: function() {
+            if(x.fn != 'Mem')
+                return;
+            var v = lvalueof(x);
+            if(v !== x)
+                return u16(v);
+        }},
+        inspect: {value: function(_, p) {
+            var wrap = ('bitsof' in x) && x.bitsof != 16;
+            var ix = x.inspect ? x.inspect.call(this, _, !wrap && p || 16) : inspect(x, !wrap && p);
+            return wrap ? 'u16('+ix+')' : ix;
         }}
     });
 }
@@ -598,6 +613,8 @@ function u1(x) {
                 var v = valueof(x);
                 if(v !== x)
                     return v.fn == 'Mem' ? u1(v) : v;
+            }, set: function(v) {
+                x.value = v;
             }},
             lvalue: {get: function() {
                 var v = lvalueof(x);
@@ -613,6 +630,8 @@ function u1(x) {
             var v = valueof(x);
             if(v !== x)
                 return u1(v);
+        }, set: function(v) {
+            x.value = v;
         }},
         lvalue: {get: function() {
             if(x.fn != 'Mem')
@@ -621,551 +640,864 @@ function u1(x) {
             if(v !== x)
                 return u1(v);
         }},
-        inspect: {value: function() {
-            return 'u1('+inspect(x)+')';
+        inspect: {value: function(_, p) {
+            var wrap = ('bitsof' in x) && x.bitsof != 1;
+            var ix = x.inspect ? x.inspect.call(this, _, !wrap && p || 16) : inspect(x, !wrap && p);
+            return wrap ? 'u1('+ix+')' : ix;
+        }}
+    });
+}
+function i16(x) {
+    if(known(x))
+        return ((x<<16)>>16);
+    if(x.bitsof === 16 && x.signed === true)
+        return x;
+    if(x.hasOwnProperty('fn') && x.fn == 'Mem')
+        x.bitsof = 16;
+    return Object.create(x, {
+        bitsof: {value: 16},
+        signed: {value: true},
+        value: {get: function() {
+            var v = valueof(x);
+            if(v !== x)
+                return i16(v);
+        }, set: function(v) {
+            x.value = v;
+        }},
+        lvalue: {get: function() {
+            if(x.fn != 'Mem')
+                return;
+            var v = lvalueof(x);
+            if(v !== x)
+                return i16(v);
+        }},
+        inspect: {value: function(_, p) {
+            var wrap = ('bitsof' in x) && x.bitsof != 16;
+            var ix = x.inspect ? x.inspect.call(this, _, !wrap && p || 16) : inspect(x, !wrap && p);
+            return wrap ? 'i16('+ix+')' : ix;
         }}
     });
 }
 exports.dis = function x86dis(b, i) {
-    for(; b[i] == 0xF2 || b[i] == 0xF3; i++)
-        console.log('[PREFIX] '+b[i].toString(16).toUpperCase());
+    // HACK allows skipping prefixes.
+    var pfx = 0;
+    for(; b[i] >= 0x64 && b[i] <= 0x67 || b[i] == 0xF2 || b[i] == 0xF3; i++, pfx++)
+        console.error('[PREFIX] '+b[i].toString(16).toUpperCase());
+    if(pfx) {
+        var r = x86dis(b, i);
+        if(!r || r.length < 1)
+            return r;
+        r[0] += pfx;
+        return r;
+    }
     
-	var $0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50;if(((b[i+0]|(b[i+1]<<8)|((b[i+2] & 0x3f)<<16)) & 0x3f4789) == 0x250481)
+	var $0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65, $66, $67, $68, $69, $70, $71, $72, $73, $74, $75, $76, $77, $78, $79, $80, $81, $82, $83, $84, $85, $86, $87, $88, $89, $90, $91, $92, $93, $94, $95, $96, $97, $98, $99, $100, $101, $102, $103, $104;
+    if(((b[i+0]|(b[i+1]<<8)|((b[i+2] & 0x3f)<<16)) & 0x3f4789) == 0x250481)
 	switch((((b[i+0] & 0xfe)>>>1)|(b[i+1]<<7)) & 0x5c3b) {
 	case 0x0: return [11, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
 	case 0x4000: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x400: return [11, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Or($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x4400: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x800: return [11, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, u32(Add((b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)), F1[1])))))];
-	case 0x4800: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add((b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)), F1[1])))))];
-	case 0xc00: return [11, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), i32(Add(($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x4c00: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i32(Add(($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1000: return [11, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(And($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x5000: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x1400: return [11, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, (-($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))&~0))))];
-	case 0x5400: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (-($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))&~0))))];
+	case 0x400: return [11, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Or($0, (($7 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))&~0), ($7 < 0 ? $7+0x100000000 : $7)))))];
+	case 0x4400: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, (($17 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))&~0), ($17 < 0 ? $17+0x100000000 : $17)))))];
+	case 0x800: return [11, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, u32(Add((b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)), u32(F[1]))))))];
+	case 0x4800: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add((b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)), u32(F[1]))))))];
+	case 0xc00: return [11, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x4c00: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x1000: return [11, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(And($0, (($24 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))&~0), ($24 < 0 ? $24+0x100000000 : $24)))))];
+	case 0x5000: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (($34 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))&~0), ($34 < 0 ? $34+0x100000000 : $34)))))];
+	case 0x1400: return [11, Mov(F[2], Eq(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
+	case 0x5400: return [11, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
 	case 0x1800: return [11, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Xor($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
 	case 0x5800: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x1c00: return [11, Mov(F1[2], Eq(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F1[1], Lt($0, $1))];
-	case 0x5c00: return [11, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F1[1], Lt($0, $1))];
+	case 0x1c00: return [11, Mov(F[2], Eq(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F[1], Lt($0, $1))];
+	case 0x5c00: return [11, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F[1], Lt($0, $1))];
 	case 0x23: return [11, Mov(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))];
 	case 0x4023: return [11, Mov(u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))];
-	case 0x3b: return [11, Mov(F1[2], Eq(And(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), 0))];
-	case 0x403b: return [11, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), 0))];
+	case 0x3b: return [11, Mov(F[2], Eq(And(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x403b: return [11, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	}
 if(((b[i+0]|(b[i+1]<<8)|((b[i+2] & 0x3f)<<16)) & 0x38c789) == 0x208481)
 	switch((((b[i+0] & 0xfe)>>>1)|((b[i+1] & 0x3f)<<7)) & 0x1c3b) {
 	case 0x0: return [11, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x400: return [11, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x800: return [11, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add((b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)), F1[1])))))];
-	case 0xc00: return [11, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i32(Add(($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1000: return [11, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x1400: return [11, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (-($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))&~0))))];
+	case 0x400: return [11, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, (($15 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))&~0), ($15 < 0 ? $15+0x100000000 : $15)))))];
+	case 0x800: return [11, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add((b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)), u32(F[1]))))))];
+	case 0xc00: return [11, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x1000: return [11, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (($32 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))&~0), ($32 < 0 ? $32+0x100000000 : $32)))))];
+	case 0x1400: return [11, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
 	case 0x1800: return [11, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x1c00: return [11, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F1[1], Lt($0, $1))];
+	case 0x1c00: return [11, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F[1], Lt($0, $1))];
 	case 0x23: return [11, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))];
-	case 0x3b: return [11, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), 0))];
+	case 0x3b: return [11, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	}
 if(((b[i+0]|(b[i+1]<<8)|((b[i+2] & 0x7)<<16)) & 0x74789) == 0x50481)
 	switch((((b[i+0] & 0xfe)>>>1)|(b[i+1]<<7)) & 0x5c3b) {
 	case 0x0: return [11, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x4000: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Add($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x400: return [11, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x4400: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Or($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x800: return [11, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add((b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)), F1[1])))))];
-	case 0x4800: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Add($0, u32(Add((b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)), F1[1])))))];
-	case 0xc00: return [11, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i32(Add(($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x4c00: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), i32(Add(($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1000: return [11, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x5000: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(And($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x1400: return [11, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (-($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))&~0))))];
-	case 0x5400: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Add($0, (-($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))&~0))))];
+	case 0x4000: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Add($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
+	case 0x400: return [11, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, (($6 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))&~0), ($6 < 0 ? $6+0x100000000 : $6)))))];
+	case 0x4400: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Or($0, (($16 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))&~0), ($16 < 0 ? $16+0x100000000 : $16)))))];
+	case 0x800: return [11, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add((b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)), u32(F[1]))))))];
+	case 0x4800: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Add($0, u32(Add((b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)), u32(F[1]))))))];
+	case 0xc00: return [11, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x4c00: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x1000: return [11, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (($23 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))&~0), ($23 < 0 ? $23+0x100000000 : $23)))))];
+	case 0x5000: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(And($0, (($33 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))&~0), ($33 < 0 ? $33+0x100000000 : $33)))))];
+	case 0x1400: return [11, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
+	case 0x5400: return [11, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
 	case 0x1800: return [11, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x5800: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Xor($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x1c00: return [11, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F1[1], Lt($0, $1))];
-	case 0x5c00: return [11, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F1[1], Lt($0, $1))];
+	case 0x5800: return [11, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Xor($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
+	case 0x1c00: return [11, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F[1], Lt($0, $1))];
+	case 0x5c00: return [11, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F[1], Lt($0, $1))];
 	case 0x23: return [11, Mov(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))];
-	case 0x4023: return [11, Mov(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))];
-	case 0x3b: return [11, Mov(F1[2], Eq(And(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), 0))];
-	case 0x403b: return [11, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), 0))];
+	case 0x4023: return [11, Mov(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))];
+	case 0x3b: return [11, Mov(F[2], Eq(And(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x403b: return [11, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	}
 if(((b[i+0]|(b[i+1]<<8)) & 0xc789) == 0x8481)
 	switch((((b[i+0] & 0xfe)>>>1)|((b[i+1] & 0x3f)<<7)) & 0x1c3b) {
 	case 0x0: return [11, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x400: return [11, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x800: return [11, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add((b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)), F1[1])))))];
-	case 0xc00: return [11, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i32(Add(($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1000: return [11, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x1400: return [11, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (-($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))&~0))))];
+	case 0x400: return [11, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, (($14 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))&~0), ($14 < 0 ? $14+0x100000000 : $14)))))];
+	case 0x800: return [11, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add((b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)), u32(F[1]))))))];
+	case 0xc00: return [11, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x1000: return [11, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (($31 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))&~0), ($31 < 0 ? $31+0x100000000 : $31)))))];
+	case 0x1400: return [11, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
 	case 0x1800: return [11, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))))];
-	case 0x1c00: return [11, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F1[1], Lt($0, $1))];
+	case 0x1c00: return [11, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))))),Mov(F[1], Lt($0, $1))];
 	case 0x23: return [11, Mov(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24)))];
-	case 0x3b: return [11, Mov(F1[2], Eq(And(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), 0))];
+	case 0x3b: return [11, Mov(F[2], Eq(And(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]|(b[i+8]<<8)|(b[i+9]<<16)|(b[i+10]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	}
 if(((b[i+0]|(b[i+1]<<8)) & 0xc789) == 0x581)
 	switch((((b[i+0] & 0xfe)>>>1)|((b[i+1] & 0x3f)<<7)) & 0x1c3b) {
 	case 0x0: return [10, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))))];
-	case 0x400: return [10, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Or($0, (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))))];
-	case 0x800: return [10, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, u32(Add((b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)), F1[1])))))];
-	case 0xc00: return [10, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), i32(Add(($1 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1000: return [10, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(And($0, (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))))];
-	case 0x1400: return [10, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, (-($1 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))&~0))))];
+	case 0x400: return [10, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Or($0, (($18 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))&~0), ($18 < 0 ? $18+0x100000000 : $18)))))];
+	case 0x800: return [10, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, u32(Add((b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)), u32(F[1]))))))];
+	case 0xc00: return [10, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x1000: return [10, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(And($0, (($35 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))&~0), ($35 < 0 ? $35+0x100000000 : $35)))))];
+	case 0x1400: return [10, Mov(F[2], Eq(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), ($1 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
 	case 0x1800: return [10, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Xor($0, (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))))];
-	case 0x1c00: return [10, Mov(F1[2], Eq(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), ($1 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))))),Mov(F1[1], Lt($0, $1))];
+	case 0x1c00: return [10, Mov(F[2], Eq(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), ($1 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))))),Mov(F[1], Lt($0, $1))];
 	case 0x23: return [10, Mov(u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))];
-	case 0x3b: return [10, Mov(F1[2], Eq(And(u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))), 0))];
+	case 0x3b: return [10, Mov(F[2], Eq(And(u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	}
 if(((b[i+0]|(b[i+1]<<8)) & 0xc089) == 0x8081)
 	switch((((b[i+0] & 0xfe)>>>1)|((b[i+1] & 0x3f)<<7)) & 0x1c3b) {
 	case 0x0: return [10, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add($0, (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))))];
-	case 0x400: return [10, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Or($0, (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))))];
-	case 0x800: return [10, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add($0, u32(Add((b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)), F1[1])))))];
-	case 0xc00: return [10, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), i32(Add(($1 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1000: return [10, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(And($0, (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))))];
-	case 0x1400: return [10, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add($0, (-($1 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))&~0))))];
+	case 0x400: return [10, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Or($0, (($13 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))&~0), ($13 < 0 ? $13+0x100000000 : $13)))))];
+	case 0x800: return [10, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add($0, u32(Add((b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)), u32(F[1]))))))];
+	case 0xc00: return [10, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x1000: return [10, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(And($0, (($30 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))&~0), ($30 < 0 ? $30+0x100000000 : $30)))))];
+	case 0x1400: return [10, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), ($1 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
 	case 0x1800: return [10, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Xor($0, (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))))];
-	case 0x1c00: return [10, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), ($1 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))))),Mov(F1[1], Lt($0, $1))];
+	case 0x1c00: return [10, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), ($1 = (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))))),Mov(F[1], Lt($0, $1))];
 	case 0x23: return [10, Mov(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24)))];
-	case 0x3b: return [10, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))), 0))];
+	case 0x3b: return [10, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), (b[i+6]|(b[i+7]<<8)|(b[i+8]<<16)|(b[i+9]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x3f)<<24)) & 0x3f47ffff) == 0x2504ac0f)
 	switch((((b[i+2] & 0x80)>>>7)) & 0x1) {
-	case 0x0: return [9, Mov(($0 = u32(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))), u32(Or(u32(LSR($0, ($1 = (b[i+8])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($14 = ((($13 = ((($12 = (1 << $1)&~0), ($12 < 0 ? $12+0x100000000 : $12)) + -1)&~0), ($13 < 0 ? $13+0x100000000 : $13)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($14 < 0 ? $14+0x100000000 : $14)))))))];
-	case 0x1: return [9, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))), u32(Or(u32(LSR($0, ($1 = (b[i+8])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($44 = ((($43 = ((($42 = (1 << $1)&~0), ($42 < 0 ? $42+0x100000000 : $42)) + -1)&~0), ($43 < 0 ? $43+0x100000000 : $43)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($44 < 0 ? $44+0x100000000 : $44)))))))];
-	}
-if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x3f)<<24)) & 0x38c7ffff) == 0x2084ac0f)
-	switch(0) {
-	case 0x0: return [9, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))), u32(Or(u32(LSR($0, ($1 = (b[i+8])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($38 = ((($37 = ((($36 = (1 << $1)&~0), ($36 < 0 ? $36+0x100000000 : $36)) + -1)&~0), ($37 < 0 ? $37+0x100000000 : $37)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($38 < 0 ? $38+0x100000000 : $38)))))))];
+	case 0x0: return [9, Mov(($0 = u32(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))), u32(Or(u32(LSR($0, ($1 = (((b[i+8])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($68 = ((($67 = ((($66 = (1 << $1)&~0), ($66 < 0 ? $66+0x100000000 : $66)) + -1)&~0), ($67 < 0 ? $67+0x100000000 : $67)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($68 < 0 ? $68+0x100000000 : $68)))))))];
+	case 0x1: return [9, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+8])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($98 = ((($97 = ((($96 = (1 << $1)&~0), ($96 < 0 ? $96+0x100000000 : $96)) + -1)&~0), ($97 < 0 ? $97+0x100000000 : $97)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($98 < 0 ? $98+0x100000000 : $98)))))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x7)<<24)) & 0x747ffff) == 0x504ac0f)
 	switch((((b[i+2] & 0x80)>>>7)) & 0x1) {
-	case 0x0: return [9, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))), u32(Or(u32(LSR($0, ($1 = (b[i+8])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($11 = ((($10 = ((($9 = (1 << $1)&~0), ($9 < 0 ? $9+0x100000000 : $9)) + -1)&~0), ($10 < 0 ? $10+0x100000000 : $10)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($11 < 0 ? $11+0x100000000 : $11)))))))];
-	case 0x1: return [9, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), u32(Or(u32(LSR($0, ($1 = (b[i+8])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($41 = ((($40 = ((($39 = (1 << $1)&~0), ($39 < 0 ? $39+0x100000000 : $39)) + -1)&~0), ($40 < 0 ? $40+0x100000000 : $40)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($41 < 0 ? $41+0x100000000 : $41)))))))];
+	case 0x0: return [9, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+8])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($65 = ((($64 = ((($63 = (1 << $1)&~0), ($63 < 0 ? $63+0x100000000 : $63)) + -1)&~0), ($64 < 0 ? $64+0x100000000 : $64)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($65 < 0 ? $65+0x100000000 : $65)))))))];
+	case 0x1: return [9, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+8])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($95 = ((($94 = ((($93 = (1 << $1)&~0), ($93 < 0 ? $93+0x100000000 : $93)) + -1)&~0), ($94 < 0 ? $94+0x100000000 : $94)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($95 < 0 ? $95+0x100000000 : $95)))))))];
+	}
+if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x3f)<<24)) & 0x38c7ffff) == 0x2084ac0f)
+	switch(0) {
+	case 0x0: return [9, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+8])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($92 = ((($91 = ((($90 = (1 << $1)&~0), ($90 < 0 ? $90+0x100000000 : $90)) + -1)&~0), ($91 < 0 ? $91+0x100000000 : $91)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($92 < 0 ? $92+0x100000000 : $92)))))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)) & 0xc7ffff) == 0x84ac0f)
 	switch(0) {
-	case 0x0: return [9, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))), u32(Or(u32(LSR($0, ($1 = (b[i+8])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($35 = ((($34 = ((($33 = (1 << $1)&~0), ($33 < 0 ? $33+0x100000000 : $33)) + -1)&~0), ($34 < 0 ? $34+0x100000000 : $34)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($35 < 0 ? $35+0x100000000 : $35)))))))];
+	case 0x0: return [9, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+8])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($89 = ((($88 = ((($87 = (1 << $1)&~0), ($87 < 0 ? $87+0x100000000 : $87)) + -1)&~0), ($88 < 0 ? $88+0x100000000 : $88)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($89 < 0 ? $89+0x100000000 : $89)))))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x3f)<<24)) & 0x3f47c0ff) == 0x2504800f)
 	switch((b[i+1]|(b[i+2]<<8)) & 0x803f) {
-	case 0x10: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), F1[0])];
-	case 0x8010: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[0])];
-	case 0x11: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Not(F1[0])))];
-	case 0x8011: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[0])))];
-	case 0x12: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), F1[1])];
-	case 0x8012: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[1])];
-	case 0x13: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Not(F1[1])))];
-	case 0x8013: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[1])))];
-	case 0x14: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), F1[2])];
-	case 0x8014: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[2])];
-	case 0x15: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Not(F1[2])))];
-	case 0x8015: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[2])))];
-	case 0x16: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Or(F1[1], F1[2])))];
-	case 0x8016: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F1[1], F1[2])))];
-	case 0x17: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x8017: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x18: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), F1[3])];
-	case 0x8018: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[3])];
-	case 0x19: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Not(F1[3])))];
-	case 0x8019: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[3])))];
-	case 0x1a: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), F1[4])];
-	case 0x801a: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[4])];
-	case 0x1b: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Not(F1[4])))];
-	case 0x801b: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[4])))];
-	case 0x1c: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x801c: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x1d: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), Eq(F1[0], F1[3]))];
-	case 0x801d: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), Eq(F1[0], F1[3]))];
-	case 0x1e: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x801e: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x1f: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
-	case 0x801f: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
+	case 0x10: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), F[0])];
+	case 0x8010: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[0])];
+	case 0x11: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Not(F[0])))];
+	case 0x8011: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[0])))];
+	case 0x12: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), F[1])];
+	case 0x8012: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[1])];
+	case 0x13: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Not(F[1])))];
+	case 0x8013: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[1])))];
+	case 0x14: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), F[2])];
+	case 0x8014: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[2])];
+	case 0x15: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Not(F[2])))];
+	case 0x8015: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[2])))];
+	case 0x16: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Or(F[1], F[2])))];
+	case 0x8016: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F[1], F[2])))];
+	case 0x17: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x8017: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x18: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), F[3])];
+	case 0x8018: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[3])];
+	case 0x19: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Not(F[3])))];
+	case 0x8019: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[3])))];
+	case 0x1a: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), F[4])];
+	case 0x801a: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[4])];
+	case 0x1b: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Not(F[4])))];
+	case 0x801b: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[4])))];
+	case 0x1c: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x801c: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x1d: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), Eq(F[0], F[3]))];
+	case 0x801d: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), Eq(F[0], F[3]))];
+	case 0x1e: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x801e: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x1f: return [8, Mov(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
+	case 0x801f: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
 	case 0x2d: return [8, Mov(($0 = u32(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
 	case 0x802d: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x2f: return [8, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))];
+	case 0x802f: return [8, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))))];
 	case 0x36: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
 	case 0x8036: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))];
 	case 0x37: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
 	case 0x8037: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))];
-	}
-if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x7)<<24)) & 0x747c0ff) == 0x504800f)
-	switch((b[i+1]|(b[i+2]<<8)) & 0x803f) {
-	case 0x10: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[0])];
-	case 0x8010: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), F1[0])];
-	case 0x11: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[0])))];
-	case 0x8011: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), u1(Not(F1[0])))];
-	case 0x12: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[1])];
-	case 0x8012: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), F1[1])];
-	case 0x13: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[1])))];
-	case 0x8013: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), u1(Not(F1[1])))];
-	case 0x14: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[2])];
-	case 0x8014: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), F1[2])];
-	case 0x15: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[2])))];
-	case 0x8015: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), u1(Not(F1[2])))];
-	case 0x16: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F1[1], F1[2])))];
-	case 0x8016: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), u1(Or(F1[1], F1[2])))];
-	case 0x17: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x8017: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x18: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[3])];
-	case 0x8018: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), F1[3])];
-	case 0x19: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[3])))];
-	case 0x8019: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), u1(Not(F1[3])))];
-	case 0x1a: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[4])];
-	case 0x801a: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), F1[4])];
-	case 0x1b: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[4])))];
-	case 0x801b: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), u1(Not(F1[4])))];
-	case 0x1c: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x801c: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x1d: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), Eq(F1[0], F1[3]))];
-	case 0x801d: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), Eq(F1[0], F1[3]))];
-	case 0x1e: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x801e: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x1f: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
-	case 0x801f: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
-	case 0x2d: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
-	case 0x802d: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
-	case 0x36: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))];
-	case 0x8036: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))))];
-	case 0x37: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))];
-	case 0x8037: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))))];
+	case 0x3e: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))];
+	case 0x803e: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))];
+	case 0x3f: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))];
+	case 0x803f: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(u32(Add(R32[5], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x3f)<<24)) & 0x38c7c0ff) == 0x2084800f)
 	switch(((b[i+1] & 0x3f)) & 0x3f) {
-	case 0x10: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[0])];
-	case 0x11: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[0])))];
-	case 0x12: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[1])];
-	case 0x13: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[1])))];
-	case 0x14: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[2])];
-	case 0x15: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[2])))];
-	case 0x16: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F1[1], F1[2])))];
-	case 0x17: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x18: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[3])];
-	case 0x19: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[3])))];
-	case 0x1a: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[4])];
-	case 0x1b: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[4])))];
-	case 0x1c: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x1d: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), Eq(F1[0], F1[3]))];
-	case 0x1e: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x1f: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
+	case 0x10: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[0])];
+	case 0x11: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[0])))];
+	case 0x12: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[1])];
+	case 0x13: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[1])))];
+	case 0x14: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[2])];
+	case 0x15: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[2])))];
+	case 0x16: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F[1], F[2])))];
+	case 0x17: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x18: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[3])];
+	case 0x19: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[3])))];
+	case 0x1a: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[4])];
+	case 0x1b: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[4])))];
+	case 0x1c: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x1d: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), Eq(F[0], F[3]))];
+	case 0x1e: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x1f: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
 	case 0x2d: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x2f: return [8, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))))];
 	case 0x36: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))];
 	case 0x37: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))];
+	case 0x3e: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))];
+	case 0x3f: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(u32(Add(R32[((b[i+3] & 0x7))], (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))];
+	}
+if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x7)<<24)) & 0x747c0ff) == 0x504800f)
+	switch((b[i+1]|(b[i+2]<<8)) & 0x803f) {
+	case 0x10: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[0])];
+	case 0x8010: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), F[0])];
+	case 0x11: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[0])))];
+	case 0x8011: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), u1(Not(F[0])))];
+	case 0x12: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[1])];
+	case 0x8012: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), F[1])];
+	case 0x13: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[1])))];
+	case 0x8013: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), u1(Not(F[1])))];
+	case 0x14: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[2])];
+	case 0x8014: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), F[2])];
+	case 0x15: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[2])))];
+	case 0x8015: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), u1(Not(F[2])))];
+	case 0x16: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F[1], F[2])))];
+	case 0x8016: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), u1(Or(F[1], F[2])))];
+	case 0x17: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x8017: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x18: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[3])];
+	case 0x8018: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), F[3])];
+	case 0x19: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[3])))];
+	case 0x8019: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), u1(Not(F[3])))];
+	case 0x1a: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[4])];
+	case 0x801a: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), F[4])];
+	case 0x1b: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[4])))];
+	case 0x801b: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), u1(Not(F[4])))];
+	case 0x1c: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x801c: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x1d: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), Eq(F[0], F[3]))];
+	case 0x801d: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), Eq(F[0], F[3]))];
+	case 0x1e: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x801e: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x1f: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
+	case 0x801f: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
+	case 0x2d: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x802d: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x2f: return [8, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))))];
+	case 0x802f: return [8, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))))))))];
+	case 0x36: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))];
+	case 0x8036: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))))];
+	case 0x37: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))];
+	case 0x8037: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))))];
+	case 0x3e: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))];
+	case 0x803e: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))))))];
+	case 0x3f: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))];
+	case 0x803f: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)|((b[i+2] & 0x7f)<<16)) & 0x46c0ff) == 0x4800f)
 	switch((b[i+1]|(b[i+2]<<8)) & 0x813f) {
-	case 0x8010: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[0])];
-	case 0x8011: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[0])))];
-	case 0x8012: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[1])];
-	case 0x8013: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[1])))];
-	case 0x8014: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[2])];
-	case 0x8015: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[2])))];
-	case 0x8016: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F1[1], F1[2])))];
-	case 0x8017: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x8018: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[3])];
-	case 0x8019: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[3])))];
-	case 0x801a: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F1[4])];
-	case 0x801b: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F1[4])))];
-	case 0x801c: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x801d: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), Eq(F1[0], F1[3]))];
-	case 0x801e: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x801f: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
-	case 0x12c: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Or(u32(LSR($0, ($1 = (b[i+7])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($47 = ((($46 = ((($45 = (1 << $1)&~0), ($45 < 0 ? $45+0x100000000 : $45)) + -1)&~0), ($46 < 0 ? $46+0x100000000 : $46)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($47 < 0 ? $47+0x100000000 : $47)))))))];
+	case 0x8010: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[0])];
+	case 0x8011: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[0])))];
+	case 0x8012: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[1])];
+	case 0x8013: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[1])))];
+	case 0x8014: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[2])];
+	case 0x8015: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[2])))];
+	case 0x8016: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F[1], F[2])))];
+	case 0x8017: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x8018: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[3])];
+	case 0x8019: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[3])))];
+	case 0x801a: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), F[4])];
+	case 0x801b: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(F[4])))];
+	case 0x801c: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x801d: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), Eq(F[0], F[3]))];
+	case 0x801e: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x801f: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
+	case 0x12c: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Or(u32(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($101 = ((($100 = ((($99 = (1 << $1)&~0), ($99 < 0 ? $99+0x100000000 : $99)) + -1)&~0), ($100 < 0 ? $100+0x100000000 : $100)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($101 < 0 ? $101+0x100000000 : $101)))))))];
 	case 0x802d: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x802f: return [8, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))))];
 	case 0x8036: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))];
 	case 0x8037: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))))];
+	case 0x803e: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))];
+	case 0x803f: return [8, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)) & 0xc0ffff) == 0x80ac0f)
 	switch(0) {
-	case 0x0: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, ($1 = (b[i+7])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($32 = ((($31 = ((($30 = (1 << $1)&~0), ($30 < 0 ? $30+0x100000000 : $30)) + -1)&~0), ($31 < 0 ? $31+0x100000000 : $31)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($32 < 0 ? $32+0x100000000 : $32)))))))];
+	case 0x0: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($86 = ((($85 = ((($84 = (1 << $1)&~0), ($84 < 0 ? $84+0x100000000 : $84)) + -1)&~0), ($85 < 0 ? $85+0x100000000 : $85)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($86 < 0 ? $86+0x100000000 : $86)))))))];
 	}
 if(((((b[i+0] & 0xf8)>>>3)|(b[i+1]<<5)|((b[i+2] & 0x3f)<<13)) & 0x7e0f1) == 0x4a090)
 	switch((b[i+0]|(b[i+1]<<8)) & 0xf877) {
-	case 0x0: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, (b[i+7]))))];
-	case 0x8000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (b[i+7]))))];
-	case 0x4001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Add($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0x2: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, (b[i+7]))))];
-	case 0x8002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (b[i+7]))))];
-	case 0x3: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, (b[i+7]))))];
-	case 0x8003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (b[i+7]))))];
-	case 0x800: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Or($0, (b[i+7]))))];
-	case 0x8800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, (b[i+7]))))];
-	case 0x4801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Or($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0x802: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Or($0, (b[i+7]))))];
-	case 0x8802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, (b[i+7]))))];
-	case 0x803: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Or($0, (b[i+7]))))];
-	case 0x8803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, (b[i+7]))))];
-	case 0x1000: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x9000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x5001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Add($0, u32(Add((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)), F1[1])))))];
-	case 0x1002: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x9002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x1003: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x9003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x1800: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add(($1 = (b[i+7])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x9800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = (b[i+7])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x5801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), i32(Add(($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1802: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add(($1 = (b[i+7])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x9802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = (b[i+7])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1803: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add(($1 = (b[i+7])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x9803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = (b[i+7])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x2000: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(And($0, (b[i+7]))))];
-	case 0xa000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, (b[i+7]))))];
-	case 0x6001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(And($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0x2002: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(And($0, (b[i+7]))))];
-	case 0xa002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, (b[i+7]))))];
-	case 0x2003: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(And($0, (b[i+7]))))];
-	case 0xa003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (b[i+7]))))];
-	case 0x2800: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0xa800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0x6801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Add($0, (-($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))&~0))))];
-	case 0x2802: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0xa802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0x2803: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0xa803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0x3000: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Xor($0, (b[i+7]))))];
-	case 0xb000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (b[i+7]))))];
-	case 0x7001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Xor($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0x3002: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Xor($0, (b[i+7]))))];
-	case 0xb002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (b[i+7]))))];
-	case 0x3003: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Xor($0, (b[i+7]))))];
-	case 0xb003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, (b[i+7]))))];
-	case 0x3800: return [8, Mov(F1[2], Eq(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0xb800: return [8, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0x7801: return [8, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), ($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))),Mov(F1[1], Lt($0, $1))];
-	case 0x3802: return [8, Mov(F1[2], Eq(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0xb802: return [8, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3803: return [8, Mov(F1[2], Eq(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0xb803: return [8, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0x46: return [8, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), (b[i+7]))];
-	case 0x8046: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]))];
-	case 0x4047: return [8, Mov(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))];
-	case 0x40: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Or(u8(LSL($0, ($1 = (b[i+7])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x8040: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, ($1 = (b[i+7])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x41: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Or(u32(LSL($0, ($1 = (b[i+7])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x8041: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, ($1 = (b[i+7])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x840: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Or(u8(LSR($0, ($1 = (b[i+7])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x8840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, ($1 = (b[i+7])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x841: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Or(u32(LSR($0, ($1 = (b[i+7])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x8841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, ($1 = (b[i+7])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x2040: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(LSL($0, (b[i+7]))))];
-	case 0xa040: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, (b[i+7]))))];
-	case 0x2041: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(LSL($0, (b[i+7]))))];
-	case 0xa041: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, (b[i+7]))))];
-	case 0x2840: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(LSR($0, (b[i+7]))))];
-	case 0xa840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, (b[i+7]))))];
-	case 0x2841: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(LSR($0, (b[i+7]))))];
-	case 0xa841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, (b[i+7]))))];
-	case 0x3840: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(ASR($0, (b[i+7]))))];
-	case 0xb840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, (b[i+7]))))];
-	case 0x3841: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(ASR($0, (b[i+7]))))];
-	case 0xb841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, (b[i+7]))))];
-	case 0x76: return [8, Mov(F1[2], Eq(And(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), (b[i+7])), 0))];
-	case 0x8076: return [8, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7])), 0))];
-	case 0x4077: return [8, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))), 0))];
-	}
-if(((((b[i+0] & 0xf8)>>>3)|(b[i+1]<<5)|((b[i+2] & 0x7)<<13)) & 0xe0f1) == 0xa090)
-	switch((b[i+0]|(b[i+1]<<8)) & 0xf877) {
-	case 0x0: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (b[i+7]))))];
-	case 0x8000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add($0, (b[i+7]))))];
-	case 0x4001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Add($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0x2: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (b[i+7]))))];
-	case 0x8002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add($0, (b[i+7]))))];
-	case 0x3: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (b[i+7]))))];
-	case 0x8003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Add($0, (b[i+7]))))];
-	case 0x800: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, (b[i+7]))))];
-	case 0x8800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Or($0, (b[i+7]))))];
-	case 0x4801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Or($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0x802: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, (b[i+7]))))];
-	case 0x8802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Or($0, (b[i+7]))))];
-	case 0x803: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, (b[i+7]))))];
-	case 0x8803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Or($0, (b[i+7]))))];
-	case 0x1000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x9000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x5001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Add($0, u32(Add((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)), F1[1])))))];
-	case 0x1002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x9002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x1003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x9003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x1800: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = (b[i+7])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x9800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add(($1 = (b[i+7])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x5801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), i32(Add(($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1802: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = (b[i+7])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x9802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add(($1 = (b[i+7])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1803: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = (b[i+7])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x9803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Add(($1 = (b[i+7])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x2000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, (b[i+7]))))];
-	case 0xa000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(And($0, (b[i+7]))))];
-	case 0x6001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(And($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0x2002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, (b[i+7]))))];
-	case 0xa002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(And($0, (b[i+7]))))];
-	case 0x2003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (b[i+7]))))];
-	case 0xa003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(And($0, (b[i+7]))))];
-	case 0x2800: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0xa800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0x6801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Add($0, (-($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))&~0))))];
-	case 0x2802: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0xa802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0x2803: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0xa803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0x3000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (b[i+7]))))];
-	case 0xb000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Xor($0, (b[i+7]))))];
-	case 0x7001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Xor($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0x3002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (b[i+7]))))];
-	case 0xb002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Xor($0, (b[i+7]))))];
-	case 0x3003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, (b[i+7]))))];
-	case 0xb003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Xor($0, (b[i+7]))))];
-	case 0x3800: return [8, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0xb800: return [8, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0x7801: return [8, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), ($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))),Mov(F1[1], Lt($0, $1))];
-	case 0x3802: return [8, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0xb802: return [8, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3803: return [8, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0xb803: return [8, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0x46: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]))];
-	case 0x8046: return [8, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), (b[i+7]))];
-	case 0x4047: return [8, Mov(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))];
-	case 0x40: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, ($1 = (b[i+7])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x8040: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Or(u8(LSL($0, ($1 = (b[i+7])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x41: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, ($1 = (b[i+7])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x8041: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Or(u32(LSL($0, ($1 = (b[i+7])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x840: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, ($1 = (b[i+7])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x8840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Or(u8(LSR($0, ($1 = (b[i+7])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x841: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, ($1 = (b[i+7])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x8841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Or(u32(LSR($0, ($1 = (b[i+7])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x2040: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, (b[i+7]))))];
-	case 0xa040: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(LSL($0, (b[i+7]))))];
-	case 0x2041: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, (b[i+7]))))];
-	case 0xa041: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(LSL($0, (b[i+7]))))];
-	case 0x2840: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, (b[i+7]))))];
-	case 0xa840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(LSR($0, (b[i+7]))))];
-	case 0x2841: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, (b[i+7]))))];
-	case 0xa841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(LSR($0, (b[i+7]))))];
-	case 0x3840: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, (b[i+7]))))];
-	case 0xb840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(ASR($0, (b[i+7]))))];
-	case 0x3841: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, (b[i+7]))))];
-	case 0xb841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(ASR($0, (b[i+7]))))];
-	case 0x76: return [8, Mov(F1[2], Eq(And(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7])), 0))];
-	case 0x8076: return [8, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), (b[i+7])), 0))];
-	case 0x4077: return [8, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))), 0))];
+	case 0x0: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x8000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x4001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Add($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
+	case 0x2: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x8002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x3: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x8003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x800: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x8800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x4801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Or($0, (($12 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))&~0), ($12 < 0 ? $12+0x100000000 : $12)))))];
+	case 0x802: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x8802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x803: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x8803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x1000: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, u8(Add((((b[i+7])<<24)>>24), u8(F[1]))))))];
+	case 0x9000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((((b[i+7])<<24)>>24), u8(F[1]))))))];
+	case 0x5001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Add($0, u32(Add((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)), u32(F[1]))))))];
+	case 0x1002: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, u8(Add((((b[i+7])<<24)>>24), u8(F[1]))))))];
+	case 0x9002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((((b[i+7])<<24)>>24), u8(F[1]))))))];
+	case 0x1003: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, u32(Add((((b[i+7])<<24)>>24), u32(F[1]))))))];
+	case 0x9003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add((((b[i+7])<<24)>>24), u32(F[1]))))))];
+	case 0x1800: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x9800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x5801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x1802: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x9802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1803: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x9803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x2000: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(And($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0xa000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x6001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(And($0, (($29 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))&~0), ($29 < 0 ? $29+0x100000000 : $29)))))];
+	case 0x2002: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(And($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0xa002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x2003: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(And($0, (($41 = (((b[i+7])<<24)>>24)&~0), ($41 < 0 ? $41+0x100000000 : $41)))))];
+	case 0xa003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (($51 = (((b[i+7])<<24)>>24)&~0), ($51 < 0 ? $51+0x100000000 : $51)))))];
+	case 0x2800: return [8, Mov(F[2], Eq(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0xa800: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x6801: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), ($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
+	case 0x2802: return [8, Mov(F[2], Eq(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0xa802: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2803: return [8, Mov(F[2], Eq(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0xa803: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0x3000: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0xb000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0x7001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Xor($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
+	case 0x3002: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0xb002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0x3003: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0xb003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0x3800: return [8, Mov(F[2], Eq(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0xb800: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x7801: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), ($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))),Mov(F[1], Lt($0, $1))];
+	case 0x3802: return [8, Mov(F[2], Eq(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0xb802: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3803: return [8, Mov(F[2], Eq(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0xb803: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x46: return [8, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), (((b[i+7])<<24)>>24))];
+	case 0x8046: return [8, Mov(u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (((b[i+7])<<24)>>24))];
+	case 0x4047: return [8, Mov(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))];
+	case 0x40: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Or(u8(LSL($0, ($1 = (((b[i+7])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x8040: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, ($1 = (((b[i+7])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x41: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Or(u32(LSL($0, ($1 = (((b[i+7])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x8041: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, ($1 = (((b[i+7])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x840: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Or(u8(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x8840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x841: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Or(u32(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x8841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x2040: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(LSL($0, (((b[i+7])<<24)>>24))))];
+	case 0xa040: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, (((b[i+7])<<24)>>24))))];
+	case 0x2041: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(LSL($0, (((b[i+7])<<24)>>24))))];
+	case 0xa041: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, (((b[i+7])<<24)>>24))))];
+	case 0x2840: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(LSR($0, (((b[i+7])<<24)>>24))))];
+	case 0xa840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, (((b[i+7])<<24)>>24))))];
+	case 0x2841: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(LSR($0, (((b[i+7])<<24)>>24))))];
+	case 0xa841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, (((b[i+7])<<24)>>24))))];
+	case 0x3840: return [8, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(ASR($0, (((b[i+7])<<24)>>24))))];
+	case 0xb840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, (((b[i+7])<<24)>>24))))];
+	case 0x3841: return [8, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(ASR($0, (((b[i+7])<<24)>>24))))];
+	case 0xb841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, (((b[i+7])<<24)>>24))))];
+	case 0x76: return [8, Mov(F[2], Eq(And(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), (((b[i+7])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x8076: return [8, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (((b[i+7])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x4077: return [8, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	}
 if(((((b[i+0] & 0xf8)>>>3)|(b[i+1]<<5)|((b[i+2] & 0x3f)<<13)) & 0x700f1) == 0x40090)
 	switch((b[i+0]|(b[i+1]<<8)) & 0xf877) {
-	case 0x8000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (b[i+7]))))];
-	case 0x4001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Add($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0x8002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (b[i+7]))))];
-	case 0x8003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (b[i+7]))))];
-	case 0x8800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, (b[i+7]))))];
-	case 0x4801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Or($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0x8802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, (b[i+7]))))];
-	case 0x8803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, (b[i+7]))))];
-	case 0x9000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x5001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Add($0, u32(Add((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)), F1[1])))))];
-	case 0x9002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x9003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x9800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = (b[i+7])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x5801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), i32(Add(($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x9802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = (b[i+7])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x9803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = (b[i+7])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0xa000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, (b[i+7]))))];
-	case 0x6001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(And($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0xa002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, (b[i+7]))))];
-	case 0xa003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (b[i+7]))))];
-	case 0xa800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0x6801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Add($0, (-($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))&~0))))];
-	case 0xa802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0xa803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0xb000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (b[i+7]))))];
-	case 0x7001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Xor($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0xb002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (b[i+7]))))];
-	case 0xb003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, (b[i+7]))))];
-	case 0xb800: return [8, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0x7801: return [8, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), ($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))),Mov(F1[1], Lt($0, $1))];
-	case 0xb802: return [8, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0xb803: return [8, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0x8046: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]))];
-	case 0x4047: return [8, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))];
-	case 0x8040: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, ($1 = (b[i+7])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x8041: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, ($1 = (b[i+7])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x8840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, ($1 = (b[i+7])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x8841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, ($1 = (b[i+7])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0xa040: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, (b[i+7]))))];
-	case 0xa041: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, (b[i+7]))))];
-	case 0xa840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, (b[i+7]))))];
-	case 0xa841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, (b[i+7]))))];
-	case 0xb840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, (b[i+7]))))];
-	case 0xb841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, (b[i+7]))))];
-	case 0x8076: return [8, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7])), 0))];
-	case 0x4077: return [8, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))), 0))];
+	case 0x8000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x4001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Add($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
+	case 0x8002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x8003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x8800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x4801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Or($0, (($10 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))&~0), ($10 < 0 ? $10+0x100000000 : $10)))))];
+	case 0x8802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x8803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x9000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((((b[i+7])<<24)>>24), u8(F[1]))))))];
+	case 0x5001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Add($0, u32(Add((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)), u32(F[1]))))))];
+	case 0x9002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((((b[i+7])<<24)>>24), u8(F[1]))))))];
+	case 0x9003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add((((b[i+7])<<24)>>24), u32(F[1]))))))];
+	case 0x9800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x5801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x9802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x9803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0xa000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x6001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(And($0, (($27 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))&~0), ($27 < 0 ? $27+0x100000000 : $27)))))];
+	case 0xa002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0xa003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (($49 = (((b[i+7])<<24)>>24)&~0), ($49 < 0 ? $49+0x100000000 : $49)))))];
+	case 0xa800: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x6801: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), ($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
+	case 0xa802: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0xa803: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0xb000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0x7001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Xor($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
+	case 0xb002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0xb003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0xb800: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x7801: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), ($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))),Mov(F[1], Lt($0, $1))];
+	case 0xb802: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0xb803: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x8046: return [8, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (((b[i+7])<<24)>>24))];
+	case 0x4047: return [8, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))];
+	case 0x8040: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, ($1 = (((b[i+7])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x8041: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, ($1 = (((b[i+7])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x8840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x8841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0xa040: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, (((b[i+7])<<24)>>24))))];
+	case 0xa041: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, (((b[i+7])<<24)>>24))))];
+	case 0xa840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, (((b[i+7])<<24)>>24))))];
+	case 0xa841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, (((b[i+7])<<24)>>24))))];
+	case 0xb840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, (((b[i+7])<<24)>>24))))];
+	case 0xb841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, (((b[i+7])<<24)>>24))))];
+	case 0x8076: return [8, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (((b[i+7])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x4077: return [8, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	}
+if(((((b[i+0] & 0xf8)>>>3)|(b[i+1]<<5)|((b[i+2] & 0x7)<<13)) & 0xe0f1) == 0xa090)
+	switch((b[i+0]|(b[i+1]<<8)) & 0xf877) {
+	case 0x0: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x8000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x4001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Add($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
+	case 0x2: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x8002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x3: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x8003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x800: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x8800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x4801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Or($0, (($11 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))&~0), ($11 < 0 ? $11+0x100000000 : $11)))))];
+	case 0x802: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x8802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x803: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x8803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x1000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((((b[i+7])<<24)>>24), u8(F[1]))))))];
+	case 0x9000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Add($0, u8(Add((((b[i+7])<<24)>>24), u8(F[1]))))))];
+	case 0x5001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Add($0, u32(Add((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)), u32(F[1]))))))];
+	case 0x1002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((((b[i+7])<<24)>>24), u8(F[1]))))))];
+	case 0x9002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Add($0, u8(Add((((b[i+7])<<24)>>24), u8(F[1]))))))];
+	case 0x1003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add((((b[i+7])<<24)>>24), u32(F[1]))))))];
+	case 0x9003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Add($0, u32(Add((((b[i+7])<<24)>>24), u32(F[1]))))))];
+	case 0x1800: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x9800: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x5801: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x1802: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x9802: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1803: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x9803: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x2000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0xa000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(And($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x6001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(And($0, (($28 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))&~0), ($28 < 0 ? $28+0x100000000 : $28)))))];
+	case 0x2002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0xa002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(And($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x2003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (($40 = (((b[i+7])<<24)>>24)&~0), ($40 < 0 ? $40+0x100000000 : $40)))))];
+	case 0xa003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(And($0, (($50 = (((b[i+7])<<24)>>24)&~0), ($50 < 0 ? $50+0x100000000 : $50)))))];
+	case 0x2800: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0xa800: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x6801: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), ($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
+	case 0x2802: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0xa802: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2803: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0xa803: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0x3000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0xb000: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0x7001: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Xor($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
+	case 0x3002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0xb002: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0x3003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0xb003: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0x3800: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0xb800: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x7801: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), ($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))),Mov(F[1], Lt($0, $1))];
+	case 0x3802: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0xb802: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3803: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0xb803: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x46: return [8, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (((b[i+7])<<24)>>24))];
+	case 0x8046: return [8, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), (((b[i+7])<<24)>>24))];
+	case 0x4047: return [8, Mov(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))];
+	case 0x40: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, ($1 = (((b[i+7])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x8040: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Or(u8(LSL($0, ($1 = (((b[i+7])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x41: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, ($1 = (((b[i+7])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x8041: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Or(u32(LSL($0, ($1 = (((b[i+7])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x840: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x8840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Or(u8(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x841: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x8841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x2040: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, (((b[i+7])<<24)>>24))))];
+	case 0xa040: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(LSL($0, (((b[i+7])<<24)>>24))))];
+	case 0x2041: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, (((b[i+7])<<24)>>24))))];
+	case 0xa041: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(LSL($0, (((b[i+7])<<24)>>24))))];
+	case 0x2840: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, (((b[i+7])<<24)>>24))))];
+	case 0xa840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(LSR($0, (((b[i+7])<<24)>>24))))];
+	case 0x2841: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, (((b[i+7])<<24)>>24))))];
+	case 0xa841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(LSR($0, (((b[i+7])<<24)>>24))))];
+	case 0x3840: return [8, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, (((b[i+7])<<24)>>24))))];
+	case 0xb840: return [8, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(ASR($0, (((b[i+7])<<24)>>24))))];
+	case 0x3841: return [8, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, (((b[i+7])<<24)>>24))))];
+	case 0xb841: return [8, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(ASR($0, (((b[i+7])<<24)>>24))))];
+	case 0x76: return [8, Mov(F[2], Eq(And(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (((b[i+7])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x8076: return [8, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), (((b[i+7])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x4077: return [8, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	}
 if(((((b[i+0] & 0xf8)>>>3)|((b[i+1] & 0x7)<<5)) & 0xf1) == 0x90)
 	switch((b[i+0]|(b[i+1]<<8)) & 0xf877) {
-	case 0x8000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (b[i+7]))))];
-	case 0x4001: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Add($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0x8002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (b[i+7]))))];
-	case 0x8003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (b[i+7]))))];
-	case 0x8800: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, (b[i+7]))))];
-	case 0x4801: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Or($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0x8802: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, (b[i+7]))))];
-	case 0x8803: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, (b[i+7]))))];
-	case 0x9000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x5001: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Add($0, u32(Add((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)), F1[1])))))];
-	case 0x9002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x9003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u8(Add((b[i+7]), F1[1])))))];
-	case 0x9800: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = (b[i+7])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x5801: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), i32(Add(($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x9802: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = (b[i+7])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x9803: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = (b[i+7])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0xa000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, (b[i+7]))))];
-	case 0x6001: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(And($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0xa002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, (b[i+7]))))];
-	case 0xa003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (b[i+7]))))];
-	case 0xa800: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0x6801: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Add($0, (-($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))&~0))))];
-	case 0xa802: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0xa803: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, ((-($1 = (b[i+7]))<<24)>>>24))))];
-	case 0xb000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (b[i+7]))))];
-	case 0x7001: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Xor($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
-	case 0xb002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (b[i+7]))))];
-	case 0xb003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, (b[i+7]))))];
-	case 0xb800: return [8, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0x7801: return [8, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), ($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))),Mov(F1[1], Lt($0, $1))];
-	case 0xb802: return [8, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0xb803: return [8, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (b[i+7])))),Mov(F1[1], Lt($0, $1))];
-	case 0x8046: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7]))];
-	case 0x4047: return [8, Mov(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))];
-	case 0x8040: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, ($1 = (b[i+7])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x8041: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, ($1 = (b[i+7])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x8840: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, ($1 = (b[i+7])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x8841: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, ($1 = (b[i+7])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0xa040: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, (b[i+7]))))];
-	case 0xa041: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, (b[i+7]))))];
-	case 0xa840: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, (b[i+7]))))];
-	case 0xa841: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, (b[i+7]))))];
-	case 0xb840: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, (b[i+7]))))];
-	case 0xb841: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, (b[i+7]))))];
-	case 0x8076: return [8, Mov(F1[2], Eq(And(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (b[i+7])), 0))];
-	case 0x4077: return [8, Mov(F1[2], Eq(And(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))), 0))];
+	case 0x8000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x4001: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Add($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
+	case 0x8002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x8003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, (((b[i+7])<<24)>>24))))];
+	case 0x8800: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x4801: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Or($0, (($9 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))&~0), ($9 < 0 ? $9+0x100000000 : $9)))))];
+	case 0x8802: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x8803: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x9000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((((b[i+7])<<24)>>24), u8(F[1]))))))];
+	case 0x5001: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Add($0, u32(Add((b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)), u32(F[1]))))))];
+	case 0x9002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add((((b[i+7])<<24)>>24), u8(F[1]))))))];
+	case 0x9003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add((((b[i+7])<<24)>>24), u32(F[1]))))))];
+	case 0x9800: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x5801: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x9802: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x9803: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+7])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0xa000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0x6001: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(And($0, (($26 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))&~0), ($26 < 0 ? $26+0x100000000 : $26)))))];
+	case 0xa002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, ((((b[i+7])<<24)>>24)&0xff))))];
+	case 0xa003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, (($48 = (((b[i+7])<<24)>>24)&~0), ($48 < 0 ? $48+0x100000000 : $48)))))];
+	case 0xa800: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x6801: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), ($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
+	case 0xa802: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0xa803: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0xb000: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0x7001: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Xor($0, (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))))];
+	case 0xb002: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0xb003: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, (((b[i+7])<<24)>>24))))];
+	case 0xb800: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x7801: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), ($1 = (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))))),Mov(F[1], Lt($0, $1))];
+	case 0xb802: return [8, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0xb803: return [8, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), ($1 = (((b[i+7])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x8046: return [8, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (((b[i+7])<<24)>>24))];
+	case 0x4047: return [8, Mov(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24)))];
+	case 0x8040: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, ($1 = (((b[i+7])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x8041: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, ($1 = (((b[i+7])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x8840: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x8841: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+7])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0xa040: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, (((b[i+7])<<24)>>24))))];
+	case 0xa041: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, (((b[i+7])<<24)>>24))))];
+	case 0xa840: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, (((b[i+7])<<24)>>24))))];
+	case 0xa841: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, (((b[i+7])<<24)>>24))))];
+	case 0xb840: return [8, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, (((b[i+7])<<24)>>24))))];
+	case 0xb841: return [8, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, (((b[i+7])<<24)>>24))))];
+	case 0x8076: return [8, Mov(F[2], Eq(And(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), (((b[i+7])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x4077: return [8, Mov(F[2], Eq(And(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), (b[i+4]|(b[i+5]<<8)|(b[i+6]<<16)|(b[i+7]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)) & 0xc7c0ff) == 0x5800f)
 	switch(((b[i+1] & 0x3f)) & 0x3f) {
-	case 0x10: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), F1[0])];
-	case 0x11: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Not(F1[0])))];
-	case 0x12: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), F1[1])];
-	case 0x13: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Not(F1[1])))];
-	case 0x14: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), F1[2])];
-	case 0x15: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Not(F1[2])))];
-	case 0x16: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Or(F1[1], F1[2])))];
-	case 0x17: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x18: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), F1[3])];
-	case 0x19: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Not(F1[3])))];
-	case 0x1a: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), F1[4])];
-	case 0x1b: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Not(F1[4])))];
-	case 0x1c: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x1d: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), Eq(F1[0], F1[3]))];
-	case 0x1e: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x1f: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
+	case 0x10: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), F[0])];
+	case 0x11: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Not(F[0])))];
+	case 0x12: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), F[1])];
+	case 0x13: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Not(F[1])))];
+	case 0x14: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), F[2])];
+	case 0x15: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Not(F[2])))];
+	case 0x16: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Or(F[1], F[2])))];
+	case 0x17: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x18: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), F[3])];
+	case 0x19: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Not(F[3])))];
+	case 0x1a: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), F[4])];
+	case 0x1b: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Not(F[4])))];
+	case 0x1c: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x1d: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), Eq(F[0], F[3]))];
+	case 0x1e: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x1f: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
 	case 0x2d: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x2f: return [7, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))];
 	case 0x36: return [7, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
 	case 0x37: return [7, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
+	case 0x3e: return [7, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))];
+	case 0x3f: return [7, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))];
+	}
+if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x3f)<<10)) & 0xfd1d) == 0x9410)
+	switch((b[i+0]|(b[i+1]<<8)) & 0x80bf) {
+	case 0x0: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8000: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x1: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x2: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x8002: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x3: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x8003: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x8: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8008: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x9: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8009: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0xa: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x800a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0xb: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x800b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x10: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x8010: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x8011: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u8(F[1]))))))];
+	case 0x8012: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u8(F[1]))))))];
+	case 0x13: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), u32(F[1]))))))];
+	case 0x8013: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u32(F[1]))))))];
+	case 0x18: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x8018: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x19: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x8019: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x1a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x801a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x801b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x20: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8020: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x21: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8021: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x22: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x8022: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x23: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x8023: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x28: return [7, Mov(F[2], Eq(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x8028: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [7, Mov(F[2], Eq(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x8029: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [7, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x802a: return [7, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x2b: return [7, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
+	case 0x802b: return [7, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
+	case 0x30: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8030: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x31: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8031: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x32: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x8032: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x33: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x8033: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x38: return [7, Mov(F[2], Eq(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x8038: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [7, Mov(F[2], Eq(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x8039: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [7, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x803a: return [7, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x3b: return [7, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x803b: return [7, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x84: return [7, Mov(F[2], Eq(And(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x8084: return [7, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [7, Mov(F[2], Eq(And(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x8085: return [7, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x86: return [7, Swap(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8086: return [7, Swap(u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x87: return [7, Swap(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8087: return [7, Swap(u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x88: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8088: return [7, Mov(u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x89: return [7, Mov(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8089: return [7, Mov(u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
+	case 0x808a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x8b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
+	case 0x808b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x8c: return [7, Mov(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), RS[(((b[i+1] & 0x38)>>>3))])];
+	case 0x808c: return [7, Mov(u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), RS[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8d: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))];
+	case 0x808d: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))];
+	case 0x8e: return [7, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
+	case 0x808e: return [7, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	}
+if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)) & 0xc0c0ff) == 0x80800f)
+	switch(((b[i+1] & 0x3f)) & 0x3f) {
+	case 0x10: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F[0])];
+	case 0x11: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Not(F[0])))];
+	case 0x12: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F[1])];
+	case 0x13: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Not(F[1])))];
+	case 0x14: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F[2])];
+	case 0x15: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Not(F[2])))];
+	case 0x16: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Or(F[1], F[2])))];
+	case 0x17: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x18: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F[3])];
+	case 0x19: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Not(F[3])))];
+	case 0x1a: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F[4])];
+	case 0x1b: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Not(F[4])))];
+	case 0x1c: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x1d: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), Eq(F[0], F[3]))];
+	case 0x1e: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x1f: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
+	case 0x2d: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x2f: return [7, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))];
+	case 0x36: return [7, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x37: return [7, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x3e: return [7, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))];
+	case 0x3f: return [7, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))];
+	}
+if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x7)<<10)) & 0x1d1d) == 0x1410)
+	switch((b[i+0]|(b[i+1]<<8)) & 0x80bf) {
+	case 0x0: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8000: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x1: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x2: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x8002: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
+	case 0x3: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x8003: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
+	case 0x8: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8008: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x9: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8009: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0xa: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x800a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
+	case 0xb: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x800b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
+	case 0x10: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x8010: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x8011: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u8(F[1]))))))];
+	case 0x8012: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(F[1]))))))];
+	case 0x13: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u32(F[1]))))))];
+	case 0x8013: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(F[1]))))))];
+	case 0x18: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x8018: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x19: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x8019: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x1a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x801a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x801b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x20: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8020: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x21: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8021: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x22: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x8022: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
+	case 0x23: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x8023: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
+	case 0x28: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x8028: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x8029: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [7, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x802a: return [7, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x2b: return [7, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
+	case 0x802b: return [7, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
+	case 0x30: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8030: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x31: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x8031: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x32: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x8032: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
+	case 0x33: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x8033: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
+	case 0x38: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x8038: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x8039: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [7, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x803a: return [7, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x3b: return [7, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x803b: return [7, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x84: return [7, Mov(F[2], Eq(And(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x8084: return [7, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [7, Mov(F[2], Eq(And(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x8085: return [7, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x86: return [7, Swap(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8086: return [7, Swap(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x87: return [7, Swap(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8087: return [7, Swap(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x88: return [7, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8088: return [7, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x89: return [7, Mov(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8089: return [7, Mov(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x808a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))];
+	case 0x8b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x808b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))];
+	case 0x8c: return [7, Mov(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), RS[(((b[i+1] & 0x38)>>>3))])];
+	case 0x808c: return [7, Mov(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), RS[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8d: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))];
+	case 0x808d: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x8e: return [7, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x808e: return [7, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))];
+	}
+if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x3f)<<10)) & 0xe31d) == 0x8210)
+	switch((b[i+0]) & 0xbf) {
+	case 0x0: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x1: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x2: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x3: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x8: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x9: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0xa: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0xb: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x10: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u8(F[1]))))))];
+	case 0x13: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u32(F[1]))))))];
+	case 0x18: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x19: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x1a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x20: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x21: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x22: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x23: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x28: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [7, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x2b: return [7, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
+	case 0x30: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x31: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x32: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x33: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x38: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [7, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x3b: return [7, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x84: return [7, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [7, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x86: return [7, Swap(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x87: return [7, Swap(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x88: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x89: return [7, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x8b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x8c: return [7, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), RS[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8d: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))];
+	case 0x8e: return [7, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
 	}
 if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x3f)<<9)) & 0x7e8f) == 0x4a09)
 	switch((b[i+0]|(b[i+1]<<8)) & 0xb87f) {
@@ -1215,10 +1547,10 @@ if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x3f)<<9)) & 0x7e8f) == 0x4a09
 	case 0x9076: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Not($0)))];
 	case 0x1077: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Not($0)))];
 	case 0x9077: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Not($0)))];
-	case 0x1876: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), i8(Neg($0)))];
-	case 0x9876: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i8(Neg($0)))];
-	case 0x1877: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), i32(Neg($0)))];
-	case 0x9877: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i32(Neg($0)))];
+	case 0x1876: return [7, Mov(F[1], u1(Not(Eq(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x9876: return [7, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x1877: return [7, Mov(F[1], u1(Not(Eq(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), 0)))),Mov($0, i32(Neg($0)))];
+	case 0x9877: return [7, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), 0)))),Mov($0, i32(Neg($0)))];
 	case 0x2076: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
 	case 0xa076: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
 	case 0x2077: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
@@ -1242,471 +1574,16 @@ if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x3f)<<9)) & 0x7e8f) == 0x4a09
 	case 0x307f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
 	case 0xb07f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
 	}
-if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x7)<<9)) & 0xe8f) == 0xa09)
-	switch((b[i+0]|(b[i+1]<<8)) & 0xb87f) {
-	case 0xf: return [7, Mov(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
-	case 0x800f: return [7, Mov(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
-	case 0x50: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
-	case 0x8050: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
-	case 0x51: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
-	case 0x8051: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
-	case 0x52: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x8052: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x53: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x8053: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x850: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
-	case 0x8850: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
-	case 0x851: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
-	case 0x8851: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
-	case 0x852: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x8852: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x853: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x8853: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x2050: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, 1)))];
-	case 0xa050: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(LSL($0, 1)))];
-	case 0x2051: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, 1)))];
-	case 0xa051: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(LSL($0, 1)))];
-	case 0x2052: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, R8[1])))];
-	case 0xa052: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(LSL($0, R8[1])))];
-	case 0x2053: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, R8[1])))];
-	case 0xa053: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(LSL($0, R8[1])))];
-	case 0x2850: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, 1)))];
-	case 0xa850: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(LSR($0, 1)))];
-	case 0x2851: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, 1)))];
-	case 0xa851: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(LSR($0, 1)))];
-	case 0x2852: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, R8[1])))];
-	case 0xa852: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(LSR($0, R8[1])))];
-	case 0x2853: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, R8[1])))];
-	case 0xa853: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(LSR($0, R8[1])))];
-	case 0x3850: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, 1)))];
-	case 0xb850: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(ASR($0, 1)))];
-	case 0x3851: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, 1)))];
-	case 0xb851: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(ASR($0, 1)))];
-	case 0x3852: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, R8[1])))];
-	case 0xb852: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(ASR($0, R8[1])))];
-	case 0x3853: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, R8[1])))];
-	case 0xb853: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(ASR($0, R8[1])))];
-	case 0x1076: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Not($0)))];
-	case 0x9076: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Not($0)))];
-	case 0x1077: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Not($0)))];
-	case 0x9077: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Not($0)))];
-	case 0x1876: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i8(Neg($0)))];
-	case 0x9876: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), i8(Neg($0)))];
-	case 0x1877: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i32(Neg($0)))];
-	case 0x9877: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), i32(Neg($0)))];
-	case 0x2076: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0xa076: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))];
-	case 0x2077: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0xa077: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))];
-	case 0x2876: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0xa876: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))];
-	case 0x2877: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0xa877: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))];
-	case 0x7e: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, 1)))];
-	case 0x807e: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add($0, 1)))];
-	case 0x7f: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, 1)))];
-	case 0x807f: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Add($0, 1)))];
-	case 0x87e: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, -1)))];
-	case 0x887e: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add($0, -1)))];
-	case 0x87f: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, -1)))];
-	case 0x887f: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Add($0, -1)))];
-	case 0x107f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 7))),Mov(R32[8], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x907f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 7))),Mov(R32[8], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x207f: return [7, Mov(R32[8], u32(Add(R32[8], 7)))];
-	case 0xa07f: return [7, Mov(R32[8], u32(Add(R32[8], 7)))];
-	case 0x307f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0xb07f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	}
-if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x3f)<<10)) & 0xfd1d) == 0x9410)
-	switch((b[i+0]|(b[i+1]<<8)) & 0x80bf) {
-	case 0x0: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8000: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x1: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x2: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x8002: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x3: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x8003: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x8: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8008: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x9: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8009: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0xa: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x800a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0xb: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x800b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x10: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x8010: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x8011: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), F1[1])))))];
-	case 0x8012: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F1[1])))))];
-	case 0x13: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), F1[1])))))];
-	case 0x8013: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F1[1])))))];
-	case 0x18: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x8018: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x8019: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x801a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x801b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x20: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8020: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x21: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8021: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x22: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x8022: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x23: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x8023: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x28: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x8028: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x8029: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))];
-	case 0x802a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
-	case 0x2b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))];
-	case 0x802b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
-	case 0x30: return [7, Mov(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8030: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x31: return [7, Mov(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8031: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x32: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x8032: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x33: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x8033: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x38: return [7, Mov(F1[2], Eq(($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x8038: return [7, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [7, Mov(F1[2], Eq(($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x8039: return [7, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [7, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x803a: return [7, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x3b: return [7, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x803b: return [7, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x84: return [7, Mov(F1[2], Eq(And(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x8084: return [7, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [7, Mov(F1[2], Eq(And(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x8085: return [7, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x86: return [7, Swap(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8086: return [7, Swap(u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x87: return [7, Swap(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8087: return [7, Swap(u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x88: return [7, Mov(u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8088: return [7, Mov(u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x89: return [7, Mov(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8089: return [7, Mov(u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0x808a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x8b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0x808b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x8c: return [7, Mov(u32(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))), RS[(((b[i+1] & 0x38)>>>3))])];
-	case 0x808c: return [7, Mov(u32(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), RS[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8d: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))];
-	case 0x808d: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))];
-	case 0x8e: return [7, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0x808e: return [7, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	}
-if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x7)<<10)) & 0x1d1d) == 0x1410)
-	switch((b[i+0]|(b[i+1]<<8)) & 0x80bf) {
-	case 0x0: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8000: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x1: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x2: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x8002: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))];
-	case 0x3: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x8003: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))];
-	case 0x8: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8008: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x9: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8009: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0xa: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x800a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))];
-	case 0xb: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x800b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))];
-	case 0x10: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x8010: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x8011: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F1[1])))))];
-	case 0x8012: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), F1[1])))))];
-	case 0x13: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F1[1])))))];
-	case 0x8013: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), F1[1])))))];
-	case 0x18: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x8018: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x8019: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x801a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x801b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x20: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8020: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x21: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8021: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x22: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x8022: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))];
-	case 0x23: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x8023: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))];
-	case 0x28: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x8028: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x8029: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
-	case 0x802a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))))];
-	case 0x2b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
-	case 0x802b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))))];
-	case 0x30: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8030: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x31: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x8031: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x32: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x8032: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))];
-	case 0x33: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x8033: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))];
-	case 0x38: return [7, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x8038: return [7, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [7, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x8039: return [7, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [7, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x803a: return [7, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x3b: return [7, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x803b: return [7, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x84: return [7, Mov(F1[2], Eq(And(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x8084: return [7, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [7, Mov(F1[2], Eq(And(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x8085: return [7, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x86: return [7, Swap(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8086: return [7, Swap(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x87: return [7, Swap(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8087: return [7, Swap(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x88: return [7, Mov(u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8088: return [7, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x89: return [7, Mov(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8089: return [7, Mov(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x808a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x8b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x808b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x8c: return [7, Mov(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), RS[(((b[i+1] & 0x38)>>>3))])];
-	case 0x808c: return [7, Mov(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))), RS[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8d: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))];
-	case 0x808d: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))];
-	case 0x8e: return [7, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x808e: return [7, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	}
-if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x3f)<<10)) & 0xe31d) == 0x8210)
-	switch((b[i+0]) & 0xbf) {
-	case 0x0: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x1: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x2: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x3: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x8: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x9: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0xa: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0xb: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x10: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F1[1])))))];
-	case 0x13: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F1[1])))))];
-	case 0x18: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x20: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x21: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x22: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x23: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x28: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
-	case 0x2b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
-	case 0x30: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x31: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x32: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x33: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x38: return [7, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [7, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [7, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x3b: return [7, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x84: return [7, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [7, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x86: return [7, Swap(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x87: return [7, Swap(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x88: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x89: return [7, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x8b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x8c: return [7, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), RS[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8d: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))];
-	case 0x8e: return [7, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	}
-if(((((b[i+0] & 0xf8)>>>3)) & 0x11) == 0x10)
-	switch((b[i+0]|(b[i+1]<<8)) & 0xf877) {
-	case 0x8000: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add($0, (b[i+6]))))];
-	case 0x4001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Add($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0x8002: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add($0, (b[i+6]))))];
-	case 0x8003: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add($0, (b[i+6]))))];
-	case 0x8800: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Or($0, (b[i+6]))))];
-	case 0x4801: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Or($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0x8802: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Or($0, (b[i+6]))))];
-	case 0x8803: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Or($0, (b[i+6]))))];
-	case 0x9000: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add($0, u8(Add((b[i+6]), F1[1])))))];
-	case 0x5001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Add($0, u32(Add((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)), F1[1])))))];
-	case 0x9002: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add($0, u8(Add((b[i+6]), F1[1])))))];
-	case 0x9003: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add($0, u8(Add((b[i+6]), F1[1])))))];
-	case 0x9800: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add(($1 = (b[i+6])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x5801: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), i32(Add(($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x9802: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add(($1 = (b[i+6])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x9803: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add(($1 = (b[i+6])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0xa000: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(And($0, (b[i+6]))))];
-	case 0x6001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(And($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0xa002: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(And($0, (b[i+6]))))];
-	case 0xa003: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(And($0, (b[i+6]))))];
-	case 0xa800: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add($0, ((-($1 = (b[i+6]))<<24)>>>24))))];
-	case 0x6801: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Add($0, (-($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))&~0))))];
-	case 0xa802: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add($0, ((-($1 = (b[i+6]))<<24)>>>24))))];
-	case 0xa803: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add($0, ((-($1 = (b[i+6]))<<24)>>>24))))];
-	case 0xb000: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Xor($0, (b[i+6]))))];
-	case 0x7001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Xor($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0xb002: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Xor($0, (b[i+6]))))];
-	case 0xb003: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Xor($0, (b[i+6]))))];
-	case 0xb800: return [7, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), ($1 = (b[i+6])))),Mov(F1[1], Lt($0, $1))];
-	case 0x7801: return [7, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), ($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))),Mov(F1[1], Lt($0, $1))];
-	case 0xb802: return [7, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), ($1 = (b[i+6])))),Mov(F1[1], Lt($0, $1))];
-	case 0xb803: return [7, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), ($1 = (b[i+6])))),Mov(F1[1], Lt($0, $1))];
-	case 0x8046: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), (b[i+6]))];
-	case 0x4047: return [7, Mov(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))];
-	case 0x8040: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Or(u8(LSL($0, ($1 = (b[i+6])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x8041: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Or(u32(LSL($0, ($1 = (b[i+6])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x8840: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Or(u8(LSR($0, ($1 = (b[i+6])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x8841: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Or(u32(LSR($0, ($1 = (b[i+6])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0xa040: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(LSL($0, (b[i+6]))))];
-	case 0xa041: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(LSL($0, (b[i+6]))))];
-	case 0xa840: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(LSR($0, (b[i+6]))))];
-	case 0xa841: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(LSR($0, (b[i+6]))))];
-	case 0xb840: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(ASR($0, (b[i+6]))))];
-	case 0xb841: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(ASR($0, (b[i+6]))))];
-	case 0x8076: return [7, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), (b[i+6])), 0))];
-	case 0x4077: return [7, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))), 0))];
-	}
-if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)) & 0xc0c0ff) == 0x80800f)
-	switch(((b[i+1] & 0x3f)) & 0x3f) {
-	case 0x10: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F1[0])];
-	case 0x11: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Not(F1[0])))];
-	case 0x12: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F1[1])];
-	case 0x13: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Not(F1[1])))];
-	case 0x14: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F1[2])];
-	case 0x15: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Not(F1[2])))];
-	case 0x16: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Or(F1[1], F1[2])))];
-	case 0x17: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x18: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F1[3])];
-	case 0x19: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Not(F1[3])))];
-	case 0x1a: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F1[4])];
-	case 0x1b: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Not(F1[4])))];
-	case 0x1c: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x1d: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), Eq(F1[0], F1[3]))];
-	case 0x1e: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x1f: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
-	case 0x2d: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
-	case 0x36: return [7, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0x37: return [7, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	}
-if(((((b[i+0] & 0x80)>>>7)|((b[i+1] & 0x7f)<<1)) & 0x8d) == 0x9)
-	switch((b[i+0]|(b[i+1]<<8)) & 0xb97f) {
-	case 0x100: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, (b[i+6]))))];
-	case 0x1: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0x102: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, (b[i+6]))))];
-	case 0x103: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, (b[i+6]))))];
-	case 0x900: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Or($0, (b[i+6]))))];
-	case 0x801: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Or($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0x902: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Or($0, (b[i+6]))))];
-	case 0x903: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Or($0, (b[i+6]))))];
-	case 0x1100: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, u8(Add((b[i+6]), F1[1])))))];
-	case 0x1001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add($0, u32(Add((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)), F1[1])))))];
-	case 0x1102: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, u8(Add((b[i+6]), F1[1])))))];
-	case 0x1103: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, u8(Add((b[i+6]), F1[1])))))];
-	case 0x1900: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add(($1 = (b[i+6])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1801: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), i32(Add(($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1902: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add(($1 = (b[i+6])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1903: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add(($1 = (b[i+6])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x2100: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(And($0, (b[i+6]))))];
-	case 0x2001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(And($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0x2102: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(And($0, (b[i+6]))))];
-	case 0x2103: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(And($0, (b[i+6]))))];
-	case 0x2900: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, ((-($1 = (b[i+6]))<<24)>>>24))))];
-	case 0x2801: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add($0, (-($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))&~0))))];
-	case 0x2902: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, ((-($1 = (b[i+6]))<<24)>>>24))))];
-	case 0x2903: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, ((-($1 = (b[i+6]))<<24)>>>24))))];
-	case 0x3100: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Xor($0, (b[i+6]))))];
-	case 0x3001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Xor($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0x3102: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Xor($0, (b[i+6]))))];
-	case 0x3103: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Xor($0, (b[i+6]))))];
-	case 0x3900: return [7, Mov(F1[2], Eq(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), ($1 = (b[i+6])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3801: return [7, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), ($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))),Mov(F1[1], Lt($0, $1))];
-	case 0x3902: return [7, Mov(F1[2], Eq(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), ($1 = (b[i+6])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3903: return [7, Mov(F1[2], Eq(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), ($1 = (b[i+6])))),Mov(F1[1], Lt($0, $1))];
-	case 0x800f: return [7, Mov(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
-	case 0x146: return [7, Mov(u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), (b[i+6]))];
-	case 0x47: return [7, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))];
-	case 0x140: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Or(u8(LSL($0, ($1 = (b[i+6])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x141: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Or(u32(LSL($0, ($1 = (b[i+6])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x8050: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
-	case 0x8051: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
-	case 0x8052: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x8053: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x940: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Or(u8(LSR($0, ($1 = (b[i+6])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x941: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Or(u32(LSR($0, ($1 = (b[i+6])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x8850: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
-	case 0x8851: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
-	case 0x8852: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x8853: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x2140: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(LSL($0, (b[i+6]))))];
-	case 0x2141: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(LSL($0, (b[i+6]))))];
-	case 0xa050: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, 1)))];
-	case 0xa051: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, 1)))];
-	case 0xa052: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, R8[1])))];
-	case 0xa053: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, R8[1])))];
-	case 0x2940: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(LSR($0, (b[i+6]))))];
-	case 0x2941: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(LSR($0, (b[i+6]))))];
-	case 0xa850: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, 1)))];
-	case 0xa851: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, 1)))];
-	case 0xa852: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, R8[1])))];
-	case 0xa853: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, R8[1])))];
-	case 0x3940: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(ASR($0, (b[i+6]))))];
-	case 0x3941: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(ASR($0, (b[i+6]))))];
-	case 0xb850: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, 1)))];
-	case 0xb851: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, 1)))];
-	case 0xb852: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, R8[1])))];
-	case 0xb853: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, R8[1])))];
-	case 0x176: return [7, Mov(F1[2], Eq(And(u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), (b[i+6])), 0))];
-	case 0x77: return [7, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))), 0))];
-	case 0x9076: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Not($0)))];
-	case 0x9077: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Not($0)))];
-	case 0x9876: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i8(Neg($0)))];
-	case 0x9877: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i32(Neg($0)))];
-	case 0xa076: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0xa077: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0xa876: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0xa877: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x807e: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, 1)))];
-	case 0x807f: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, 1)))];
-	case 0x887e: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, -1)))];
-	case 0x887f: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, -1)))];
-	case 0x907f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 7))),Mov(R32[8], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	case 0xa07f: return [7, Mov(R32[8], u32(Add(R32[8], 7)))];
-	case 0xb07f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
-	}
 if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x3f)<<9)) & 0x708f) == 0x4009)
 	switch((b[i+0]|(b[i+1]<<8)) & 0xb87f) {
 	case 0x1: return [7, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0x801: return [7, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0x1001: return [7, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, u32(Add((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)), F1[1])))))];
-	case 0x1801: return [7, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), i32(Add(($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x2001: return [7, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(And($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0x2801: return [7, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, (-($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))&~0))))];
+	case 0x801: return [7, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or($0, (($5 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))&~0), ($5 < 0 ? $5+0x100000000 : $5)))))];
+	case 0x1001: return [7, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, u32(Add((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)), u32(F[1]))))))];
+	case 0x1801: return [7, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x2001: return [7, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(And($0, (($22 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))&~0), ($22 < 0 ? $22+0x100000000 : $22)))))];
+	case 0x2801: return [7, Mov(F[2], Eq(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), ($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
 	case 0x3001: return [7, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Xor($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
-	case 0x3801: return [7, Mov(F1[2], Eq(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), ($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))),Mov(F1[1], Lt($0, $1))];
+	case 0x3801: return [7, Mov(F[2], Eq(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), ($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))),Mov(F[1], Lt($0, $1))];
 	case 0x800f: return [7, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
 	case 0x47: return [7, Mov(u32(Mem(R32[((b[i+2] & 0x7))])), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))];
 	case 0x8050: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
@@ -1729,11 +1606,11 @@ if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x3f)<<9)) & 0x708f) == 0x4009
 	case 0xb851: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, 1)))];
 	case 0xb852: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, R8[1])))];
 	case 0xb853: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, R8[1])))];
-	case 0x77: return [7, Mov(F1[2], Eq(And(u32(Mem(R32[((b[i+2] & 0x7))])), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))), 0))];
+	case 0x77: return [7, Mov(F[2], Eq(And(u32(Mem(R32[((b[i+2] & 0x7))])), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	case 0x9076: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Not($0)))];
 	case 0x9077: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Not($0)))];
-	case 0x9876: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i8(Neg($0)))];
-	case 0x9877: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i32(Neg($0)))];
+	case 0x9876: return [7, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x9877: return [7, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), 0)))),Mov($0, i32(Neg($0)))];
 	case 0xa076: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
 	case 0xa077: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
 	case 0xa876: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
@@ -1746,6 +1623,215 @@ if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x3f)<<9)) & 0x708f) == 0x4009
 	case 0xa07f: return [7, Mov(R32[8], u32(Add(R32[8], 7)))];
 	case 0xb07f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
 	}
+if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x7)<<9)) & 0xe8f) == 0xa09)
+	switch((b[i+0]|(b[i+1]<<8)) & 0xb87f) {
+	case 0xf: return [7, Mov(u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
+	case 0x800f: return [7, Mov(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
+	case 0x50: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
+	case 0x8050: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
+	case 0x51: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
+	case 0x8051: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
+	case 0x52: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x8052: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x53: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x8053: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x850: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
+	case 0x8850: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
+	case 0x851: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
+	case 0x8851: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
+	case 0x852: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x8852: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x853: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x8853: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x2050: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, 1)))];
+	case 0xa050: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(LSL($0, 1)))];
+	case 0x2051: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, 1)))];
+	case 0xa051: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(LSL($0, 1)))];
+	case 0x2052: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, R8[1])))];
+	case 0xa052: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(LSL($0, R8[1])))];
+	case 0x2053: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, R8[1])))];
+	case 0xa053: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(LSL($0, R8[1])))];
+	case 0x2850: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, 1)))];
+	case 0xa850: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(LSR($0, 1)))];
+	case 0x2851: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, 1)))];
+	case 0xa851: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(LSR($0, 1)))];
+	case 0x2852: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, R8[1])))];
+	case 0xa852: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(LSR($0, R8[1])))];
+	case 0x2853: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, R8[1])))];
+	case 0xa853: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(LSR($0, R8[1])))];
+	case 0x3850: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, 1)))];
+	case 0xb850: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(ASR($0, 1)))];
+	case 0x3851: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, 1)))];
+	case 0xb851: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(ASR($0, 1)))];
+	case 0x3852: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, R8[1])))];
+	case 0xb852: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(ASR($0, R8[1])))];
+	case 0x3853: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, R8[1])))];
+	case 0xb853: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(ASR($0, R8[1])))];
+	case 0x1076: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Not($0)))];
+	case 0x9076: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Not($0)))];
+	case 0x1077: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Not($0)))];
+	case 0x9077: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Not($0)))];
+	case 0x1876: return [7, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x9876: return [7, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x1877: return [7, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), 0)))),Mov($0, i32(Neg($0)))];
+	case 0x9877: return [7, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), 0)))),Mov($0, i32(Neg($0)))];
+	case 0x2076: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0xa076: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
+	case 0x2077: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0xa077: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
+	case 0x2876: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0xa876: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
+	case 0x2877: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0xa877: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
+	case 0x7e: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, 1)))];
+	case 0x807e: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Add($0, 1)))];
+	case 0x7f: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, 1)))];
+	case 0x807f: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Add($0, 1)))];
+	case 0x87e: return [7, Mov(($0 = u8(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, -1)))];
+	case 0x887e: return [7, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u8(Add($0, -1)))];
+	case 0x87f: return [7, Mov(($0 = u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, -1)))];
+	case 0x887f: return [7, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))), u32(Add($0, -1)))];
+	case 0x107f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 7))),Mov(R32[8], u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0x907f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 7))),Mov(R32[8], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))];
+	case 0x207f: return [7, Mov(R32[8], u32(Add(R32[8], 7)))];
+	case 0xa07f: return [7, Mov(R32[8], u32(Add(R32[8], 7)))];
+	case 0x307f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0xb07f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))];
+	}
+if(((((b[i+0] & 0x80)>>>7)|((b[i+1] & 0x7f)<<1)) & 0x8d) == 0x9)
+	switch((b[i+0]|(b[i+1]<<8)) & 0xb97f) {
+	case 0x100: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, (((b[i+6])<<24)>>24))))];
+	case 0x1: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
+	case 0x102: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, (((b[i+6])<<24)>>24))))];
+	case 0x103: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, (((b[i+6])<<24)>>24))))];
+	case 0x900: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Or($0, ((((b[i+6])<<24)>>24)&0xff))))];
+	case 0x801: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Or($0, (($4 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))&~0), ($4 < 0 ? $4+0x100000000 : $4)))))];
+	case 0x902: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Or($0, ((((b[i+6])<<24)>>24)&0xff))))];
+	case 0x903: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Or($0, ((((b[i+6])<<24)>>24)&0xff))))];
+	case 0x1100: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, u8(Add((((b[i+6])<<24)>>24), u8(F[1]))))))];
+	case 0x1001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add($0, u32(Add((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)), u32(F[1]))))))];
+	case 0x1102: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, u8(Add((((b[i+6])<<24)>>24), u8(F[1]))))))];
+	case 0x1103: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, u32(Add((((b[i+6])<<24)>>24), u32(F[1]))))))];
+	case 0x1900: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+6])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1801: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x1902: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+6])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1903: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+6])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x2100: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(And($0, ((((b[i+6])<<24)>>24)&0xff))))];
+	case 0x2001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(And($0, (($21 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))&~0), ($21 < 0 ? $21+0x100000000 : $21)))))];
+	case 0x2102: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(And($0, ((((b[i+6])<<24)>>24)&0xff))))];
+	case 0x2103: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(And($0, (($52 = (((b[i+6])<<24)>>24)&~0), ($52 < 0 ? $52+0x100000000 : $52)))))];
+	case 0x2900: return [7, Mov(F[2], Eq(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), ($1 = (((b[i+6])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2801: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), ($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
+	case 0x2902: return [7, Mov(F[2], Eq(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), ($1 = (((b[i+6])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2903: return [7, Mov(F[2], Eq(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), ($1 = (((b[i+6])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0x3100: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Xor($0, (((b[i+6])<<24)>>24))))];
+	case 0x3001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Xor($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
+	case 0x3102: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Xor($0, (((b[i+6])<<24)>>24))))];
+	case 0x3103: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Xor($0, (((b[i+6])<<24)>>24))))];
+	case 0x3900: return [7, Mov(F[2], Eq(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), ($1 = (((b[i+6])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3801: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), ($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))),Mov(F[1], Lt($0, $1))];
+	case 0x3902: return [7, Mov(F[2], Eq(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), ($1 = (((b[i+6])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3903: return [7, Mov(F[2], Eq(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), ($1 = (((b[i+6])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x800f: return [7, Mov(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
+	case 0x146: return [7, Mov(u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), (((b[i+6])<<24)>>24))];
+	case 0x47: return [7, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))];
+	case 0x140: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Or(u8(LSL($0, ($1 = (((b[i+6])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x141: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Or(u32(LSL($0, ($1 = (((b[i+6])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x8050: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
+	case 0x8051: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
+	case 0x8052: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x8053: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x940: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Or(u8(LSR($0, ($1 = (((b[i+6])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x941: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Or(u32(LSR($0, ($1 = (((b[i+6])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x8850: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
+	case 0x8851: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
+	case 0x8852: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x8853: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x2140: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(LSL($0, (((b[i+6])<<24)>>24))))];
+	case 0x2141: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(LSL($0, (((b[i+6])<<24)>>24))))];
+	case 0xa050: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, 1)))];
+	case 0xa051: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, 1)))];
+	case 0xa052: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSL($0, R8[1])))];
+	case 0xa053: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSL($0, R8[1])))];
+	case 0x2940: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(LSR($0, (((b[i+6])<<24)>>24))))];
+	case 0x2941: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(LSR($0, (((b[i+6])<<24)>>24))))];
+	case 0xa850: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, 1)))];
+	case 0xa851: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, 1)))];
+	case 0xa852: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(LSR($0, R8[1])))];
+	case 0xa853: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(LSR($0, R8[1])))];
+	case 0x3940: return [7, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(ASR($0, (((b[i+6])<<24)>>24))))];
+	case 0x3941: return [7, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(ASR($0, (((b[i+6])<<24)>>24))))];
+	case 0xb850: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, 1)))];
+	case 0xb851: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, 1)))];
+	case 0xb852: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(ASR($0, R8[1])))];
+	case 0xb853: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(ASR($0, R8[1])))];
+	case 0x176: return [7, Mov(F[2], Eq(And(u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), (((b[i+6])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x77: return [7, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x9076: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Not($0)))];
+	case 0x9077: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Not($0)))];
+	case 0x9876: return [7, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x9877: return [7, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), 0)))),Mov($0, i32(Neg($0)))];
+	case 0xa076: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0xa077: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0xa876: return [7, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0xa877: return [7, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
+	case 0x807e: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, 1)))];
+	case 0x807f: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, 1)))];
+	case 0x887e: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, -1)))];
+	case 0x887f: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, -1)))];
+	case 0x907f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 7))),Mov(R32[8], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	case 0xa07f: return [7, Mov(R32[8], u32(Add(R32[8], 7)))];
+	case 0xb07f: return [7, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
+	}
+if(((((b[i+0] & 0xf8)>>>3)) & 0x11) == 0x10)
+	switch((b[i+0]|(b[i+1]<<8)) & 0xf877) {
+	case 0x8000: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add($0, (((b[i+6])<<24)>>24))))];
+	case 0x4001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Add($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
+	case 0x8002: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add($0, (((b[i+6])<<24)>>24))))];
+	case 0x8003: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add($0, (((b[i+6])<<24)>>24))))];
+	case 0x8800: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Or($0, ((((b[i+6])<<24)>>24)&0xff))))];
+	case 0x4801: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Or($0, (($8 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))&~0), ($8 < 0 ? $8+0x100000000 : $8)))))];
+	case 0x8802: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Or($0, ((((b[i+6])<<24)>>24)&0xff))))];
+	case 0x8803: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Or($0, ((((b[i+6])<<24)>>24)&0xff))))];
+	case 0x9000: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add($0, u8(Add((((b[i+6])<<24)>>24), u8(F[1]))))))];
+	case 0x5001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Add($0, u32(Add((b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)), u32(F[1]))))))];
+	case 0x9002: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add($0, u8(Add((((b[i+6])<<24)>>24), u8(F[1]))))))];
+	case 0x9003: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add($0, u32(Add((((b[i+6])<<24)>>24), u32(F[1]))))))];
+	case 0x9800: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+6])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x5801: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x9802: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+6])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x9803: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+6])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0xa000: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(And($0, ((((b[i+6])<<24)>>24)&0xff))))];
+	case 0x6001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(And($0, (($25 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))&~0), ($25 < 0 ? $25+0x100000000 : $25)))))];
+	case 0xa002: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(And($0, ((((b[i+6])<<24)>>24)&0xff))))];
+	case 0xa003: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(And($0, (($47 = (((b[i+6])<<24)>>24)&~0), ($47 < 0 ? $47+0x100000000 : $47)))))];
+	case 0xa800: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), ($1 = (((b[i+6])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x6801: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), ($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
+	case 0xa802: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), ($1 = (((b[i+6])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0xa803: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), ($1 = (((b[i+6])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0xb000: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Xor($0, (((b[i+6])<<24)>>24))))];
+	case 0x7001: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Xor($0, (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))];
+	case 0xb002: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Xor($0, (((b[i+6])<<24)>>24))))];
+	case 0xb003: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Xor($0, (((b[i+6])<<24)>>24))))];
+	case 0xb800: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), ($1 = (((b[i+6])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x7801: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), ($1 = (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))),Mov(F[1], Lt($0, $1))];
+	case 0xb802: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), ($1 = (((b[i+6])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0xb803: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), ($1 = (((b[i+6])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x8046: return [7, Mov(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), (((b[i+6])<<24)>>24))];
+	case 0x4047: return [7, Mov(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))];
+	case 0x8040: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Or(u8(LSL($0, ($1 = (((b[i+6])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x8041: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Or(u32(LSL($0, ($1 = (((b[i+6])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x8840: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Or(u8(LSR($0, ($1 = (((b[i+6])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x8841: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+6])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0xa040: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(LSL($0, (((b[i+6])<<24)>>24))))];
+	case 0xa041: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(LSL($0, (((b[i+6])<<24)>>24))))];
+	case 0xa840: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(LSR($0, (((b[i+6])<<24)>>24))))];
+	case 0xa841: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(LSR($0, (((b[i+6])<<24)>>24))))];
+	case 0xb840: return [7, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(ASR($0, (((b[i+6])<<24)>>24))))];
+	case 0xb841: return [7, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(ASR($0, (((b[i+6])<<24)>>24))))];
+	case 0x8076: return [7, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), (((b[i+6])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x4077: return [7, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	}
 if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)) & 0x31d) == 0x210)
 	switch((b[i+0]) & 0xbf) {
 	case 0x0: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
@@ -1756,32 +1842,32 @@ if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)) & 0x31d) == 0x210)
 	case 0x9: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
 	case 0xa: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
 	case 0xb: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x10: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F1[1])))))];
-	case 0x13: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), F1[1])))))];
-	case 0x18: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
+	case 0x10: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u8(F[1]))))))];
+	case 0x13: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), u32(F[1]))))))];
+	case 0x18: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x19: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x1a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))))), i32(Neg(($2 = u32(F[1])))))))];
 	case 0x20: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x21: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x22: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
 	case 0x23: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x28: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
-	case 0x2b: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))))))];
+	case 0x28: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [7, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x2b: return [7, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
 	case 0x30: return [7, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x31: return [7, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x32: return [7, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
 	case 0x33: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))))];
-	case 0x38: return [7, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [7, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [7, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x3b: return [7, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x84: return [7, Mov(F1[2], Eq(And(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [7, Mov(F1[2], Eq(And(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
+	case 0x38: return [7, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [7, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [7, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x3b: return [7, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x84: return [7, Mov(F[2], Eq(And(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [7, Mov(F[2], Eq(And(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	case 0x86: return [7, Swap(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
 	case 0x87: return [7, Swap(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
 	case 0x88: return [7, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
@@ -1792,67 +1878,21 @@ if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)) & 0x31d) == 0x210)
 	case 0x8d: return [7, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24))))))];
 	case 0x8e: return [7, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (b[i+3]|(b[i+4]<<8)|(b[i+5]<<16)|(b[i+6]<<24)))))))];
 	}
-if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)) & 0x31d) == 0x14)
-	switch((b[i+0]) & 0xbf) {
-	case 0x0: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x1: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x2: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
-	case 0x3: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
-	case 0x8: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x9: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0xa: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
-	case 0xb: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
-	case 0x10: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), F1[1])))))];
-	case 0x13: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), F1[1])))))];
-	case 0x18: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x20: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x21: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x22: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
-	case 0x23: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
-	case 0x28: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))))))];
-	case 0x2b: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))))))];
-	case 0x30: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x31: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x32: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
-	case 0x33: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
-	case 0x38: return [6, Mov(F1[2], Eq(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [6, Mov(F1[2], Eq(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [6, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x3b: return [6, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x84: return [6, Mov(F1[2], Eq(And(u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [6, Mov(F1[2], Eq(And(u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x86: return [6, Swap(u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x87: return [6, Swap(u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x88: return [6, Mov(u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x89: return [6, Mov(u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8a: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
-	case 0x8b: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
-	case 0x8c: return [6, Mov(u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), RS[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8d: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))];
-	case 0x8e: return [6, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
-	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x3f)<<24)) & 0x3fc7ffff) == 0x2544ac0f)
 	switch(0) {
-	case 0x0: return [6, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24)))))), u32(Or(u32(LSR($0, ($1 = (b[i+5])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($29 = ((($28 = ((($27 = (1 << $1)&~0), ($27 < 0 ? $27+0x100000000 : $27)) + -1)&~0), ($28 < 0 ? $28+0x100000000 : $28)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($29 < 0 ? $29+0x100000000 : $29)))))))];
+	case 0x0: return [6, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24)))))), u32(Or(u32(LSR($0, ($1 = (((b[i+5])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($83 = ((($82 = ((($81 = (1 << $1)&~0), ($81 < 0 ? $81+0x100000000 : $81)) + -1)&~0), ($82 < 0 ? $82+0x100000000 : $82)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($83 < 0 ? $83+0x100000000 : $83)))))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x3f)<<24)) & 0x38c7ffff) == 0x2044ac0f)
 	switch(0) {
-	case 0x0: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24)))))), u32(Or(u32(LSR($0, ($1 = (b[i+5])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($23 = ((($22 = ((($21 = (1 << $1)&~0), ($21 < 0 ? $21+0x100000000 : $21)) + -1)&~0), ($22 < 0 ? $22+0x100000000 : $22)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($23 < 0 ? $23+0x100000000 : $23)))))))];
+	case 0x0: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24)))))), u32(Or(u32(LSR($0, ($1 = (((b[i+5])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($77 = ((($76 = ((($75 = (1 << $1)&~0), ($75 < 0 ? $75+0x100000000 : $75)) + -1)&~0), ($76 < 0 ? $76+0x100000000 : $76)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($77 < 0 ? $77+0x100000000 : $77)))))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x7)<<24)) & 0x7c7ffff) == 0x544ac0f)
 	switch(0) {
-	case 0x0: return [6, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24)))))))), u32(Or(u32(LSR($0, ($1 = (b[i+5])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($26 = ((($25 = ((($24 = (1 << $1)&~0), ($24 < 0 ? $24+0x100000000 : $24)) + -1)&~0), ($25 < 0 ? $25+0x100000000 : $25)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($26 < 0 ? $26+0x100000000 : $26)))))))];
+	case 0x0: return [6, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24))))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+5])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($80 = ((($79 = ((($78 = (1 << $1)&~0), ($78 < 0 ? $78+0x100000000 : $78)) + -1)&~0), ($79 < 0 ? $79+0x100000000 : $79)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($80 < 0 ? $80+0x100000000 : $80)))))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)) & 0xc7ffff) == 0x44ac0f)
 	switch(0) {
-	case 0x0: return [6, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24)))))), u32(Or(u32(LSR($0, ($1 = (b[i+5])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($20 = ((($19 = ((($18 = (1 << $1)&~0), ($18 < 0 ? $18+0x100000000 : $18)) + -1)&~0), ($19 < 0 ? $19+0x100000000 : $19)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($20 < 0 ? $20+0x100000000 : $20)))))))];
+	case 0x0: return [6, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24)))))), u32(Or(u32(LSR($0, ($1 = (((b[i+5])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($74 = ((($73 = ((($72 = (1 << $1)&~0), ($72 < 0 ? $72+0x100000000 : $72)) + -1)&~0), ($73 < 0 ? $73+0x100000000 : $73)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($74 < 0 ? $74+0x100000000 : $74)))))))];
 	}
 if(((((b[i+1] & 0x40)>>>6)) & 0x1) == 0x0)
 	switch((b[i+0]|(b[i+1]<<8)) & 0xbfff) {
@@ -1879,8 +1919,8 @@ if(((((b[i+1] & 0x40)>>>6)) & 0x1) == 0x0)
 	case 0x3dd3: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(ASR($0, R8[1])))];
 	case 0x15f6: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Not($0)))];
 	case 0x15f7: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Not($0)))];
-	case 0x1df6: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), i8(Neg($0)))];
-	case 0x1df7: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), i32(Neg($0)))];
+	case 0x1df6: return [6, Mov(F[1], u1(Not(Eq(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x1df7: return [6, Mov(F[1], u1(Not(Eq(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), 0)))),Mov($0, i32(Neg($0)))];
 	case 0x25f6: return [6, Mov(R16[0], u8(Mul(R8[0], u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
 	case 0x25f7: return [6, Mov(R32[0], u32(Mul(R32[0], u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
 	case 0x2df6: return [6, Mov(R16[0], u8(Mul(R8[0], u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
@@ -1892,41 +1932,87 @@ if(((((b[i+1] & 0x40)>>>6)) & 0x1) == 0x0)
 	case 0x15ff: return [6, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 6))),Mov(R32[8], u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
 	case 0x25ff: return [6, Mov(R32[8], u32(Add(R32[8], 6)))];
 	case 0x35ff: return [6, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
-	case 0x800f: return [6, If(F1[0], Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x810f: return [6, If(u1(Not(F1[0])), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x820f: return [6, If(F1[1], Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x830f: return [6, If(u1(Not(F1[1])), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x840f: return [6, If(F1[2], Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x850f: return [6, If(u1(Not(F1[2])), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x860f: return [6, If(u1(Or(F1[1], F1[2])), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x870f: return [6, If(u1(And(u1(Not(F1[1])), u1(Not(F1[2])))), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x880f: return [6, If(F1[3], Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x890f: return [6, If(u1(Not(F1[3])), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x8a0f: return [6, If(F1[4], Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x8b0f: return [6, If(u1(Not(F1[4])), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x8c0f: return [6, If(u1(Not(Eq(F1[0], F1[3]))), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x8d0f: return [6, If(Eq(F1[0], F1[3]), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x8e0f: return [6, If(u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
-	case 0x8f0f: return [6, If(u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x800f: return [6, If(F[0], Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x810f: return [6, If(u1(Not(F[0])), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x820f: return [6, If(F[1], Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x830f: return [6, If(u1(Not(F[1])), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x840f: return [6, If(F[2], Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x850f: return [6, If(u1(Not(F[2])), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x860f: return [6, If(u1(Or(F[1], F[2])), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x870f: return [6, If(u1(And(u1(Not(F[1])), u1(Not(F[2])))), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x880f: return [6, If(F[3], Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x890f: return [6, If(u1(Not(F[3])), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x8a0f: return [6, If(F[4], Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x8b0f: return [6, If(u1(Not(F[4])), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x8c0f: return [6, If(u1(Not(Eq(F[0], F[3]))), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x8d0f: return [6, If(Eq(F[0], F[3]), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x8e0f: return [6, If(u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	case 0x8f0f: return [6, If(u1(And(u1(Not(F[2])), Eq(F[0], F[3]))), Mov(R32[8], u32(Add(R32[8], (((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)) + 6)&~0)))))];
+	}
+if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)) & 0x31d) == 0x14)
+	switch((b[i+0]) & 0xbf) {
+	case 0x0: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x1: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x2: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
+	case 0x3: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
+	case 0x8: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x9: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0xa: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
+	case 0xb: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
+	case 0x10: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), u8(F[1]))))))];
+	case 0x13: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), u32(F[1]))))))];
+	case 0x18: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x19: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x1a: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1b: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x20: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x21: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x22: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
+	case 0x23: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
+	case 0x28: return [6, Mov(F[2], Eq(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [6, Mov(F[2], Eq(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [6, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x2b: return [6, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
+	case 0x30: return [6, Mov(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x31: return [6, Mov(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x32: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
+	case 0x33: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
+	case 0x38: return [6, Mov(F[2], Eq(($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [6, Mov(F[2], Eq(($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [6, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x3b: return [6, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x84: return [6, Mov(F[2], Eq(And(u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [6, Mov(F[2], Eq(And(u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x86: return [6, Swap(u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x87: return [6, Swap(u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x88: return [6, Mov(u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x89: return [6, Mov(u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8a: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
+	case 0x8b: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
+	case 0x8c: return [6, Mov(u32(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))), RS[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8d: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))];
+	case 0x8e: return [6, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
 	}
 if(((((b[i+0] & 0x80)>>>7)) & 0x1) == 0x1)
 	switch((b[i+0]|(b[i+1]<<8)) & 0xf87f) {
 	case 0x1: return [6, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add($0, (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
 	case 0xc001: return [6, Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
-	case 0x801: return [6, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Or($0, (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
-	case 0xc801: return [6, Mov(R32[((b[i+1] & 0x7))], u32(Or(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
-	case 0x1001: return [6, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add($0, u32(Add((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)), F1[1])))))];
-	case 0xd001: return [6, Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], u32(Add((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)), F1[1])))))];
-	case 0x1801: return [6, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), i32(Add(($1 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0xd801: return [6, Mov(R32[((b[i+1] & 0x7))], i32(Add(($0 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))), i32(Neg(($1 = u32(Add(u32(Add(R32[((b[i+1] & 0x7))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x2001: return [6, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(And($0, (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
-	case 0xe001: return [6, Mov(R32[((b[i+1] & 0x7))], u32(And(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
-	case 0x2801: return [6, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add($0, (-($1 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))&~0))))];
-	case 0xe801: return [6, Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], (-($0 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))&~0))))];
+	case 0x801: return [6, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Or($0, (($3 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))&~0), ($3 < 0 ? $3+0x100000000 : $3)))))];
+	case 0xc801: return [6, Mov(R32[((b[i+1] & 0x7))], u32(Or(R32[((b[i+1] & 0x7))], (($19 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))&~0), ($19 < 0 ? $19+0x100000000 : $19)))))];
+	case 0x1001: return [6, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add($0, u32(Add((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)), u32(F[1]))))))];
+	case 0xd001: return [6, Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], u32(Add((b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)), u32(F[1]))))))];
+	case 0x1801: return [6, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add(($1 = u32(Add($0, (-($2 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))&~0)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0xd801: return [6, Mov(R32[((b[i+1] & 0x7))], u32(Add(($0 = u32(Add(R32[((b[i+1] & 0x7))], (-($1 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))&~0)))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x2001: return [6, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(And($0, (($20 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))&~0), ($20 < 0 ? $20+0x100000000 : $20)))))];
+	case 0xe001: return [6, Mov(R32[((b[i+1] & 0x7))], u32(And(R32[((b[i+1] & 0x7))], (($36 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))&~0), ($36 < 0 ? $36+0x100000000 : $36)))))];
+	case 0x2801: return [6, Mov(F[2], Eq(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), ($1 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, (-$1&~0))))];
+	case 0xe801: return [6, Mov(F[2], Eq(R32[((b[i+1] & 0x7))], ($0 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))),Mov(F[1], Lt(R32[((b[i+1] & 0x7))], $0)),Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], (-$0&~0))))];
 	case 0x3001: return [6, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Xor($0, (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
 	case 0xf001: return [6, Mov(R32[((b[i+1] & 0x7))], u32(Xor(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))];
-	case 0x3801: return [6, Mov(F1[2], Eq(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), ($1 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))),Mov(F1[1], Lt($0, $1))];
-	case 0xf801: return [6, Mov(F1[2], Eq(R32[((b[i+1] & 0x7))], ($0 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))),Mov(F1[1], Lt(R32[((b[i+1] & 0x7))], $0))];
+	case 0x3801: return [6, Mov(F[2], Eq(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), ($1 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))),Mov(F[1], Lt($0, $1))];
+	case 0xf801: return [6, Mov(F[2], Eq(R32[((b[i+1] & 0x7))], ($0 = (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))),Mov(F[1], Lt(R32[((b[i+1] & 0x7))], $0))];
 	case 0x800f: return [6, Mov(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
 	case 0x47: return [6, Mov(u32(Mem(R32[((b[i+1] & 0x7))])), (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))];
 	case 0xc047: return [6, Mov(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))];
@@ -1950,12 +2036,12 @@ if(((((b[i+0] & 0x80)>>>7)) & 0x1) == 0x1)
 	case 0xb851: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(ASR($0, 1)))];
 	case 0xb852: return [6, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(ASR($0, R8[1])))];
 	case 0xb853: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(ASR($0, R8[1])))];
-	case 0x77: return [6, Mov(F1[2], Eq(And(u32(Mem(R32[((b[i+1] & 0x7))])), (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))), 0))];
-	case 0xc077: return [6, Mov(F1[2], Eq(And(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))), 0))];
+	case 0x77: return [6, Mov(F[2], Eq(And(u32(Mem(R32[((b[i+1] & 0x7))])), (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0xc077: return [6, Mov(F[2], Eq(And(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	case 0x9076: return [6, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Not($0)))];
 	case 0x9077: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Not($0)))];
-	case 0x9876: return [6, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), i8(Neg($0)))];
-	case 0x9877: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), i32(Neg($0)))];
+	case 0x9876: return [6, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x9877: return [6, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), 0)))),Mov($0, i32(Neg($0)))];
 	case 0xa076: return [6, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))))];
 	case 0xa077: return [6, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))))];
 	case 0xa876: return [6, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))))];
@@ -1978,32 +2064,32 @@ if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)) & 0x301) == 0x200)
 	case 0x9: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
 	case 0xa: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))))];
 	case 0xb: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))))];
-	case 0x10: return [6, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), F1[1])))))];
-	case 0x13: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), F1[1])))))];
-	case 0x18: return [6, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
+	case 0x10: return [6, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), u8(F[1]))))))];
+	case 0x13: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), u32(F[1]))))))];
+	case 0x18: return [6, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x19: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x1a: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1b: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))))))), i32(Neg(($2 = u32(F[1])))))))];
 	case 0x20: return [6, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x21: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x22: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))))];
 	case 0x23: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))))];
-	case 0x28: return [6, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))))))))];
-	case 0x2b: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))))))))];
+	case 0x28: return [6, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [6, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [6, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x2b: return [6, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
 	case 0x30: return [6, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x31: return [6, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x32: return [6, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))))];
 	case 0x33: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))))];
-	case 0x38: return [6, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [6, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [6, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x3b: return [6, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x84: return [6, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [6, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
+	case 0x38: return [6, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [6, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [6, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x3b: return [6, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x84: return [6, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [6, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	case 0x86: return [6, Swap(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
 	case 0x87: return [6, Swap(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), R32[(((b[i+1] & 0x38)>>>3))])];
 	case 0x88: return [6, Mov(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))), R8[(((b[i+1] & 0x38)>>>3))])];
@@ -2014,272 +2100,284 @@ if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)) & 0x301) == 0x200)
 	case 0x8d: return [6, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24))))))];
 	case 0x8e: return [6, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]|(b[i+3]<<8)|(b[i+4]<<16)|(b[i+5]<<24)))))))];
 	}
-if(((((b[i+0] & 0xf8)>>>3)|(b[i+1]<<5)|((b[i+2] & 0x3f)<<13)) & 0x718f1) == 0x40890)
-	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x3877) {
-	case 0x0: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add($0, (b[i+4]))))];
-	case 0x2: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add($0, (b[i+4]))))];
-	case 0x3: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Add($0, (b[i+4]))))];
-	case 0x800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Or($0, (b[i+4]))))];
-	case 0x802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Or($0, (b[i+4]))))];
-	case 0x803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Or($0, (b[i+4]))))];
-	case 0x1000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add($0, u8(Add((b[i+4]), F1[1])))))];
-	case 0x1002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add($0, u8(Add((b[i+4]), F1[1])))))];
-	case 0x1003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Add($0, u8(Add((b[i+4]), F1[1])))))];
-	case 0x1800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add(($1 = (b[i+4])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add(($1 = (b[i+4])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Add(($1 = (b[i+4])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x2000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(And($0, (b[i+4]))))];
-	case 0x2002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(And($0, (b[i+4]))))];
-	case 0x2003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(And($0, (b[i+4]))))];
-	case 0x2800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add($0, ((-($1 = (b[i+4]))<<24)>>>24))))];
-	case 0x2802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add($0, ((-($1 = (b[i+4]))<<24)>>>24))))];
-	case 0x2803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Add($0, ((-($1 = (b[i+4]))<<24)>>>24))))];
-	case 0x3000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Xor($0, (b[i+4]))))];
-	case 0x3002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Xor($0, (b[i+4]))))];
-	case 0x3003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Xor($0, (b[i+4]))))];
-	case 0x3800: return [5, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), ($1 = (b[i+4])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3802: return [5, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), ($1 = (b[i+4])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3803: return [5, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), ($1 = (b[i+4])))),Mov(F1[1], Lt($0, $1))];
-	case 0x46: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), (b[i+4]))];
-	case 0x40: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSL($0, ($1 = (b[i+4])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x41: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSL($0, ($1 = (b[i+4])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSR($0, ($1 = (b[i+4])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSR($0, ($1 = (b[i+4])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x2040: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(LSL($0, (b[i+4]))))];
-	case 0x2041: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(LSL($0, (b[i+4]))))];
-	case 0x2840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(LSR($0, (b[i+4]))))];
-	case 0x2841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(LSR($0, (b[i+4]))))];
-	case 0x3840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(ASR($0, (b[i+4]))))];
-	case 0x3841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(ASR($0, (b[i+4]))))];
-	case 0x76: return [5, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), (b[i+4])), 0))];
-	}
-if(((((b[i+0] & 0xf8)>>>3)|(b[i+1]<<5)) & 0x18f1) == 0x890)
-	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x3877) {
-	case 0x0: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add($0, (b[i+4]))))];
-	case 0x2: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add($0, (b[i+4]))))];
-	case 0x3: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Add($0, (b[i+4]))))];
-	case 0x800: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Or($0, (b[i+4]))))];
-	case 0x802: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Or($0, (b[i+4]))))];
-	case 0x803: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Or($0, (b[i+4]))))];
-	case 0x1000: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add($0, u8(Add((b[i+4]), F1[1])))))];
-	case 0x1002: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add($0, u8(Add((b[i+4]), F1[1])))))];
-	case 0x1003: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Add($0, u8(Add((b[i+4]), F1[1])))))];
-	case 0x1800: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add(($1 = (b[i+4])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1802: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add(($1 = (b[i+4])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1803: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Add(($1 = (b[i+4])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x2000: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(And($0, (b[i+4]))))];
-	case 0x2002: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(And($0, (b[i+4]))))];
-	case 0x2003: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(And($0, (b[i+4]))))];
-	case 0x2800: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add($0, ((-($1 = (b[i+4]))<<24)>>>24))))];
-	case 0x2802: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add($0, ((-($1 = (b[i+4]))<<24)>>>24))))];
-	case 0x2803: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Add($0, ((-($1 = (b[i+4]))<<24)>>>24))))];
-	case 0x3000: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Xor($0, (b[i+4]))))];
-	case 0x3002: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Xor($0, (b[i+4]))))];
-	case 0x3003: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Xor($0, (b[i+4]))))];
-	case 0x3800: return [5, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), ($1 = (b[i+4])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3802: return [5, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), ($1 = (b[i+4])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3803: return [5, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), ($1 = (b[i+4])))),Mov(F1[1], Lt($0, $1))];
-	case 0x46: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), (b[i+4]))];
-	case 0x40: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSL($0, ($1 = (b[i+4])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x41: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSL($0, ($1 = (b[i+4])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x840: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSR($0, ($1 = (b[i+4])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x841: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSR($0, ($1 = (b[i+4])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x2040: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(LSL($0, (b[i+4]))))];
-	case 0x2041: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(LSL($0, (b[i+4]))))];
-	case 0x2840: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(LSR($0, (b[i+4]))))];
-	case 0x2841: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(LSR($0, (b[i+4]))))];
-	case 0x3840: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(ASR($0, (b[i+4]))))];
-	case 0x3841: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(ASR($0, (b[i+4]))))];
-	case 0x76: return [5, Mov(F1[2], Eq(And(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), (b[i+4])), 0))];
-	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x3f)<<24)) & 0x3fc7c0ff) == 0x2544800f)
 	switch(((b[i+1] & 0x3f)) & 0x3f) {
-	case 0x10: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), F1[0])];
-	case 0x11: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), u1(Not(F1[0])))];
-	case 0x12: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), F1[1])];
-	case 0x13: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), u1(Not(F1[1])))];
-	case 0x14: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), F1[2])];
-	case 0x15: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), u1(Not(F1[2])))];
-	case 0x16: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), u1(Or(F1[1], F1[2])))];
-	case 0x17: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x18: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), F1[3])];
-	case 0x19: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), u1(Not(F1[3])))];
-	case 0x1a: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), F1[4])];
-	case 0x1b: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), u1(Not(F1[4])))];
-	case 0x1c: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x1d: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), Eq(F1[0], F1[3]))];
-	case 0x1e: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x1f: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
-	case 0x2d: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
-	case 0x36: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))))];
-	case 0x37: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>>24))))))];
+	case 0x10: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), F[0])];
+	case 0x11: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), u1(Not(F[0])))];
+	case 0x12: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), F[1])];
+	case 0x13: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), u1(Not(F[1])))];
+	case 0x14: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), F[2])];
+	case 0x15: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), u1(Not(F[2])))];
+	case 0x16: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), u1(Or(F[1], F[2])))];
+	case 0x17: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x18: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), F[3])];
+	case 0x19: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), u1(Not(F[3])))];
+	case 0x1a: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), F[4])];
+	case 0x1b: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), u1(Not(F[4])))];
+	case 0x1c: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x1d: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), Eq(F[0], F[3]))];
+	case 0x1e: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x1f: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
+	case 0x2d: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x2f: return [5, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24)))))))))];
+	case 0x36: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))))];
+	case 0x37: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24))))))];
+	case 0x3e: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24)))))))];
+	case 0x3f: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(u32(Add(R32[5], (((b[i+4])<<24)>>24)))))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x7)<<24)) & 0x7c7c0ff) == 0x544800f)
 	switch(((b[i+1] & 0x3f)) & 0x3f) {
-	case 0x10: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), F1[0])];
-	case 0x11: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), u1(Not(F1[0])))];
-	case 0x12: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), F1[1])];
-	case 0x13: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), u1(Not(F1[1])))];
-	case 0x14: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), F1[2])];
-	case 0x15: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), u1(Not(F1[2])))];
-	case 0x16: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), u1(Or(F1[1], F1[2])))];
-	case 0x17: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x18: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), F1[3])];
-	case 0x19: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), u1(Not(F1[3])))];
-	case 0x1a: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), F1[4])];
-	case 0x1b: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), u1(Not(F1[4])))];
-	case 0x1c: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x1d: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), Eq(F1[0], F1[3]))];
-	case 0x1e: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x1f: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
-	case 0x2d: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24)))))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
-	case 0x36: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))))];
-	case 0x37: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>>24))))))))];
+	case 0x10: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), F[0])];
+	case 0x11: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), u1(Not(F[0])))];
+	case 0x12: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), F[1])];
+	case 0x13: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), u1(Not(F[1])))];
+	case 0x14: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), F[2])];
+	case 0x15: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), u1(Not(F[2])))];
+	case 0x16: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), u1(Or(F[1], F[2])))];
+	case 0x17: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x18: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), F[3])];
+	case 0x19: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), u1(Not(F[3])))];
+	case 0x1a: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), F[4])];
+	case 0x1b: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), u1(Not(F[4])))];
+	case 0x1c: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x1d: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), Eq(F[0], F[3]))];
+	case 0x1e: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x1f: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
+	case 0x2d: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24))))))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x2f: return [5, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24))))))))))))];
+	case 0x36: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))))];
+	case 0x37: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24)))))))))];
+	case 0x3e: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24))))))))))];
+	case 0x3f: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))), (((b[i+4])<<24)>>24))))))))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x3f)<<24)) & 0x3887c0ff) == 0x2004800f)
 	switch((b[i+1]|((b[i+2] & 0x7f)<<8)) & 0x403f) {
-	case 0x4010: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), F1[0])];
-	case 0x4011: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), u1(Not(F1[0])))];
-	case 0x4012: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), F1[1])];
-	case 0x4013: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), u1(Not(F1[1])))];
-	case 0x4014: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), F1[2])];
-	case 0x4015: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), u1(Not(F1[2])))];
-	case 0x4016: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), u1(Or(F1[1], F1[2])))];
-	case 0x4017: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x4018: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), F1[3])];
-	case 0x4019: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), u1(Not(F1[3])))];
-	case 0x401a: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), F1[4])];
-	case 0x401b: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), u1(Not(F1[4])))];
-	case 0x401c: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x401d: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), Eq(F1[0], F1[3]))];
-	case 0x401e: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x401f: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
-	case 0x2c: return [5, Mov(($0 = u32(Mem(R32[((b[i+3] & 0x7))]))), u32(Or(u32(LSR($0, ($1 = (b[i+4])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($8 = ((($7 = ((($6 = (1 << $1)&~0), ($6 < 0 ? $6+0x100000000 : $6)) + -1)&~0), ($7 < 0 ? $7+0x100000000 : $7)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($8 < 0 ? $8+0x100000000 : $8)))))))];
-	case 0x402d: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
-	case 0x4036: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))))];
-	case 0x4037: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>>24))))))];
+	case 0x4010: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), F[0])];
+	case 0x4011: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), u1(Not(F[0])))];
+	case 0x4012: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), F[1])];
+	case 0x4013: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), u1(Not(F[1])))];
+	case 0x4014: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), F[2])];
+	case 0x4015: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), u1(Not(F[2])))];
+	case 0x4016: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), u1(Or(F[1], F[2])))];
+	case 0x4017: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x4018: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), F[3])];
+	case 0x4019: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), u1(Not(F[3])))];
+	case 0x401a: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), F[4])];
+	case 0x401b: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), u1(Not(F[4])))];
+	case 0x401c: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x401d: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), Eq(F[0], F[3]))];
+	case 0x401e: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x401f: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
+	case 0x2c: return [5, Mov(($0 = u32(Mem(R32[((b[i+3] & 0x7))]))), u32(Or(u32(LSR($0, ($1 = (((b[i+4])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($62 = ((($61 = ((($60 = (1 << $1)&~0), ($60 < 0 ? $60+0x100000000 : $60)) + -1)&~0), ($61 < 0 ? $61+0x100000000 : $61)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($62 < 0 ? $62+0x100000000 : $62)))))))];
+	case 0x402d: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x402f: return [5, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24)))))))))];
+	case 0x4036: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))))];
+	case 0x4037: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24))))))];
+	case 0x403e: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24)))))))];
+	case 0x403f: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(u32(Add(R32[((b[i+3] & 0x7))], (((b[i+4])<<24)>>24)))))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)) & 0x87c0ff) == 0x4800f)
 	switch((b[i+1]|((b[i+2] & 0x7f)<<8)) & 0x403f) {
-	case 0x4010: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), F1[0])];
-	case 0x4011: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), u1(Not(F1[0])))];
-	case 0x4012: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), F1[1])];
-	case 0x4013: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), u1(Not(F1[1])))];
-	case 0x4014: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), F1[2])];
-	case 0x4015: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), u1(Not(F1[2])))];
-	case 0x4016: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), u1(Or(F1[1], F1[2])))];
-	case 0x4017: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x4018: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), F1[3])];
-	case 0x4019: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), u1(Not(F1[3])))];
-	case 0x401a: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), F1[4])];
-	case 0x401b: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), u1(Not(F1[4])))];
-	case 0x401c: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x401d: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), Eq(F1[0], F1[3]))];
-	case 0x401e: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x401f: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
-	case 0x2c: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6))))))))), u32(Or(u32(LSR($0, ($1 = (b[i+4])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($5 = ((($4 = ((($3 = (1 << $1)&~0), ($3 < 0 ? $3+0x100000000 : $3)) + -1)&~0), ($4 < 0 ? $4+0x100000000 : $4)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($5 < 0 ? $5+0x100000000 : $5)))))))];
-	case 0x402d: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
-	case 0x4036: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))))];
-	case 0x4037: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>>24))))))];
+	case 0x4010: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), F[0])];
+	case 0x4011: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), u1(Not(F[0])))];
+	case 0x4012: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), F[1])];
+	case 0x4013: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), u1(Not(F[1])))];
+	case 0x4014: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), F[2])];
+	case 0x4015: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), u1(Not(F[2])))];
+	case 0x4016: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), u1(Or(F[1], F[2])))];
+	case 0x4017: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x4018: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), F[3])];
+	case 0x4019: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), u1(Not(F[3])))];
+	case 0x401a: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), F[4])];
+	case 0x401b: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), u1(Not(F[4])))];
+	case 0x401c: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x401d: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), Eq(F[0], F[3]))];
+	case 0x401e: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x401f: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
+	case 0x2c: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6))))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+4])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($59 = ((($58 = ((($57 = (1 << $1)&~0), ($57 < 0 ? $57+0x100000000 : $57)) + -1)&~0), ($58 < 0 ? $58+0x100000000 : $58)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($59 < 0 ? $59+0x100000000 : $59)))))))];
+	case 0x402d: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x402f: return [5, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24)))))))))];
+	case 0x4036: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))))];
+	case 0x4037: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24))))))];
+	case 0x403e: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24)))))))];
+	case 0x403f: return [5, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(u32(Add(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))), (((b[i+4])<<24)>>24)))))))];
 	}
 if(((((b[i+0] & 0xf8)>>>3)|(b[i+1]<<5)|((b[i+2] & 0x3f)<<13)) & 0x7f8f1) == 0x4a890)
 	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x3877) {
-	case 0x0: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add($0, (b[i+4]))))];
-	case 0x2: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add($0, (b[i+4]))))];
-	case 0x3: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Add($0, (b[i+4]))))];
-	case 0x800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Or($0, (b[i+4]))))];
-	case 0x802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Or($0, (b[i+4]))))];
-	case 0x803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Or($0, (b[i+4]))))];
-	case 0x1000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add($0, u8(Add((b[i+4]), F1[1])))))];
-	case 0x1002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add($0, u8(Add((b[i+4]), F1[1])))))];
-	case 0x1003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Add($0, u8(Add((b[i+4]), F1[1])))))];
-	case 0x1800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add(($1 = (b[i+4])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add(($1 = (b[i+4])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Add(($1 = (b[i+4])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x2000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(And($0, (b[i+4]))))];
-	case 0x2002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(And($0, (b[i+4]))))];
-	case 0x2003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(And($0, (b[i+4]))))];
-	case 0x2800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add($0, ((-($1 = (b[i+4]))<<24)>>>24))))];
-	case 0x2802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add($0, ((-($1 = (b[i+4]))<<24)>>>24))))];
-	case 0x2803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Add($0, ((-($1 = (b[i+4]))<<24)>>>24))))];
-	case 0x3000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Xor($0, (b[i+4]))))];
-	case 0x3002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Xor($0, (b[i+4]))))];
-	case 0x3003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Xor($0, (b[i+4]))))];
-	case 0x3800: return [5, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), ($1 = (b[i+4])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3802: return [5, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), ($1 = (b[i+4])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3803: return [5, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), ($1 = (b[i+4])))),Mov(F1[1], Lt($0, $1))];
-	case 0x46: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), (b[i+4]))];
-	case 0x40: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSL($0, ($1 = (b[i+4])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x41: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSL($0, ($1 = (b[i+4])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSR($0, ($1 = (b[i+4])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSR($0, ($1 = (b[i+4])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x2040: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(LSL($0, (b[i+4]))))];
-	case 0x2041: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(LSL($0, (b[i+4]))))];
-	case 0x2840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(LSR($0, (b[i+4]))))];
-	case 0x2841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(LSR($0, (b[i+4]))))];
-	case 0x3840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(ASR($0, (b[i+4]))))];
-	case 0x3841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(ASR($0, (b[i+4]))))];
-	case 0x76: return [5, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), (b[i+4])), 0))];
+	case 0x0: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Add($0, (((b[i+4])<<24)>>24))))];
+	case 0x2: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Add($0, (((b[i+4])<<24)>>24))))];
+	case 0x3: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Add($0, (((b[i+4])<<24)>>24))))];
+	case 0x800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Or($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Or($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Or($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x1000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Add($0, u8(Add((((b[i+4])<<24)>>24), u8(F[1]))))))];
+	case 0x1002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Add($0, u8(Add((((b[i+4])<<24)>>24), u8(F[1]))))))];
+	case 0x1003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Add($0, u32(Add((((b[i+4])<<24)>>24), u32(F[1]))))))];
+	case 0x1800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+4])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+4])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+4])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x2000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(And($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x2002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(And($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x2003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(And($0, (($46 = (((b[i+4])<<24)>>24)&~0), ($46 < 0 ? $46+0x100000000 : $46)))))];
+	case 0x2800: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2802: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2803: return [5, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0x3000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Xor($0, (((b[i+4])<<24)>>24))))];
+	case 0x3002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Xor($0, (((b[i+4])<<24)>>24))))];
+	case 0x3003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Xor($0, (((b[i+4])<<24)>>24))))];
+	case 0x3800: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3802: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3803: return [5, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x46: return [5, Mov(u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), (((b[i+4])<<24)>>24))];
+	case 0x40: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSL($0, ($1 = (((b[i+4])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x41: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSL($0, ($1 = (((b[i+4])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSR($0, ($1 = (((b[i+4])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSR($0, ($1 = (((b[i+4])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x2040: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(LSL($0, (((b[i+4])<<24)>>24))))];
+	case 0x2041: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(LSL($0, (((b[i+4])<<24)>>24))))];
+	case 0x2840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(LSR($0, (((b[i+4])<<24)>>24))))];
+	case 0x2841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(LSR($0, (((b[i+4])<<24)>>24))))];
+	case 0x3840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(ASR($0, (((b[i+4])<<24)>>24))))];
+	case 0x3841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(ASR($0, (((b[i+4])<<24)>>24))))];
+	case 0x76: return [5, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), (((b[i+4])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	}
 if(((((b[i+0] & 0xf8)>>>3)|(b[i+1]<<5)|((b[i+2] & 0x7)<<13)) & 0xf8f1) == 0xa890)
 	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x3877) {
-	case 0x0: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add($0, (b[i+4]))))];
-	case 0x2: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add($0, (b[i+4]))))];
-	case 0x3: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Add($0, (b[i+4]))))];
-	case 0x800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Or($0, (b[i+4]))))];
-	case 0x802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Or($0, (b[i+4]))))];
-	case 0x803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Or($0, (b[i+4]))))];
-	case 0x1000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add($0, u8(Add((b[i+4]), F1[1])))))];
-	case 0x1002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add($0, u8(Add((b[i+4]), F1[1])))))];
-	case 0x1003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Add($0, u8(Add((b[i+4]), F1[1])))))];
-	case 0x1800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add(($1 = (b[i+4])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add(($1 = (b[i+4])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Add(($1 = (b[i+4])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x2000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(And($0, (b[i+4]))))];
-	case 0x2002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(And($0, (b[i+4]))))];
-	case 0x2003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(And($0, (b[i+4]))))];
-	case 0x2800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add($0, ((-($1 = (b[i+4]))<<24)>>>24))))];
-	case 0x2802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add($0, ((-($1 = (b[i+4]))<<24)>>>24))))];
-	case 0x2803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Add($0, ((-($1 = (b[i+4]))<<24)>>>24))))];
-	case 0x3000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Xor($0, (b[i+4]))))];
-	case 0x3002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Xor($0, (b[i+4]))))];
-	case 0x3003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Xor($0, (b[i+4]))))];
-	case 0x3800: return [5, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), ($1 = (b[i+4])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3802: return [5, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), ($1 = (b[i+4])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3803: return [5, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), ($1 = (b[i+4])))),Mov(F1[1], Lt($0, $1))];
-	case 0x46: return [5, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), (b[i+4]))];
-	case 0x40: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Or(u8(LSL($0, ($1 = (b[i+4])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x41: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Or(u32(LSL($0, ($1 = (b[i+4])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Or(u8(LSR($0, ($1 = (b[i+4])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Or(u32(LSR($0, ($1 = (b[i+4])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x2040: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(LSL($0, (b[i+4]))))];
-	case 0x2041: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(LSL($0, (b[i+4]))))];
-	case 0x2840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(LSR($0, (b[i+4]))))];
-	case 0x2841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(LSR($0, (b[i+4]))))];
-	case 0x3840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(ASR($0, (b[i+4]))))];
-	case 0x3841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(ASR($0, (b[i+4]))))];
-	case 0x76: return [5, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), (b[i+4])), 0))];
+	case 0x0: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Add($0, (((b[i+4])<<24)>>24))))];
+	case 0x2: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Add($0, (((b[i+4])<<24)>>24))))];
+	case 0x3: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Add($0, (((b[i+4])<<24)>>24))))];
+	case 0x800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Or($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Or($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Or($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x1000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Add($0, u8(Add((((b[i+4])<<24)>>24), u8(F[1]))))))];
+	case 0x1002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Add($0, u8(Add((((b[i+4])<<24)>>24), u8(F[1]))))))];
+	case 0x1003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Add($0, u32(Add((((b[i+4])<<24)>>24), u32(F[1]))))))];
+	case 0x1800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+4])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+4])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+4])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x2000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(And($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x2002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(And($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x2003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(And($0, (($45 = (((b[i+4])<<24)>>24)&~0), ($45 < 0 ? $45+0x100000000 : $45)))))];
+	case 0x2800: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2802: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2803: return [5, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0x3000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Xor($0, (((b[i+4])<<24)>>24))))];
+	case 0x3002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Xor($0, (((b[i+4])<<24)>>24))))];
+	case 0x3003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Xor($0, (((b[i+4])<<24)>>24))))];
+	case 0x3800: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3802: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3803: return [5, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x46: return [5, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), (((b[i+4])<<24)>>24))];
+	case 0x40: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Or(u8(LSL($0, ($1 = (((b[i+4])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x41: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Or(u32(LSL($0, ($1 = (((b[i+4])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Or(u8(LSR($0, ($1 = (((b[i+4])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+4])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x2040: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(LSL($0, (((b[i+4])<<24)>>24))))];
+	case 0x2041: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(LSL($0, (((b[i+4])<<24)>>24))))];
+	case 0x2840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(LSR($0, (((b[i+4])<<24)>>24))))];
+	case 0x2841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(LSR($0, (((b[i+4])<<24)>>24))))];
+	case 0x3840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(ASR($0, (((b[i+4])<<24)>>24))))];
+	case 0x3841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(ASR($0, (((b[i+4])<<24)>>24))))];
+	case 0x76: return [5, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), (((b[i+4])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	}
+if(((((b[i+0] & 0xf8)>>>3)|(b[i+1]<<5)|((b[i+2] & 0x3f)<<13)) & 0x718f1) == 0x40890)
+	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x3877) {
+	case 0x0: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Add($0, (((b[i+4])<<24)>>24))))];
+	case 0x2: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Add($0, (((b[i+4])<<24)>>24))))];
+	case 0x3: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Add($0, (((b[i+4])<<24)>>24))))];
+	case 0x800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Or($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Or($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Or($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x1000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Add($0, u8(Add((((b[i+4])<<24)>>24), u8(F[1]))))))];
+	case 0x1002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Add($0, u8(Add((((b[i+4])<<24)>>24), u8(F[1]))))))];
+	case 0x1003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Add($0, u32(Add((((b[i+4])<<24)>>24), u32(F[1]))))))];
+	case 0x1800: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+4])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1802: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+4])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1803: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+4])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x2000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(And($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x2002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(And($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x2003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(And($0, (($44 = (((b[i+4])<<24)>>24)&~0), ($44 < 0 ? $44+0x100000000 : $44)))))];
+	case 0x2800: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2802: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2803: return [5, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0x3000: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Xor($0, (((b[i+4])<<24)>>24))))];
+	case 0x3002: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Xor($0, (((b[i+4])<<24)>>24))))];
+	case 0x3003: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Xor($0, (((b[i+4])<<24)>>24))))];
+	case 0x3800: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3802: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3803: return [5, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x46: return [5, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), (((b[i+4])<<24)>>24))];
+	case 0x40: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSL($0, ($1 = (((b[i+4])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x41: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSL($0, ($1 = (((b[i+4])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSR($0, ($1 = (((b[i+4])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSR($0, ($1 = (((b[i+4])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x2040: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(LSL($0, (((b[i+4])<<24)>>24))))];
+	case 0x2041: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(LSL($0, (((b[i+4])<<24)>>24))))];
+	case 0x2840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(LSR($0, (((b[i+4])<<24)>>24))))];
+	case 0x2841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(LSR($0, (((b[i+4])<<24)>>24))))];
+	case 0x3840: return [5, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(ASR($0, (((b[i+4])<<24)>>24))))];
+	case 0x3841: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(ASR($0, (((b[i+4])<<24)>>24))))];
+	case 0x76: return [5, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), (((b[i+4])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	}
+if(((((b[i+0] & 0xf8)>>>3)|(b[i+1]<<5)) & 0x18f1) == 0x890)
+	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x3877) {
+	case 0x0: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Add($0, (((b[i+4])<<24)>>24))))];
+	case 0x2: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Add($0, (((b[i+4])<<24)>>24))))];
+	case 0x3: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Add($0, (((b[i+4])<<24)>>24))))];
+	case 0x800: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Or($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x802: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Or($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x803: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Or($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x1000: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Add($0, u8(Add((((b[i+4])<<24)>>24), u8(F[1]))))))];
+	case 0x1002: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Add($0, u8(Add((((b[i+4])<<24)>>24), u8(F[1]))))))];
+	case 0x1003: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Add($0, u32(Add((((b[i+4])<<24)>>24), u32(F[1]))))))];
+	case 0x1800: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+4])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1802: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+4])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1803: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+4])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x2000: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(And($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x2002: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(And($0, ((((b[i+4])<<24)>>24)&0xff))))];
+	case 0x2003: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(And($0, (($43 = (((b[i+4])<<24)>>24)&~0), ($43 < 0 ? $43+0x100000000 : $43)))))];
+	case 0x2800: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2802: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2803: return [5, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0x3000: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Xor($0, (((b[i+4])<<24)>>24))))];
+	case 0x3002: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Xor($0, (((b[i+4])<<24)>>24))))];
+	case 0x3003: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Xor($0, (((b[i+4])<<24)>>24))))];
+	case 0x3800: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3802: return [5, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3803: return [5, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), ($1 = (((b[i+4])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x46: return [5, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), (((b[i+4])<<24)>>24))];
+	case 0x40: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSL($0, ($1 = (((b[i+4])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x41: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSL($0, ($1 = (((b[i+4])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x840: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSR($0, ($1 = (((b[i+4])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x841: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSR($0, ($1 = (((b[i+4])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x2040: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(LSL($0, (((b[i+4])<<24)>>24))))];
+	case 0x2041: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(LSL($0, (((b[i+4])<<24)>>24))))];
+	case 0x2840: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(LSR($0, (((b[i+4])<<24)>>24))))];
+	case 0x2841: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(LSR($0, (((b[i+4])<<24)>>24))))];
+	case 0x3840: return [5, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(ASR($0, (((b[i+4])<<24)>>24))))];
+	case 0x3841: return [5, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(ASR($0, (((b[i+4])<<24)>>24))))];
+	case 0x76: return [5, Mov(F[2], Eq(And(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), (((b[i+4])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)) & 0xc0ffff) == 0x40ac0f)
 	switch(0) {
-	case 0x0: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSR($0, ($1 = (b[i+4])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($17 = ((($16 = ((($15 = (1 << $1)&~0), ($15 < 0 ? $15+0x100000000 : $15)) + -1)&~0), ($16 < 0 ? $16+0x100000000 : $16)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($17 < 0 ? $17+0x100000000 : $17)))))))];
+	case 0x0: return [5, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSR($0, ($1 = (((b[i+4])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($71 = ((($70 = ((($69 = (1 << $1)&~0), ($69 < 0 ? $69+0x100000000 : $69)) + -1)&~0), ($70 < 0 ? $70+0x100000000 : $70)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($71 < 0 ? $71+0x100000000 : $71)))))))];
 	}
 
 	switch((b[i+0]) & 0xff) {
 	case 0x5: return [5, Mov(R32[0], u32(Add(R32[0], (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))))];
-	case 0xd: return [5, Mov(R32[0], u32(Or(R32[0], (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))))];
-	case 0x15: return [5, Mov(R32[0], u32(Add(R32[0], u32(Add((b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)), F1[1])))))];
-	case 0x1d: return [5, Mov(R32[0], i32(Add(($0 = (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24))), i32(Neg(($1 = u32(Add(u32(Add(R32[0], i1(Neg(F1[1])))), 1))))))))];
-	case 0x25: return [5, Mov(R32[0], u32(And(R32[0], (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))))];
-	case 0x2d: return [5, Mov(R32[0], u32(Add(R32[0], (-($0 = (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))&~0))))];
+	case 0xd: return [5, Mov(R32[0], u32(Or(R32[0], (($0 = (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24))&~0), ($0 < 0 ? $0+0x100000000 : $0)))))];
+	case 0x15: return [5, Mov(R32[0], u32(Add(R32[0], u32(Add((b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)), u32(F[1]))))))];
+	case 0x1d: return [5, Mov(R32[0], u32(Add(($0 = u32(Add(R32[0], (-($1 = (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))&~0)))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x25: return [5, Mov(R32[0], u32(And(R32[0], (($1 = (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24))&~0), ($1 < 0 ? $1+0x100000000 : $1)))))];
+	case 0x2d: return [5, Mov(F[2], Eq(R32[0], ($0 = (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24))))),Mov(F[1], Lt(R32[0], $0)),Mov(R32[0], u32(Add(R32[0], (-$0&~0))))];
 	case 0x35: return [5, Mov(R32[0], u32(Xor(R32[0], (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))))];
-	case 0x3d: return [5, Mov(F1[2], Eq(R32[0], ($0 = (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24))))),Mov(F1[1], Lt(R32[0], $0))];
+	case 0x3d: return [5, Mov(F[2], Eq(R32[0], ($0 = (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24))))),Mov(F[1], Lt(R32[0], $0))];
 	case 0x68: return [5, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))];
 	case 0xa0: return [5, Mov(R8[0], u8(Mem((b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))))];
 	case 0xa1: return [5, Mov(R32[0], u32(Mem((b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))))];
 	case 0xa2: return [5, Mov(u8(Mem((b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))), R8[0])];
 	case 0xa3: return [5, Mov(u32(Mem((b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))), R32[0])];
-	case 0xa9: return [5, Mov(F1[2], Eq(And(R32[0], (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24))), 0))];
+	case 0xa9: return [5, Mov(F[2], Eq(And(R32[0], (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24))), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	case 0xb8: return [5, Mov(R32[0], (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))];
 	case 0xb9: return [5, Mov(R32[1], (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))];
 	case 0xba: return [5, Mov(R32[2], (b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)))];
@@ -2291,524 +2389,533 @@ if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)) & 0xc0ffff) == 0x40ac0f)
 	case 0xe8: return [5, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 5))),Mov(R32[8], u32(Add(R32[8], (((b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)) + 5)&~0))))];
 	case 0xe9: return [5, Mov(R32[8], u32(Add(R32[8], (((b[i+1]|(b[i+2]<<8)|(b[i+3]<<16)|(b[i+4]<<24)) + 5)&~0))))];
 	}
-if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x3f)<<9)) & 0x7f8f) == 0x4a89)
-	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x387f) {
-	case 0xf: return [4, Mov(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
-	case 0x50: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
-	case 0x51: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
-	case 0x52: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x53: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
-	case 0x851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
-	case 0x852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x2050: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(LSL($0, 1)))];
-	case 0x2051: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(LSL($0, 1)))];
-	case 0x2052: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(LSL($0, R8[1])))];
-	case 0x2053: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(LSL($0, R8[1])))];
-	case 0x2850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(LSR($0, 1)))];
-	case 0x2851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(LSR($0, 1)))];
-	case 0x2852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(LSR($0, R8[1])))];
-	case 0x2853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(LSR($0, R8[1])))];
-	case 0x3850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(ASR($0, 1)))];
-	case 0x3851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(ASR($0, 1)))];
-	case 0x3852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(ASR($0, R8[1])))];
-	case 0x3853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(ASR($0, R8[1])))];
-	case 0x1076: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Not($0)))];
-	case 0x1077: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Not($0)))];
-	case 0x1876: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), i8(Neg($0)))];
-	case 0x1877: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), i32(Neg($0)))];
-	case 0x2076: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))))];
-	case 0x2077: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))))];
-	case 0x2876: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))))];
-	case 0x2877: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))))];
-	case 0x7e: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add($0, 1)))];
-	case 0x7f: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Add($0, 1)))];
-	case 0x87e: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add($0, -1)))];
-	case 0x87f: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Add($0, -1)))];
-	case 0x107f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 4))),Mov(R32[8], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))];
-	case 0x207f: return [4, Mov(R32[8], u32(Add(R32[8], 4)))];
-	case 0x307f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))];
-	}
-if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x3f)<<10)) & 0xff1d) == 0x9510)
-	switch((b[i+0]) & 0xbf) {
-	case 0x0: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x1: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x2: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))))];
-	case 0x3: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))))];
-	case 0x8: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x9: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0xa: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))))];
-	case 0xb: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))))];
-	case 0x10: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), F1[1])))))];
-	case 0x13: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), F1[1])))))];
-	case 0x18: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x20: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x21: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x22: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))))];
-	case 0x23: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))))];
-	case 0x28: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))))))))];
-	case 0x2b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))))))))];
-	case 0x30: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x31: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x32: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))))];
-	case 0x33: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))))];
-	case 0x38: return [4, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [4, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [4, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x3b: return [4, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x84: return [4, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [4, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x86: return [4, Swap(u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x87: return [4, Swap(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x88: return [4, Mov(u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x89: return [4, Mov(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))];
-	case 0x8b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))];
-	case 0x8c: return [4, Mov(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))), RS[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8d: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[5], (((b[i+3])<<24)>>>24)))))];
-	case 0x8e: return [4, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>>24))))))];
-	}
-if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x3f)<<9)) & 0x710f) == 0x4009)
-	switch((b[i+0]|((b[i+1] & 0x7f)<<8)) & 0x787f) {
-	case 0x0: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, (b[i+3]))))];
-	case 0x2: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, (b[i+3]))))];
-	case 0x3: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, (b[i+3]))))];
-	case 0x800: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Or($0, (b[i+3]))))];
-	case 0x802: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Or($0, (b[i+3]))))];
-	case 0x803: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or($0, (b[i+3]))))];
-	case 0x1000: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, u8(Add((b[i+3]), F1[1])))))];
-	case 0x1002: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, u8(Add((b[i+3]), F1[1])))))];
-	case 0x1003: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, u8(Add((b[i+3]), F1[1])))))];
-	case 0x1800: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add(($1 = (b[i+3])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1802: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add(($1 = (b[i+3])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1803: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add(($1 = (b[i+3])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x2000: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(And($0, (b[i+3]))))];
-	case 0x2002: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(And($0, (b[i+3]))))];
-	case 0x2003: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(And($0, (b[i+3]))))];
-	case 0x2800: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, ((-($1 = (b[i+3]))<<24)>>>24))))];
-	case 0x2802: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, ((-($1 = (b[i+3]))<<24)>>>24))))];
-	case 0x2803: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, ((-($1 = (b[i+3]))<<24)>>>24))))];
-	case 0x3000: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Xor($0, (b[i+3]))))];
-	case 0x3002: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Xor($0, (b[i+3]))))];
-	case 0x3003: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Xor($0, (b[i+3]))))];
-	case 0x3800: return [4, Mov(F1[2], Eq(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), ($1 = (b[i+3])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3802: return [4, Mov(F1[2], Eq(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), ($1 = (b[i+3])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3803: return [4, Mov(F1[2], Eq(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), ($1 = (b[i+3])))),Mov(F1[1], Lt($0, $1))];
-	case 0x400f: return [4, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
-	case 0x46: return [4, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), (b[i+3]))];
-	case 0x40: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Or(u8(LSL($0, ($1 = (b[i+3])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x41: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or(u32(LSL($0, ($1 = (b[i+3])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x4050: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
-	case 0x4051: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
-	case 0x4052: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x4053: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x840: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Or(u8(LSR($0, ($1 = (b[i+3])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x841: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or(u32(LSR($0, ($1 = (b[i+3])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x4850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
-	case 0x4851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
-	case 0x4852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x4853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x2040: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(LSL($0, (b[i+3]))))];
-	case 0x2041: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(LSL($0, (b[i+3]))))];
-	case 0x6050: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(LSL($0, 1)))];
-	case 0x6051: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(LSL($0, 1)))];
-	case 0x6052: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(LSL($0, R8[1])))];
-	case 0x6053: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(LSL($0, R8[1])))];
-	case 0x2840: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(LSR($0, (b[i+3]))))];
-	case 0x2841: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(LSR($0, (b[i+3]))))];
-	case 0x6850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(LSR($0, 1)))];
-	case 0x6851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(LSR($0, 1)))];
-	case 0x6852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(LSR($0, R8[1])))];
-	case 0x6853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(LSR($0, R8[1])))];
-	case 0x3840: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(ASR($0, (b[i+3]))))];
-	case 0x3841: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(ASR($0, (b[i+3]))))];
-	case 0x7850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(ASR($0, 1)))];
-	case 0x7851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(ASR($0, 1)))];
-	case 0x7852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(ASR($0, R8[1])))];
-	case 0x7853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(ASR($0, R8[1])))];
-	case 0x76: return [4, Mov(F1[2], Eq(And(u8(Mem(R32[((b[i+2] & 0x7))])), (b[i+3])), 0))];
-	case 0x5076: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Not($0)))];
-	case 0x5077: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Not($0)))];
-	case 0x5876: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), i8(Neg($0)))];
-	case 0x5877: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), i32(Neg($0)))];
-	case 0x6076: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))))];
-	case 0x6077: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))))];
-	case 0x6876: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))))];
-	case 0x6877: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))))];
-	case 0x407e: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add($0, 1)))];
-	case 0x407f: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Add($0, 1)))];
-	case 0x487e: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add($0, -1)))];
-	case 0x487f: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Add($0, -1)))];
-	case 0x507f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 4))),Mov(R32[8], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))];
-	case 0x607f: return [4, Mov(R32[8], u32(Add(R32[8], 4)))];
-	case 0x707f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))];
-	}
-if(((((b[i+0] & 0xf8)>>>3)|(b[i+1]<<5)) & 0x1811) == 0x810)
-	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x3877) {
-	case 0x0: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add($0, (b[i+3]))))];
-	case 0x2: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add($0, (b[i+3]))))];
-	case 0x3: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Add($0, (b[i+3]))))];
-	case 0x800: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Or($0, (b[i+3]))))];
-	case 0x802: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Or($0, (b[i+3]))))];
-	case 0x803: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Or($0, (b[i+3]))))];
-	case 0x1000: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add($0, u8(Add((b[i+3]), F1[1])))))];
-	case 0x1002: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add($0, u8(Add((b[i+3]), F1[1])))))];
-	case 0x1003: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Add($0, u8(Add((b[i+3]), F1[1])))))];
-	case 0x1800: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add(($1 = (b[i+3])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1802: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add(($1 = (b[i+3])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1803: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Add(($1 = (b[i+3])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x2000: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(And($0, (b[i+3]))))];
-	case 0x2002: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(And($0, (b[i+3]))))];
-	case 0x2003: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(And($0, (b[i+3]))))];
-	case 0x2800: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add($0, ((-($1 = (b[i+3]))<<24)>>>24))))];
-	case 0x2802: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add($0, ((-($1 = (b[i+3]))<<24)>>>24))))];
-	case 0x2803: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Add($0, ((-($1 = (b[i+3]))<<24)>>>24))))];
-	case 0x3000: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Xor($0, (b[i+3]))))];
-	case 0x3002: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Xor($0, (b[i+3]))))];
-	case 0x3003: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Xor($0, (b[i+3]))))];
-	case 0x3800: return [4, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), ($1 = (b[i+3])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3802: return [4, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), ($1 = (b[i+3])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3803: return [4, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), ($1 = (b[i+3])))),Mov(F1[1], Lt($0, $1))];
-	case 0x46: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), (b[i+3]))];
-	case 0x40: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Or(u8(LSL($0, ($1 = (b[i+3])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x41: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Or(u32(LSL($0, ($1 = (b[i+3])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x840: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Or(u8(LSR($0, ($1 = (b[i+3])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x841: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Or(u32(LSR($0, ($1 = (b[i+3])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x2040: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(LSL($0, (b[i+3]))))];
-	case 0x2041: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(LSL($0, (b[i+3]))))];
-	case 0x2840: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(LSR($0, (b[i+3]))))];
-	case 0x2841: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(LSR($0, (b[i+3]))))];
-	case 0x3840: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(ASR($0, (b[i+3]))))];
-	case 0x3841: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(ASR($0, (b[i+3]))))];
-	case 0x76: return [4, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), (b[i+3])), 0))];
-	}
-if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x7)<<10)) & 0x1f1d) == 0x1510)
-	switch((b[i+0]) & 0xbf) {
-	case 0x0: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x1: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x2: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))))];
-	case 0x3: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))))];
-	case 0x8: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x9: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0xa: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))))];
-	case 0xb: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))))];
-	case 0x10: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), F1[1])))))];
-	case 0x13: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), F1[1])))))];
-	case 0x18: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x20: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x21: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x22: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))))];
-	case 0x23: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))))];
-	case 0x28: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))))))))];
-	case 0x2b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))))))))];
-	case 0x30: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x31: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x32: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))))];
-	case 0x33: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))))];
-	case 0x38: return [4, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [4, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [4, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x3b: return [4, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x84: return [4, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [4, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x86: return [4, Swap(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x87: return [4, Swap(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x88: return [4, Mov(u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x89: return [4, Mov(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x8b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x8c: return [4, Mov(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), RS[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8d: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))];
-	case 0x8e: return [4, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))];
-	}
-if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x3f)<<10)) & 0xe31d) == 0x8110)
-	switch((b[i+0]) & 0xbf) {
-	case 0x0: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x1: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x2: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))))];
-	case 0x3: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))))];
-	case 0x8: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x9: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0xa: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))))];
-	case 0xb: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))))];
-	case 0x10: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), F1[1])))))];
-	case 0x13: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), F1[1])))))];
-	case 0x18: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x20: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x21: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x22: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))))];
-	case 0x23: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))))];
-	case 0x28: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))))))))];
-	case 0x2b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))))))))];
-	case 0x30: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x31: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x32: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))))];
-	case 0x33: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))))];
-	case 0x38: return [4, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [4, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [4, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x3b: return [4, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x84: return [4, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [4, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x86: return [4, Swap(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x87: return [4, Swap(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x88: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x89: return [4, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))];
-	case 0x8b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))];
-	case 0x8c: return [4, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), RS[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8d: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))];
-	case 0x8e: return [4, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))];
-	}
-if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)) & 0x10f) == 0x9)
-	switch((b[i+0]|((b[i+1] & 0x7f)<<8)) & 0x787f) {
-	case 0x0: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, (b[i+3]))))];
-	case 0x2: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, (b[i+3]))))];
-	case 0x3: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add($0, (b[i+3]))))];
-	case 0x800: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Or($0, (b[i+3]))))];
-	case 0x802: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Or($0, (b[i+3]))))];
-	case 0x803: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Or($0, (b[i+3]))))];
-	case 0x1000: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, u8(Add((b[i+3]), F1[1])))))];
-	case 0x1002: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, u8(Add((b[i+3]), F1[1])))))];
-	case 0x1003: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add($0, u8(Add((b[i+3]), F1[1])))))];
-	case 0x1800: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add(($1 = (b[i+3])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1802: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add(($1 = (b[i+3])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1803: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add(($1 = (b[i+3])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x2000: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(And($0, (b[i+3]))))];
-	case 0x2002: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(And($0, (b[i+3]))))];
-	case 0x2003: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(And($0, (b[i+3]))))];
-	case 0x2800: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, ((-($1 = (b[i+3]))<<24)>>>24))))];
-	case 0x2802: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, ((-($1 = (b[i+3]))<<24)>>>24))))];
-	case 0x2803: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add($0, ((-($1 = (b[i+3]))<<24)>>>24))))];
-	case 0x3000: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Xor($0, (b[i+3]))))];
-	case 0x3002: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Xor($0, (b[i+3]))))];
-	case 0x3003: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Xor($0, (b[i+3]))))];
-	case 0x3800: return [4, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), ($1 = (b[i+3])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3802: return [4, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), ($1 = (b[i+3])))),Mov(F1[1], Lt($0, $1))];
-	case 0x3803: return [4, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), ($1 = (b[i+3])))),Mov(F1[1], Lt($0, $1))];
-	case 0x400f: return [4, Mov(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
-	case 0x46: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), (b[i+3]))];
-	case 0x40: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Or(u8(LSL($0, ($1 = (b[i+3])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x41: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Or(u32(LSL($0, ($1 = (b[i+3])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x4050: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
-	case 0x4051: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
-	case 0x4052: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x4053: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x840: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Or(u8(LSR($0, ($1 = (b[i+3])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x841: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Or(u32(LSR($0, ($1 = (b[i+3])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x4850: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
-	case 0x4851: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
-	case 0x4852: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x4853: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x2040: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(LSL($0, (b[i+3]))))];
-	case 0x2041: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(LSL($0, (b[i+3]))))];
-	case 0x6050: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(LSL($0, 1)))];
-	case 0x6051: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(LSL($0, 1)))];
-	case 0x6052: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(LSL($0, R8[1])))];
-	case 0x6053: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(LSL($0, R8[1])))];
-	case 0x2840: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(LSR($0, (b[i+3]))))];
-	case 0x2841: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(LSR($0, (b[i+3]))))];
-	case 0x6850: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(LSR($0, 1)))];
-	case 0x6851: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(LSR($0, 1)))];
-	case 0x6852: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(LSR($0, R8[1])))];
-	case 0x6853: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(LSR($0, R8[1])))];
-	case 0x3840: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(ASR($0, (b[i+3]))))];
-	case 0x3841: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(ASR($0, (b[i+3]))))];
-	case 0x7850: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(ASR($0, 1)))];
-	case 0x7851: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(ASR($0, 1)))];
-	case 0x7852: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(ASR($0, R8[1])))];
-	case 0x7853: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(ASR($0, R8[1])))];
-	case 0x76: return [4, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), (b[i+3])), 0))];
-	case 0x5076: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Not($0)))];
-	case 0x5077: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Not($0)))];
-	case 0x5876: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), i8(Neg($0)))];
-	case 0x5877: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), i32(Neg($0)))];
-	case 0x6076: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x6077: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x6876: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x6877: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x407e: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add($0, 1)))];
-	case 0x407f: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Add($0, 1)))];
-	case 0x487e: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add($0, -1)))];
-	case 0x487f: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Add($0, -1)))];
-	case 0x507f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 4))),Mov(R32[8], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))];
-	case 0x607f: return [4, Mov(R32[8], u32(Add(R32[8], 4)))];
-	case 0x707f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))];
-	}
-if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x7)<<9)) & 0xf8f) == 0xa89)
-	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x387f) {
-	case 0xf: return [4, Mov(u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
-	case 0x50: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
-	case 0x51: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
-	case 0x52: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x53: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
-	case 0x851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
-	case 0x852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x2050: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(LSL($0, 1)))];
-	case 0x2051: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(LSL($0, 1)))];
-	case 0x2052: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(LSL($0, R8[1])))];
-	case 0x2053: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(LSL($0, R8[1])))];
-	case 0x2850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(LSR($0, 1)))];
-	case 0x2851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(LSR($0, 1)))];
-	case 0x2852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(LSR($0, R8[1])))];
-	case 0x2853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(LSR($0, R8[1])))];
-	case 0x3850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(ASR($0, 1)))];
-	case 0x3851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(ASR($0, 1)))];
-	case 0x3852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(ASR($0, R8[1])))];
-	case 0x3853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(ASR($0, R8[1])))];
-	case 0x1076: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Not($0)))];
-	case 0x1077: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Not($0)))];
-	case 0x1876: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), i8(Neg($0)))];
-	case 0x1877: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), i32(Neg($0)))];
-	case 0x2076: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))))];
-	case 0x2077: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))))];
-	case 0x2876: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))))];
-	case 0x2877: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))))];
-	case 0x7e: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add($0, 1)))];
-	case 0x7f: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Add($0, 1)))];
-	case 0x87e: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u8(Add($0, -1)))];
-	case 0x87f: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24)))))))), u32(Add($0, -1)))];
-	case 0x107f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 4))),Mov(R32[8], u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x207f: return [4, Mov(R32[8], u32(Add(R32[8], 4)))];
-	case 0x307f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(R32[5], u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>>24))))))))];
-	}
-if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)) & 0x31d) == 0x110)
-	switch((b[i+0]) & 0xbf) {
-	case 0x0: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x1: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x2: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x3: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x8: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x9: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0xa: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))))];
-	case 0xb: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x10: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), F1[1])))))];
-	case 0x13: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), F1[1])))))];
-	case 0x18: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x20: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x21: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x22: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x23: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x28: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))))))))];
-	case 0x2b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))))))))];
-	case 0x30: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x31: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x32: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x33: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))))];
-	case 0x38: return [4, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [4, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [4, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x3b: return [4, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x84: return [4, Mov(F1[2], Eq(And(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [4, Mov(F1[2], Eq(And(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x86: return [4, Swap(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x87: return [4, Swap(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x88: return [4, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x89: return [4, Mov(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))];
-	case 0x8b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))];
-	case 0x8c: return [4, Mov(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))), RS[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8d: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24)))))];
-	case 0x8e: return [4, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>>24))))))];
-	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)|((b[i+3] & 0x3f)<<24)) & 0x38c7c0ff) == 0x2004800f)
 	switch(((b[i+1] & 0x3f)) & 0x3f) {
-	case 0x10: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), F1[0])];
-	case 0x11: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Not(F1[0])))];
-	case 0x12: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), F1[1])];
-	case 0x13: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Not(F1[1])))];
-	case 0x14: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), F1[2])];
-	case 0x15: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Not(F1[2])))];
-	case 0x16: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Or(F1[1], F1[2])))];
-	case 0x17: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x18: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), F1[3])];
-	case 0x19: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Not(F1[3])))];
-	case 0x1a: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), F1[4])];
-	case 0x1b: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Not(F1[4])))];
-	case 0x1c: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x1d: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), Eq(F1[0], F1[3]))];
-	case 0x1e: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x1f: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
+	case 0x10: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), F[0])];
+	case 0x11: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Not(F[0])))];
+	case 0x12: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), F[1])];
+	case 0x13: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Not(F[1])))];
+	case 0x14: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), F[2])];
+	case 0x15: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Not(F[2])))];
+	case 0x16: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Or(F[1], F[2])))];
+	case 0x17: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x18: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), F[3])];
+	case 0x19: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Not(F[3])))];
+	case 0x1a: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), F[4])];
+	case 0x1b: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Not(F[4])))];
+	case 0x1c: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Not(Eq(F[0], F[3]))))];
+	case 0x1d: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), Eq(F[0], F[3]))];
+	case 0x1e: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x1f: return [4, Mov(u8(Mem(R32[((b[i+3] & 0x7))])), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
 	case 0x2d: return [4, Mov(($0 = u32(Mem(R32[((b[i+3] & 0x7))]))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x2f: return [4, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(R32[((b[i+3] & 0x7))]))))))];
 	case 0x36: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(R32[((b[i+3] & 0x7))])))];
 	case 0x37: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(R32[((b[i+3] & 0x7))])))];
+	case 0x3e: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(R32[((b[i+3] & 0x7))]))))];
+	case 0x3f: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(R32[((b[i+3] & 0x7))]))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)|(b[i+2]<<16)) & 0xc7c0ff) == 0x4800f)
 	switch(((b[i+1] & 0x3f)) & 0x3f) {
-	case 0x10: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), F1[0])];
-	case 0x11: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Not(F1[0])))];
-	case 0x12: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), F1[1])];
-	case 0x13: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Not(F1[1])))];
-	case 0x14: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), F1[2])];
-	case 0x15: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Not(F1[2])))];
-	case 0x16: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Or(F1[1], F1[2])))];
-	case 0x17: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x18: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), F1[3])];
-	case 0x19: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Not(F1[3])))];
-	case 0x1a: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), F1[4])];
-	case 0x1b: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Not(F1[4])))];
-	case 0x1c: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x1d: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), Eq(F1[0], F1[3]))];
-	case 0x1e: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x1f: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
+	case 0x10: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), F[0])];
+	case 0x11: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Not(F[0])))];
+	case 0x12: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), F[1])];
+	case 0x13: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Not(F[1])))];
+	case 0x14: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), F[2])];
+	case 0x15: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Not(F[2])))];
+	case 0x16: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Or(F[1], F[2])))];
+	case 0x17: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x18: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), F[3])];
+	case 0x19: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Not(F[3])))];
+	case 0x1a: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), F[4])];
+	case 0x1b: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Not(F[4])))];
+	case 0x1c: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x1d: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), Eq(F[0], F[3]))];
+	case 0x1e: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x1f: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
 	case 0x2d: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6))))))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x2f: return [4, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6))))))))))))];
 	case 0x36: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))))];
 	case 0x37: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6)))))))))];
+	case 0x3e: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6))))))))))];
+	case 0x3f: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(u32(Add(R32[((b[i+3] & 0x7))], u32(LSL(R32[(((b[i+3] & 0x38)>>>3))], (((b[i+3] & 0xc0)>>>6))))))))))];
+	}
+if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x3f)<<9)) & 0x7f8f) == 0x4a89)
+	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x387f) {
+	case 0xf: return [4, Mov(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
+	case 0x50: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
+	case 0x51: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
+	case 0x52: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x53: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
+	case 0x851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
+	case 0x852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x2050: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(LSL($0, 1)))];
+	case 0x2051: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(LSL($0, 1)))];
+	case 0x2052: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(LSL($0, R8[1])))];
+	case 0x2053: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(LSL($0, R8[1])))];
+	case 0x2850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(LSR($0, 1)))];
+	case 0x2851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(LSR($0, 1)))];
+	case 0x2852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(LSR($0, R8[1])))];
+	case 0x2853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(LSR($0, R8[1])))];
+	case 0x3850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(ASR($0, 1)))];
+	case 0x3851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(ASR($0, 1)))];
+	case 0x3852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(ASR($0, R8[1])))];
+	case 0x3853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(ASR($0, R8[1])))];
+	case 0x1076: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Not($0)))];
+	case 0x1077: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Not($0)))];
+	case 0x1876: return [4, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x1877: return [4, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), 0)))),Mov($0, i32(Neg($0)))];
+	case 0x2076: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))];
+	case 0x2077: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))];
+	case 0x2876: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))];
+	case 0x2877: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))];
+	case 0x7e: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Add($0, 1)))];
+	case 0x7f: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Add($0, 1)))];
+	case 0x87e: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Add($0, -1)))];
+	case 0x87f: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Add($0, -1)))];
+	case 0x107f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 4))),Mov(R32[8], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))];
+	case 0x207f: return [4, Mov(R32[8], u32(Add(R32[8], 4)))];
+	case 0x307f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))];
+	}
+if(((((b[i+0] & 0xf8)>>>3)|(b[i+1]<<5)) & 0x1811) == 0x810)
+	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x3877) {
+	case 0x0: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Add($0, (((b[i+3])<<24)>>24))))];
+	case 0x2: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Add($0, (((b[i+3])<<24)>>24))))];
+	case 0x3: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Add($0, (((b[i+3])<<24)>>24))))];
+	case 0x800: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Or($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x802: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Or($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x803: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Or($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x1000: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Add($0, u8(Add((((b[i+3])<<24)>>24), u8(F[1]))))))];
+	case 0x1002: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Add($0, u8(Add((((b[i+3])<<24)>>24), u8(F[1]))))))];
+	case 0x1003: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Add($0, u32(Add((((b[i+3])<<24)>>24), u32(F[1]))))))];
+	case 0x1800: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+3])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1802: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+3])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1803: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+3])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x2000: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(And($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x2002: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(And($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x2003: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(And($0, (($42 = (((b[i+3])<<24)>>24)&~0), ($42 < 0 ? $42+0x100000000 : $42)))))];
+	case 0x2800: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2802: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2803: return [4, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0x3000: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Xor($0, (((b[i+3])<<24)>>24))))];
+	case 0x3002: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Xor($0, (((b[i+3])<<24)>>24))))];
+	case 0x3003: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Xor($0, (((b[i+3])<<24)>>24))))];
+	case 0x3800: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3802: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3803: return [4, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x46: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), (((b[i+3])<<24)>>24))];
+	case 0x40: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Or(u8(LSL($0, ($1 = (((b[i+3])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x41: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Or(u32(LSL($0, ($1 = (((b[i+3])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x840: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Or(u8(LSR($0, ($1 = (((b[i+3])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x841: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Or(u32(LSR($0, ($1 = (((b[i+3])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x2040: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(LSL($0, (((b[i+3])<<24)>>24))))];
+	case 0x2041: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(LSL($0, (((b[i+3])<<24)>>24))))];
+	case 0x2840: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(LSR($0, (((b[i+3])<<24)>>24))))];
+	case 0x2841: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(LSR($0, (((b[i+3])<<24)>>24))))];
+	case 0x3840: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(ASR($0, (((b[i+3])<<24)>>24))))];
+	case 0x3841: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(ASR($0, (((b[i+3])<<24)>>24))))];
+	case 0x76: return [4, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), (((b[i+3])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	}
+if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x3f)<<9)) & 0x710f) == 0x4009)
+	switch((b[i+0]|((b[i+1] & 0x7f)<<8)) & 0x787f) {
+	case 0x0: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, (((b[i+3])<<24)>>24))))];
+	case 0x2: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, (((b[i+3])<<24)>>24))))];
+	case 0x3: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, (((b[i+3])<<24)>>24))))];
+	case 0x800: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Or($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x802: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Or($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x803: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x1000: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, u8(Add((((b[i+3])<<24)>>24), u8(F[1]))))))];
+	case 0x1002: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, u8(Add((((b[i+3])<<24)>>24), u8(F[1]))))))];
+	case 0x1003: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, u32(Add((((b[i+3])<<24)>>24), u32(F[1]))))))];
+	case 0x1800: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+3])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1802: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+3])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1803: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+3])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x2000: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(And($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x2002: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(And($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x2003: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(And($0, (($39 = (((b[i+3])<<24)>>24)&~0), ($39 < 0 ? $39+0x100000000 : $39)))))];
+	case 0x2800: return [4, Mov(F[2], Eq(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2802: return [4, Mov(F[2], Eq(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2803: return [4, Mov(F[2], Eq(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0x3000: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Xor($0, (((b[i+3])<<24)>>24))))];
+	case 0x3002: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Xor($0, (((b[i+3])<<24)>>24))))];
+	case 0x3003: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Xor($0, (((b[i+3])<<24)>>24))))];
+	case 0x3800: return [4, Mov(F[2], Eq(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3802: return [4, Mov(F[2], Eq(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3803: return [4, Mov(F[2], Eq(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x400f: return [4, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
+	case 0x46: return [4, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), (((b[i+3])<<24)>>24))];
+	case 0x40: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Or(u8(LSL($0, ($1 = (((b[i+3])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x41: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or(u32(LSL($0, ($1 = (((b[i+3])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x4050: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
+	case 0x4051: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
+	case 0x4052: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x4053: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x840: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Or(u8(LSR($0, ($1 = (((b[i+3])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x841: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or(u32(LSR($0, ($1 = (((b[i+3])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x4850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
+	case 0x4851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
+	case 0x4852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x4853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x2040: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(LSL($0, (((b[i+3])<<24)>>24))))];
+	case 0x2041: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(LSL($0, (((b[i+3])<<24)>>24))))];
+	case 0x6050: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(LSL($0, 1)))];
+	case 0x6051: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(LSL($0, 1)))];
+	case 0x6052: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(LSL($0, R8[1])))];
+	case 0x6053: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(LSL($0, R8[1])))];
+	case 0x2840: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(LSR($0, (((b[i+3])<<24)>>24))))];
+	case 0x2841: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(LSR($0, (((b[i+3])<<24)>>24))))];
+	case 0x6850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(LSR($0, 1)))];
+	case 0x6851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(LSR($0, 1)))];
+	case 0x6852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(LSR($0, R8[1])))];
+	case 0x6853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(LSR($0, R8[1])))];
+	case 0x3840: return [4, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(ASR($0, (((b[i+3])<<24)>>24))))];
+	case 0x3841: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(ASR($0, (((b[i+3])<<24)>>24))))];
+	case 0x7850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(ASR($0, 1)))];
+	case 0x7851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(ASR($0, 1)))];
+	case 0x7852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(ASR($0, R8[1])))];
+	case 0x7853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(ASR($0, R8[1])))];
+	case 0x76: return [4, Mov(F[2], Eq(And(u8(Mem(R32[((b[i+2] & 0x7))])), (((b[i+3])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x5076: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Not($0)))];
+	case 0x5077: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Not($0)))];
+	case 0x5876: return [4, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x5877: return [4, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), 0)))),Mov($0, i32(Neg($0)))];
+	case 0x6076: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))];
+	case 0x6077: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))];
+	case 0x6876: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))];
+	case 0x6877: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))];
+	case 0x407e: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Add($0, 1)))];
+	case 0x407f: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Add($0, 1)))];
+	case 0x487e: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Add($0, -1)))];
+	case 0x487f: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Add($0, -1)))];
+	case 0x507f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 4))),Mov(R32[8], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))];
+	case 0x607f: return [4, Mov(R32[8], u32(Add(R32[8], 4)))];
+	case 0x707f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))];
+	}
+if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x7)<<9)) & 0xf8f) == 0xa89)
+	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x387f) {
+	case 0xf: return [4, Mov(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
+	case 0x50: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
+	case 0x51: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
+	case 0x52: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x53: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
+	case 0x851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
+	case 0x852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x2050: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(LSL($0, 1)))];
+	case 0x2051: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(LSL($0, 1)))];
+	case 0x2052: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(LSL($0, R8[1])))];
+	case 0x2053: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(LSL($0, R8[1])))];
+	case 0x2850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(LSR($0, 1)))];
+	case 0x2851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(LSR($0, 1)))];
+	case 0x2852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(LSR($0, R8[1])))];
+	case 0x2853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(LSR($0, R8[1])))];
+	case 0x3850: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(ASR($0, 1)))];
+	case 0x3851: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(ASR($0, 1)))];
+	case 0x3852: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(ASR($0, R8[1])))];
+	case 0x3853: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(ASR($0, R8[1])))];
+	case 0x1076: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Not($0)))];
+	case 0x1077: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Not($0)))];
+	case 0x1876: return [4, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x1877: return [4, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), 0)))),Mov($0, i32(Neg($0)))];
+	case 0x2076: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))];
+	case 0x2077: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))];
+	case 0x2876: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))];
+	case 0x2877: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))];
+	case 0x7e: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Add($0, 1)))];
+	case 0x7f: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Add($0, 1)))];
+	case 0x87e: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Add($0, -1)))];
+	case 0x87f: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Add($0, -1)))];
+	case 0x107f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 4))),Mov(R32[8], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))];
+	case 0x207f: return [4, Mov(R32[8], u32(Add(R32[8], 4)))];
+	case 0x307f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))];
+	}
+if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x3f)<<10)) & 0xff1d) == 0x9510)
+	switch((b[i+0]) & 0xbf) {
+	case 0x0: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x1: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x2: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))];
+	case 0x3: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))];
+	case 0x8: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x9: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0xa: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))];
+	case 0xb: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))];
+	case 0x10: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), u8(F[1]))))))];
+	case 0x13: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), u32(F[1]))))))];
+	case 0x18: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x19: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x1a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x20: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x21: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x22: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))];
+	case 0x23: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))];
+	case 0x28: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [4, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [4, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x2b: return [4, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
+	case 0x30: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x31: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x32: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))];
+	case 0x33: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))))];
+	case 0x38: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [4, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [4, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x3b: return [4, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24)))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x84: return [4, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [4, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x86: return [4, Swap(u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x87: return [4, Swap(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x88: return [4, Mov(u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x89: return [4, Mov(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))];
+	case 0x8b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))];
+	case 0x8c: return [4, Mov(u32(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))), RS[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8d: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[5], (((b[i+3])<<24)>>24)))))];
+	case 0x8e: return [4, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], (((b[i+3])<<24)>>24))))))];
+	}
+if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)) & 0x10f) == 0x9)
+	switch((b[i+0]|((b[i+1] & 0x7f)<<8)) & 0x787f) {
+	case 0x0: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, (((b[i+3])<<24)>>24))))];
+	case 0x2: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, (((b[i+3])<<24)>>24))))];
+	case 0x3: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add($0, (((b[i+3])<<24)>>24))))];
+	case 0x800: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Or($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x802: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Or($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x803: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Or($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x1000: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, u8(Add((((b[i+3])<<24)>>24), u8(F[1]))))))];
+	case 0x1002: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, u8(Add((((b[i+3])<<24)>>24), u8(F[1]))))))];
+	case 0x1003: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add($0, u32(Add((((b[i+3])<<24)>>24), u32(F[1]))))))];
+	case 0x1800: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+3])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1802: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+3])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0x1803: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+3])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0x2000: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(And($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x2002: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(And($0, ((((b[i+3])<<24)>>24)&0xff))))];
+	case 0x2003: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(And($0, (($38 = (((b[i+3])<<24)>>24)&~0), ($38 < 0 ? $38+0x100000000 : $38)))))];
+	case 0x2800: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2802: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0x2803: return [4, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0x3000: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Xor($0, (((b[i+3])<<24)>>24))))];
+	case 0x3002: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Xor($0, (((b[i+3])<<24)>>24))))];
+	case 0x3003: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Xor($0, (((b[i+3])<<24)>>24))))];
+	case 0x3800: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3802: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x3803: return [4, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), ($1 = (((b[i+3])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0x400f: return [4, Mov(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
+	case 0x46: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), (((b[i+3])<<24)>>24))];
+	case 0x40: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Or(u8(LSL($0, ($1 = (((b[i+3])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x41: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Or(u32(LSL($0, ($1 = (((b[i+3])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x4050: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
+	case 0x4051: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
+	case 0x4052: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x4053: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x840: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Or(u8(LSR($0, ($1 = (((b[i+3])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x841: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Or(u32(LSR($0, ($1 = (((b[i+3])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x4850: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
+	case 0x4851: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
+	case 0x4852: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x4853: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x2040: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(LSL($0, (((b[i+3])<<24)>>24))))];
+	case 0x2041: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(LSL($0, (((b[i+3])<<24)>>24))))];
+	case 0x6050: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(LSL($0, 1)))];
+	case 0x6051: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(LSL($0, 1)))];
+	case 0x6052: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(LSL($0, R8[1])))];
+	case 0x6053: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(LSL($0, R8[1])))];
+	case 0x2840: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(LSR($0, (((b[i+3])<<24)>>24))))];
+	case 0x2841: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(LSR($0, (((b[i+3])<<24)>>24))))];
+	case 0x6850: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(LSR($0, 1)))];
+	case 0x6851: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(LSR($0, 1)))];
+	case 0x6852: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(LSR($0, R8[1])))];
+	case 0x6853: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(LSR($0, R8[1])))];
+	case 0x3840: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(ASR($0, (((b[i+3])<<24)>>24))))];
+	case 0x3841: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(ASR($0, (((b[i+3])<<24)>>24))))];
+	case 0x7850: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(ASR($0, 1)))];
+	case 0x7851: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(ASR($0, 1)))];
+	case 0x7852: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(ASR($0, R8[1])))];
+	case 0x7853: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(ASR($0, R8[1])))];
+	case 0x76: return [4, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), (((b[i+3])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x5076: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Not($0)))];
+	case 0x5077: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Not($0)))];
+	case 0x5876: return [4, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x5877: return [4, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), 0)))),Mov($0, i32(Neg($0)))];
+	case 0x6076: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))];
+	case 0x6077: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))];
+	case 0x6876: return [4, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))];
+	case 0x6877: return [4, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))];
+	case 0x407e: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Add($0, 1)))];
+	case 0x407f: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Add($0, 1)))];
+	case 0x487e: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Add($0, -1)))];
+	case 0x487f: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Add($0, -1)))];
+	case 0x507f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 4))),Mov(R32[8], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))];
+	case 0x607f: return [4, Mov(R32[8], u32(Add(R32[8], 4)))];
+	case 0x707f: return [4, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))];
+	}
+if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x3f)<<10)) & 0xe31d) == 0x8110)
+	switch((b[i+0]) & 0xbf) {
+	case 0x0: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x1: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x2: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))];
+	case 0x3: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))];
+	case 0x8: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x9: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0xa: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))];
+	case 0xb: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))];
+	case 0x10: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), u8(F[1]))))))];
+	case 0x13: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), u32(F[1]))))))];
+	case 0x18: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x19: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x1a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x20: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x21: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x22: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))];
+	case 0x23: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))];
+	case 0x28: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [4, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [4, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x2b: return [4, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
+	case 0x30: return [4, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x31: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x32: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))];
+	case 0x33: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))))];
+	case 0x38: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [4, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [4, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x3b: return [4, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x84: return [4, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [4, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x86: return [4, Swap(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x87: return [4, Swap(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x88: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x89: return [4, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))];
+	case 0x8b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))];
+	case 0x8c: return [4, Mov(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), RS[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8d: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))];
+	case 0x8e: return [4, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))];
+	}
+if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x7)<<10)) & 0x1f1d) == 0x1510)
+	switch((b[i+0]) & 0xbf) {
+	case 0x0: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x1: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x2: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))];
+	case 0x3: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))];
+	case 0x8: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x9: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0xa: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))];
+	case 0xb: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))];
+	case 0x10: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), u8(F[1]))))))];
+	case 0x13: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), u32(F[1]))))))];
+	case 0x18: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x19: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x1a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x20: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x21: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x22: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))];
+	case 0x23: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))];
+	case 0x28: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [4, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [4, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x2b: return [4, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
+	case 0x30: return [4, Mov(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x31: return [4, Mov(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x32: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))];
+	case 0x33: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))))];
+	case 0x38: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [4, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [4, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x3b: return [4, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x84: return [4, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [4, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x86: return [4, Swap(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x87: return [4, Swap(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x88: return [4, Mov(u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x89: return [4, Mov(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))];
+	case 0x8b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))];
+	case 0x8c: return [4, Mov(u32(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))), RS[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8d: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24))))))))];
+	case 0x8e: return [4, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[5], i32(u32(Add(u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))), (((b[i+3])<<24)>>24)))))))))];
+	}
+if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)) & 0x31d) == 0x110)
+	switch((b[i+0]) & 0xbf) {
+	case 0x0: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x1: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x2: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))];
+	case 0x3: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))];
+	case 0x8: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x9: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0xa: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))];
+	case 0xb: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))];
+	case 0x10: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), u8(F[1]))))))];
+	case 0x13: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), u32(F[1]))))))];
+	case 0x18: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x19: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x1a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x20: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x21: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x22: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))];
+	case 0x23: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))];
+	case 0x28: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [4, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [4, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x2b: return [4, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
+	case 0x30: return [4, Mov(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x31: return [4, Mov(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x32: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))];
+	case 0x33: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))))];
+	case 0x38: return [4, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [4, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [4, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x3b: return [4, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x84: return [4, Mov(F[2], Eq(And(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [4, Mov(F[2], Eq(And(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x86: return [4, Swap(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x87: return [4, Swap(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x88: return [4, Mov(u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x89: return [4, Mov(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8a: return [4, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))];
+	case 0x8b: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))];
+	case 0x8c: return [4, Mov(u32(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))), RS[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8d: return [4, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24)))))];
+	case 0x8e: return [4, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))), (((b[i+3])<<24)>>24))))))];
 	}
 if(((b[i+0]|(b[i+1]<<8)) & 0xc0ff) == 0x800f)
 	switch((b[i+1]|(b[i+2]<<8)) & 0xc03f) {
-	case 0x4010: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), F1[0])];
-	case 0x4011: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), u1(Not(F1[0])))];
-	case 0x4012: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), F1[1])];
-	case 0x4013: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), u1(Not(F1[1])))];
-	case 0x4014: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), F1[2])];
-	case 0x4015: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), u1(Not(F1[2])))];
-	case 0x4016: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), u1(Or(F1[1], F1[2])))];
-	case 0x4017: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x4018: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), F1[3])];
-	case 0x4019: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), u1(Not(F1[3])))];
-	case 0x401a: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), F1[4])];
-	case 0x401b: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), u1(Not(F1[4])))];
-	case 0x401c: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x401d: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), Eq(F1[0], F1[3]))];
-	case 0x401e: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x401f: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
-	case 0x2c: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or(u32(LSR($0, ($1 = (b[i+3])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($2 = ((($1 = ((($0 = (1 << $1)&~0), ($0 < 0 ? $0+0x100000000 : $0)) + -1)&~0), ($1 < 0 ? $1+0x100000000 : $1)) << (((((-$1<<24)>>>24) + 32)<<24)>>>24))&~0), ($2 < 0 ? $2+0x100000000 : $2)))))))];
-	case 0xc02c: return [4, Mov(R32[((b[i+2] & 0x7))], u32(Or(u32(LSR(R32[((b[i+2] & 0x7))], ($0 = (b[i+3])))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($50 = ((($49 = ((($48 = (1 << $0)&~0), ($48 < 0 ? $48+0x100000000 : $48)) + -1)&~0), ($49 < 0 ? $49+0x100000000 : $49)) << (((((-$0<<24)>>>24) + 32)<<24)>>>24))&~0), ($50 < 0 ? $50+0x100000000 : $50)))))))];
-	case 0x402d: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
-	case 0x4036: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))];
-	case 0x4037: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>>24))))))];
+	case 0x4010: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), F[0])];
+	case 0x4011: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), u1(Not(F[0])))];
+	case 0x4012: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), F[1])];
+	case 0x4013: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), u1(Not(F[1])))];
+	case 0x4014: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), F[2])];
+	case 0x4015: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), u1(Not(F[2])))];
+	case 0x4016: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), u1(Or(F[1], F[2])))];
+	case 0x4017: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x4018: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), F[3])];
+	case 0x4019: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), u1(Not(F[3])))];
+	case 0x401a: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), F[4])];
+	case 0x401b: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), u1(Not(F[4])))];
+	case 0x401c: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), u1(Not(Eq(F[0], F[3]))))];
+	case 0x401d: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), Eq(F[0], F[3]))];
+	case 0x401e: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x401f: return [4, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
+	case 0x2c: return [4, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or(u32(LSR($0, ($1 = (((b[i+3])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($56 = ((($55 = ((($54 = (1 << $1)&~0), ($54 < 0 ? $54+0x100000000 : $54)) + -1)&~0), ($55 < 0 ? $55+0x100000000 : $55)) << (((((-$1<<24)>>24) + 32)<<24)>>24))&~0), ($56 < 0 ? $56+0x100000000 : $56)))))))];
+	case 0xc02c: return [4, Mov(R32[((b[i+2] & 0x7))], u32(Or(u32(LSR(R32[((b[i+2] & 0x7))], ($0 = (((b[i+3])<<24)>>24)))), u32(And(R32[(((b[i+2] & 0x38)>>>3))], (($104 = ((($103 = ((($102 = (1 << $0)&~0), ($102 < 0 ? $102+0x100000000 : $102)) + -1)&~0), ($103 < 0 ? $103+0x100000000 : $103)) << (((((-$0<<24)>>24) + 32)<<24)>>24))&~0), ($104 < 0 ? $104+0x100000000 : $104)))))))];
+	case 0x402d: return [4, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x402f: return [4, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))))))];
+	case 0x4036: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))];
+	case 0x4037: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24))))))];
+	case 0x403e: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))))];
+	case 0x403f: return [4, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(u32(Add(R32[((b[i+2] & 0x7))], (((b[i+3])<<24)>>24)))))))];
 	}
 if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x3f)<<9)) & 0x718f) == 0x4009)
 	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x387f) {
@@ -2835,8 +2942,8 @@ if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x3f)<<9)) & 0x718f) == 0x4009
 	case 0x3853: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(ASR($0, R8[1])))];
 	case 0x1076: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Not($0)))];
 	case 0x1077: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Not($0)))];
-	case 0x1876: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), i8(Neg($0)))];
-	case 0x1877: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), i32(Neg($0)))];
+	case 0x1876: return [3, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x1877: return [3, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), 0)))),Mov($0, i32(Neg($0)))];
 	case 0x2076: return [3, Mov(R16[0], u8(Mul(R8[0], u8(Mem(R32[((b[i+2] & 0x7))])))))];
 	case 0x2077: return [3, Mov(R32[0], u32(Mul(R32[0], u32(Mem(R32[((b[i+2] & 0x7))])))))];
 	case 0x2876: return [3, Mov(R16[0], u8(Mul(R8[0], u8(Mem(R32[((b[i+2] & 0x7))])))))];
@@ -2848,6 +2955,52 @@ if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)|((b[i+2] & 0x3f)<<9)) & 0x718f) == 0x4009
 	case 0x107f: return [3, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 3))),Mov(R32[8], u32(Mem(R32[((b[i+2] & 0x7))])))];
 	case 0x207f: return [3, Mov(R32[8], u32(Add(R32[8], 3)))];
 	case 0x307f: return [3, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(R32[((b[i+2] & 0x7))])))];
+	}
+if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x3f)<<10)) & 0xe31d) == 0x8010)
+	switch((b[i+0]) & 0xbf) {
+	case 0x0: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x1: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x2: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(R32[((b[i+2] & 0x7))])))))];
+	case 0x3: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(R32[((b[i+2] & 0x7))])))))];
+	case 0x8: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x9: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0xa: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(R32[((b[i+2] & 0x7))])))))];
+	case 0xb: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(R32[((b[i+2] & 0x7))])))))];
+	case 0x10: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(R32[((b[i+2] & 0x7))])), u8(F[1]))))))];
+	case 0x13: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(R32[((b[i+2] & 0x7))])), u32(F[1]))))))];
+	case 0x18: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x19: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x1a: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(R32[((b[i+2] & 0x7))])))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1b: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(R32[((b[i+2] & 0x7))])))))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x20: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x21: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x22: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(R32[((b[i+2] & 0x7))])))))];
+	case 0x23: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(R32[((b[i+2] & 0x7))])))))];
+	case 0x28: return [3, Mov(F[2], Eq(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [3, Mov(F[2], Eq(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [3, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(R32[((b[i+2] & 0x7))]))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x2b: return [3, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(R32[((b[i+2] & 0x7))]))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
+	case 0x30: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x31: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x32: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(R32[((b[i+2] & 0x7))])))))];
+	case 0x33: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(R32[((b[i+2] & 0x7))])))))];
+	case 0x38: return [3, Mov(F[2], Eq(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [3, Mov(F[2], Eq(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [3, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(R32[((b[i+2] & 0x7))]))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x3b: return [3, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(R32[((b[i+2] & 0x7))]))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x84: return [3, Mov(F[2], Eq(And(u8(Mem(R32[((b[i+2] & 0x7))])), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [3, Mov(F[2], Eq(And(u32(Mem(R32[((b[i+2] & 0x7))])), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x86: return [3, Swap(u8(Mem(R32[((b[i+2] & 0x7))])), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x87: return [3, Swap(u32(Mem(R32[((b[i+2] & 0x7))])), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x88: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x89: return [3, Mov(u32(Mem(R32[((b[i+2] & 0x7))])), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8a: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(R32[((b[i+2] & 0x7))])))];
+	case 0x8b: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(R32[((b[i+2] & 0x7))])))];
+	case 0x8c: return [3, Mov(u32(Mem(R32[((b[i+2] & 0x7))])), RS[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8d: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], R32[((b[i+2] & 0x7))])];
+	case 0x8e: return [3, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(R32[((b[i+2] & 0x7))])))];
 	}
 if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)) & 0x18f) == 0x9)
 	switch((b[i+0]|((b[i+1] & 0x3f)<<8)) & 0x387f) {
@@ -2874,8 +3027,8 @@ if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)) & 0x18f) == 0x9)
 	case 0x3853: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(ASR($0, R8[1])))];
 	case 0x1076: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Not($0)))];
 	case 0x1077: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Not($0)))];
-	case 0x1876: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), i8(Neg($0)))];
-	case 0x1877: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), i32(Neg($0)))];
+	case 0x1876: return [3, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x1877: return [3, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), 0)))),Mov($0, i32(Neg($0)))];
 	case 0x2076: return [3, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))))))];
 	case 0x2077: return [3, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))))))];
 	case 0x2876: return [3, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))))))];
@@ -2888,204 +3041,6 @@ if(((((b[i+0] & 0x80)>>>7)|(b[i+1]<<1)) & 0x18f) == 0x9)
 	case 0x207f: return [3, Mov(R32[8], u32(Add(R32[8], 3)))];
 	case 0x307f: return [3, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))))];
 	}
-if(((b[i+0]|(b[i+1]<<8)) & 0xc0ff) == 0x800f)
-	switch((b[i+1]|(b[i+2]<<8)) & 0xc03f) {
-	case 0x10: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), F1[0])];
-	case 0xc010: return [3, Mov(R8[((b[i+2] & 0x7))], F1[0])];
-	case 0x11: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Not(F1[0])))];
-	case 0xc011: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Not(F1[0])))];
-	case 0x12: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), F1[1])];
-	case 0xc012: return [3, Mov(R8[((b[i+2] & 0x7))], F1[1])];
-	case 0x13: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Not(F1[1])))];
-	case 0xc013: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Not(F1[1])))];
-	case 0x14: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), F1[2])];
-	case 0xc014: return [3, Mov(R8[((b[i+2] & 0x7))], F1[2])];
-	case 0x15: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Not(F1[2])))];
-	case 0xc015: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Not(F1[2])))];
-	case 0x16: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Or(F1[1], F1[2])))];
-	case 0xc016: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Or(F1[1], F1[2])))];
-	case 0x17: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0xc017: return [3, Mov(R8[((b[i+2] & 0x7))], u1(And(u1(Not(F1[1])), u1(Not(F1[2])))))];
-	case 0x18: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), F1[3])];
-	case 0xc018: return [3, Mov(R8[((b[i+2] & 0x7))], F1[3])];
-	case 0x19: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Not(F1[3])))];
-	case 0xc019: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Not(F1[3])))];
-	case 0x1a: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), F1[4])];
-	case 0xc01a: return [3, Mov(R8[((b[i+2] & 0x7))], F1[4])];
-	case 0x1b: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Not(F1[4])))];
-	case 0xc01b: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Not(F1[4])))];
-	case 0x1c: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Not(Eq(F1[0], F1[3]))))];
-	case 0xc01c: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Not(Eq(F1[0], F1[3]))))];
-	case 0x1d: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), Eq(F1[0], F1[3]))];
-	case 0xc01d: return [3, Mov(R8[((b[i+2] & 0x7))], Eq(F1[0], F1[3]))];
-	case 0x1e: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0xc01e: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))))];
-	case 0x1f: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
-	case 0xc01f: return [3, Mov(R8[((b[i+2] & 0x7))], u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))))];
-	case 0x2d: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
-	case 0xc02d: return [3, Mov(R32[((b[i+2] & 0x7))], u32(Or(u32(LSR(R32[((b[i+2] & 0x7))], R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
-	case 0x36: return [3, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(R32[((b[i+2] & 0x7))])))];
-	case 0xc036: return [3, Mov(R32[(((b[i+2] & 0x38)>>>3))], R8[((b[i+2] & 0x7))])];
-	case 0x37: return [3, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(R32[((b[i+2] & 0x7))])))];
-	case 0xc037: return [3, Mov(R32[(((b[i+2] & 0x38)>>>3))], R16[((b[i+2] & 0x7))])];
-	}
-if(((((b[i+0] & 0x80)>>>7)) & 0x1) == 0x1)
-	switch((b[i+0]|(b[i+1]<<8)) & 0xf87f) {
-	case 0x0: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add($0, (b[i+2]))))];
-	case 0xc000: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x2: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add($0, (b[i+2]))))];
-	case 0xc002: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x3: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add($0, (b[i+2]))))];
-	case 0xc003: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x800: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Or($0, (b[i+2]))))];
-	case 0xc800: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Or(R8[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x802: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Or($0, (b[i+2]))))];
-	case 0xc802: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Or(R8[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x803: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Or($0, (b[i+2]))))];
-	case 0xc803: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Or(R32[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x1000: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add($0, u8(Add((b[i+2]), F1[1])))))];
-	case 0xd000: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], u8(Add((b[i+2]), F1[1])))))];
-	case 0x1002: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add($0, u8(Add((b[i+2]), F1[1])))))];
-	case 0xd002: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], u8(Add((b[i+2]), F1[1])))))];
-	case 0x1003: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add($0, u8(Add((b[i+2]), F1[1])))))];
-	case 0xd003: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], u8(Add((b[i+2]), F1[1])))))];
-	case 0x1800: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add(($1 = (b[i+2])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0xd800: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(($0 = (b[i+2])), i8(Neg(($1 = u8(Add(u8(Add(R8[((b[i+1] & 0x7))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1802: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add(($1 = (b[i+2])), i8(Neg(($2 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0xd802: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(($0 = (b[i+2])), i8(Neg(($1 = u8(Add(u8(Add(R8[((b[i+1] & 0x7))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1803: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add(($1 = (b[i+2])), i32(Neg(($2 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0xd803: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Add(($0 = (b[i+2])), i32(Neg(($1 = u32(Add(u32(Add(R32[((b[i+1] & 0x7))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x2000: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(And($0, (b[i+2]))))];
-	case 0xe000: return [3, Mov(R8[((b[i+1] & 0x7))], u8(And(R8[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x2002: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(And($0, (b[i+2]))))];
-	case 0xe002: return [3, Mov(R8[((b[i+1] & 0x7))], u8(And(R8[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x2003: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(And($0, (b[i+2]))))];
-	case 0xe003: return [3, Mov(R32[((b[i+1] & 0x7))], u32(And(R32[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x2800: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add($0, ((-($1 = (b[i+2]))<<24)>>>24))))];
-	case 0xe800: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], ((-($0 = (b[i+2]))<<24)>>>24))))];
-	case 0x2802: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add($0, ((-($1 = (b[i+2]))<<24)>>>24))))];
-	case 0xe802: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], ((-($0 = (b[i+2]))<<24)>>>24))))];
-	case 0x2803: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add($0, ((-($1 = (b[i+2]))<<24)>>>24))))];
-	case 0xe803: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], ((-($0 = (b[i+2]))<<24)>>>24))))];
-	case 0x3000: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Xor($0, (b[i+2]))))];
-	case 0xf000: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Xor(R8[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x3002: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Xor($0, (b[i+2]))))];
-	case 0xf002: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Xor(R8[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x3003: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Xor($0, (b[i+2]))))];
-	case 0xf003: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Xor(R32[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x3800: return [3, Mov(F1[2], Eq(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), ($1 = (b[i+2])))),Mov(F1[1], Lt($0, $1))];
-	case 0xf800: return [3, Mov(F1[2], Eq(R8[((b[i+1] & 0x7))], ($0 = (b[i+2])))),Mov(F1[1], Lt(R8[((b[i+1] & 0x7))], $0))];
-	case 0x3802: return [3, Mov(F1[2], Eq(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), ($1 = (b[i+2])))),Mov(F1[1], Lt($0, $1))];
-	case 0xf802: return [3, Mov(F1[2], Eq(R8[((b[i+1] & 0x7))], ($0 = (b[i+2])))),Mov(F1[1], Lt(R8[((b[i+1] & 0x7))], $0))];
-	case 0x3803: return [3, Mov(F1[2], Eq(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), ($1 = (b[i+2])))),Mov(F1[1], Lt($0, $1))];
-	case 0xf803: return [3, Mov(F1[2], Eq(R32[((b[i+1] & 0x7))], ($0 = (b[i+2])))),Mov(F1[1], Lt(R32[((b[i+1] & 0x7))], $0))];
-	case 0x400f: return [3, Mov(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
-	case 0x46: return [3, Mov(u8(Mem(R32[((b[i+1] & 0x7))])), (b[i+2]))];
-	case 0xc046: return [3, Mov(R8[((b[i+1] & 0x7))], (b[i+2]))];
-	case 0x40: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Or(u8(LSL($0, ($1 = (b[i+2])))), u8(LSR($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0xc040: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Or(u8(LSL(R8[((b[i+1] & 0x7))], ($0 = (b[i+2])))), u8(LSR(R8[((b[i+1] & 0x7))], (((((-$0<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x41: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Or(u32(LSL($0, ($1 = (b[i+2])))), u32(LSR($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0xc041: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Or(u32(LSL(R32[((b[i+1] & 0x7))], ($0 = (b[i+2])))), u32(LSR(R32[((b[i+1] & 0x7))], (((((-$0<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x4050: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
-	case 0x4051: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
-	case 0x4052: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x4053: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x840: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Or(u8(LSR($0, ($1 = (b[i+2])))), u8(LSL($0, (((((-$1<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0xc840: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Or(u8(LSR(R8[((b[i+1] & 0x7))], ($0 = (b[i+2])))), u8(LSL(R8[((b[i+1] & 0x7))], (((((-$0<<24)>>>24) + 8)<<24)>>>24))))))];
-	case 0x841: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Or(u32(LSR($0, ($1 = (b[i+2])))), u32(LSL($0, (((((-$1<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0xc841: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Or(u32(LSR(R32[((b[i+1] & 0x7))], ($0 = (b[i+2])))), u32(LSL(R32[((b[i+1] & 0x7))], (((((-$0<<24)>>>24) + 32)<<24)>>>24))))))];
-	case 0x4850: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
-	case 0x4851: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
-	case 0x4852: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
-	case 0x4853: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
-	case 0x2040: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(LSL($0, (b[i+2]))))];
-	case 0xe040: return [3, Mov(R8[((b[i+1] & 0x7))], u8(LSL(R8[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x2041: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(LSL($0, (b[i+2]))))];
-	case 0xe041: return [3, Mov(R32[((b[i+1] & 0x7))], u32(LSL(R32[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x6050: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(LSL($0, 1)))];
-	case 0x6051: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(LSL($0, 1)))];
-	case 0x6052: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(LSL($0, R8[1])))];
-	case 0x6053: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(LSL($0, R8[1])))];
-	case 0x2840: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(LSR($0, (b[i+2]))))];
-	case 0xe840: return [3, Mov(R8[((b[i+1] & 0x7))], u8(LSR(R8[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x2841: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(LSR($0, (b[i+2]))))];
-	case 0xe841: return [3, Mov(R32[((b[i+1] & 0x7))], u32(LSR(R32[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x6850: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(LSR($0, 1)))];
-	case 0x6851: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(LSR($0, 1)))];
-	case 0x6852: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(LSR($0, R8[1])))];
-	case 0x6853: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(LSR($0, R8[1])))];
-	case 0x3840: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(ASR($0, (b[i+2]))))];
-	case 0xf840: return [3, Mov(R8[((b[i+1] & 0x7))], u8(ASR(R8[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x3841: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(ASR($0, (b[i+2]))))];
-	case 0xf841: return [3, Mov(R32[((b[i+1] & 0x7))], u32(ASR(R32[((b[i+1] & 0x7))], (b[i+2]))))];
-	case 0x7850: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(ASR($0, 1)))];
-	case 0x7851: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(ASR($0, 1)))];
-	case 0x7852: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(ASR($0, R8[1])))];
-	case 0x7853: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(ASR($0, R8[1])))];
-	case 0x76: return [3, Mov(F1[2], Eq(And(u8(Mem(R32[((b[i+1] & 0x7))])), (b[i+2])), 0))];
-	case 0xc076: return [3, Mov(F1[2], Eq(And(R8[((b[i+1] & 0x7))], (b[i+2])), 0))];
-	case 0x5076: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Not($0)))];
-	case 0x5077: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Not($0)))];
-	case 0x5876: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), i8(Neg($0)))];
-	case 0x5877: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), i32(Neg($0)))];
-	case 0x6076: return [3, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))))];
-	case 0x6077: return [3, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))))];
-	case 0x6876: return [3, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))))];
-	case 0x6877: return [3, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))))];
-	case 0x407e: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add($0, 1)))];
-	case 0x407f: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Add($0, 1)))];
-	case 0x487e: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add($0, -1)))];
-	case 0x487f: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Add($0, -1)))];
-	case 0x507f: return [3, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 3))),Mov(R32[8], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))];
-	case 0x607f: return [3, Mov(R32[8], u32(Add(R32[8], 3)))];
-	case 0x707f: return [3, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))];
-	}
-if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)|((b[i+2] & 0x3f)<<10)) & 0xe31d) == 0x8010)
-	switch((b[i+0]) & 0xbf) {
-	case 0x0: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x1: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x2: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(R32[((b[i+2] & 0x7))])))))];
-	case 0x3: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(R32[((b[i+2] & 0x7))])))))];
-	case 0x8: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x9: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0xa: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(R32[((b[i+2] & 0x7))])))))];
-	case 0xb: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(R32[((b[i+2] & 0x7))])))))];
-	case 0x10: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(R32[((b[i+2] & 0x7))])), F1[1])))))];
-	case 0x13: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(R32[((b[i+2] & 0x7))])), F1[1])))))];
-	case 0x18: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x20: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x21: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x22: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(R32[((b[i+2] & 0x7))])))))];
-	case 0x23: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(R32[((b[i+2] & 0x7))])))))];
-	case 0x28: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))))))))];
-	case 0x2b: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))))))))];
-	case 0x30: return [3, Mov(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x31: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x32: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(R32[((b[i+2] & 0x7))])))))];
-	case 0x33: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(R32[((b[i+2] & 0x7))])))))];
-	case 0x38: return [3, Mov(F1[2], Eq(($0 = u8(Mem(R32[((b[i+2] & 0x7))]))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [3, Mov(F1[2], Eq(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [3, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(R32[((b[i+2] & 0x7))]))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x3b: return [3, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(R32[((b[i+2] & 0x7))]))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x84: return [3, Mov(F1[2], Eq(And(u8(Mem(R32[((b[i+2] & 0x7))])), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [3, Mov(F1[2], Eq(And(u32(Mem(R32[((b[i+2] & 0x7))])), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x86: return [3, Swap(u8(Mem(R32[((b[i+2] & 0x7))])), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x87: return [3, Swap(u32(Mem(R32[((b[i+2] & 0x7))])), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x88: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x89: return [3, Mov(u32(Mem(R32[((b[i+2] & 0x7))])), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8a: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(R32[((b[i+2] & 0x7))])))];
-	case 0x8b: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(R32[((b[i+2] & 0x7))])))];
-	case 0x8c: return [3, Mov(u32(Mem(R32[((b[i+2] & 0x7))])), RS[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8d: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], R32[((b[i+2] & 0x7))])];
-	case 0x8e: return [3, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(R32[((b[i+2] & 0x7))])))];
-	}
 if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)) & 0x31d) == 0x10)
 	switch((b[i+0]) & 0xbf) {
 	case 0x0: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
@@ -3096,32 +3051,32 @@ if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)) & 0x31d) == 0x10)
 	case 0x9: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
 	case 0xa: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))))))];
 	case 0xb: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))))))];
-	case 0x10: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), F1[1])))))];
-	case 0x13: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), F1[1])))))];
-	case 0x18: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
+	case 0x10: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), u8(F[1]))))))];
+	case 0x13: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), u32(F[1]))))))];
+	case 0x18: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x19: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x1a: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1b: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))))))))), i32(Neg(($2 = u32(F[1])))))))];
 	case 0x20: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x21: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x22: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))))))];
 	case 0x23: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))))))];
-	case 0x28: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))))))))];
-	case 0x2b: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))))))))];
+	case 0x28: return [3, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [3, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [3, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x2b: return [3, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
 	case 0x30: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x31: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x32: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))))))];
 	case 0x33: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))))))];
-	case 0x38: return [3, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [3, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [3, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x3b: return [3, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x84: return [3, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [3, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
+	case 0x38: return [3, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [3, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [3, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x3b: return [3, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6))))))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x84: return [3, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [3, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	case 0x86: return [3, Swap(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), R8[(((b[i+1] & 0x38)>>>3))])];
 	case 0x87: return [3, Swap(u32(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), R32[(((b[i+1] & 0x38)>>>3))])];
 	case 0x88: return [3, Mov(u8(Mem(u32(Add(R32[((b[i+2] & 0x7))], u32(LSL(R32[(((b[i+2] & 0x38)>>>3))], (((b[i+2] & 0xc0)>>>6)))))))), R8[(((b[i+1] & 0x38)>>>3))])];
@@ -3134,64 +3089,223 @@ if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)) & 0x31d) == 0x10)
 	}
 if(((((b[i+0] & 0xc0)>>>6)|(b[i+1]<<2)) & 0x301) == 0x100)
 	switch((b[i+0]) & 0xbf) {
-	case 0x0: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x1: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x2: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))))];
-	case 0x3: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))))];
-	case 0x8: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x9: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0xa: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))))];
-	case 0xb: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))))];
-	case 0x10: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), F1[1])))))];
-	case 0x13: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), F1[1])))))];
-	case 0x18: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x20: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x21: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x22: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))))];
-	case 0x23: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))))];
-	case 0x28: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))))))))];
-	case 0x2b: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))))))))];
-	case 0x30: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x31: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
-	case 0x32: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))))];
-	case 0x33: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))))];
-	case 0x38: return [3, Mov(F1[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [3, Mov(F1[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [3, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x3b: return [3, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0x84: return [3, Mov(F1[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [3, Mov(F1[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x86: return [3, Swap(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x87: return [3, Swap(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x88: return [3, Mov(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
-	case 0x89: return [3, Mov(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8a: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))];
-	case 0x8b: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))];
-	case 0x8c: return [3, Mov(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))), RS[(((b[i+1] & 0x38)>>>3))])];
-	case 0x8d: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24)))))];
-	case 0x8e: return [3, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>>24))))))];
+	case 0x0: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Add($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x1: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Add($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x2: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))];
+	case 0x3: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))];
+	case 0x8: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Or($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x9: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Or($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0xa: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))];
+	case 0xb: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))];
+	case 0x10: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), u8(F[1]))))))];
+	case 0x13: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), u32(F[1]))))))];
+	case 0x18: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x19: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x1a: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1b: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x20: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x21: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x22: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))];
+	case 0x23: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))];
+	case 0x28: return [3, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [3, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [3, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0x2b: return [3, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
+	case 0x30: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x31: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
+	case 0x32: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))];
+	case 0x33: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))];
+	case 0x38: return [3, Mov(F[2], Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [3, Mov(F[2], Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [3, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x3b: return [3, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0x84: return [3, Mov(F[2], Eq(And(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [3, Mov(F[2], Eq(And(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x86: return [3, Swap(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x87: return [3, Swap(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x88: return [3, Mov(u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), R8[(((b[i+1] & 0x38)>>>3))])];
+	case 0x89: return [3, Mov(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), R32[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8a: return [3, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))];
+	case 0x8b: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))];
+	case 0x8c: return [3, Mov(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), RS[(((b[i+1] & 0x38)>>>3))])];
+	case 0x8d: return [3, Mov(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))];
+	case 0x8e: return [3, Mov(RS[(((b[i+1] & 0x38)>>>3))], u16(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))];
+	}
+if(((b[i+0]|(b[i+1]<<8)) & 0xc0ff) == 0x800f)
+	switch((b[i+1]|(b[i+2]<<8)) & 0xc03f) {
+	case 0x10: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), F[0])];
+	case 0xc010: return [3, Mov(R8[((b[i+2] & 0x7))], F[0])];
+	case 0x11: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Not(F[0])))];
+	case 0xc011: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Not(F[0])))];
+	case 0x12: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), F[1])];
+	case 0xc012: return [3, Mov(R8[((b[i+2] & 0x7))], F[1])];
+	case 0x13: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Not(F[1])))];
+	case 0xc013: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Not(F[1])))];
+	case 0x14: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), F[2])];
+	case 0xc014: return [3, Mov(R8[((b[i+2] & 0x7))], F[2])];
+	case 0x15: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Not(F[2])))];
+	case 0xc015: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Not(F[2])))];
+	case 0x16: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Or(F[1], F[2])))];
+	case 0xc016: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Or(F[1], F[2])))];
+	case 0x17: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0xc017: return [3, Mov(R8[((b[i+2] & 0x7))], u1(And(u1(Not(F[1])), u1(Not(F[2])))))];
+	case 0x18: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), F[3])];
+	case 0xc018: return [3, Mov(R8[((b[i+2] & 0x7))], F[3])];
+	case 0x19: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Not(F[3])))];
+	case 0xc019: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Not(F[3])))];
+	case 0x1a: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), F[4])];
+	case 0xc01a: return [3, Mov(R8[((b[i+2] & 0x7))], F[4])];
+	case 0x1b: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Not(F[4])))];
+	case 0xc01b: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Not(F[4])))];
+	case 0x1c: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Not(Eq(F[0], F[3]))))];
+	case 0xc01c: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Not(Eq(F[0], F[3]))))];
+	case 0x1d: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), Eq(F[0], F[3]))];
+	case 0xc01d: return [3, Mov(R8[((b[i+2] & 0x7))], Eq(F[0], F[3]))];
+	case 0x1e: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0xc01e: return [3, Mov(R8[((b[i+2] & 0x7))], u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))))];
+	case 0x1f: return [3, Mov(u8(Mem(R32[((b[i+2] & 0x7))])), u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
+	case 0xc01f: return [3, Mov(R8[((b[i+2] & 0x7))], u1(And(u1(Not(F[2])), Eq(F[0], F[3]))))];
+	case 0x2d: return [3, Mov(($0 = u32(Mem(R32[((b[i+2] & 0x7))]))), u32(Or(u32(LSR($0, R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0xc02d: return [3, Mov(R32[((b[i+2] & 0x7))], u32(Or(u32(LSR(R32[((b[i+2] & 0x7))], R8[1])), u32(And(R32[(((b[i+2] & 0x38)>>>3))], u32(LSL(u32(Add(u32(LSL(1, R8[1])), -1)), i8(Add(i8(Neg(R8[1])), 32)))))))))];
+	case 0x2f: return [3, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(u32(Mem(R32[((b[i+2] & 0x7))]))))))];
+	case 0xc02f: return [3, Mov(($0 = i32(R32[(((b[i+2] & 0x38)>>>3))])), i32(Mul($0, i32(R32[((b[i+2] & 0x7))]))))];
+	case 0x36: return [3, Mov(R32[(((b[i+2] & 0x38)>>>3))], u8(Mem(R32[((b[i+2] & 0x7))])))];
+	case 0xc036: return [3, Mov(R32[(((b[i+2] & 0x38)>>>3))], R8[((b[i+2] & 0x7))])];
+	case 0x37: return [3, Mov(R32[(((b[i+2] & 0x38)>>>3))], u16(Mem(R32[((b[i+2] & 0x7))])))];
+	case 0xc037: return [3, Mov(R32[(((b[i+2] & 0x38)>>>3))], R16[((b[i+2] & 0x7))])];
+	case 0x3e: return [3, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u8(Mem(R32[((b[i+2] & 0x7))]))))];
+	case 0xc03e: return [3, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(R8[((b[i+2] & 0x7))]))];
+	case 0x3f: return [3, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(u16(Mem(R32[((b[i+2] & 0x7))]))))];
+	case 0xc03f: return [3, Mov(R32[(((b[i+2] & 0x38)>>>3))], i32(R16[((b[i+2] & 0x7))]))];
+	}
+if(((((b[i+0] & 0x80)>>>7)) & 0x1) == 0x1)
+	switch((b[i+0]|(b[i+1]<<8)) & 0xf87f) {
+	case 0x0: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add($0, (((b[i+2])<<24)>>24))))];
+	case 0xc000: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))];
+	case 0x2: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add($0, (((b[i+2])<<24)>>24))))];
+	case 0xc002: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))];
+	case 0x3: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add($0, (((b[i+2])<<24)>>24))))];
+	case 0xc003: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))];
+	case 0x800: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Or($0, ((((b[i+2])<<24)>>24)&0xff))))];
+	case 0xc800: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Or(R8[((b[i+1] & 0x7))], ((((b[i+2])<<24)>>24)&0xff))))];
+	case 0x802: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Or($0, ((((b[i+2])<<24)>>24)&0xff))))];
+	case 0xc802: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Or(R8[((b[i+1] & 0x7))], ((((b[i+2])<<24)>>24)&0xff))))];
+	case 0x803: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Or($0, ((((b[i+2])<<24)>>24)&0xff))))];
+	case 0xc803: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Or(R32[((b[i+1] & 0x7))], ((((b[i+2])<<24)>>24)&0xff))))];
+	case 0x1000: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add($0, u8(Add((((b[i+2])<<24)>>24), u8(F[1]))))))];
+	case 0xd000: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], u8(Add((((b[i+2])<<24)>>24), u8(F[1]))))))];
+	case 0x1002: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add($0, u8(Add((((b[i+2])<<24)>>24), u8(F[1]))))))];
+	case 0xd002: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], u8(Add((((b[i+2])<<24)>>24), u8(F[1]))))))];
+	case 0x1003: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add($0, u32(Add((((b[i+2])<<24)>>24), u32(F[1]))))))];
+	case 0xd003: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], u32(Add((((b[i+2])<<24)>>24), u32(F[1]))))))];
+	case 0x1800: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+2])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0xd800: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(($0 = u8(Add(R8[((b[i+1] & 0x7))], ((-($1 = (((b[i+2])<<24)>>24))<<24)>>24)))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1802: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add(($1 = u8(Add($0, ((-($2 = (((b[i+2])<<24)>>24))<<24)>>24)))), i8(Neg(($3 = u8(F[1])))))))];
+	case 0xd802: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Add(($0 = u8(Add(R8[((b[i+1] & 0x7))], ((-($1 = (((b[i+2])<<24)>>24))<<24)>>24)))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x1803: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add(($1 = u32(Add($0, ((-($2 = (((b[i+2])<<24)>>24))<<24)>>24)))), i32(Neg(($3 = u32(F[1])))))))];
+	case 0xd803: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Add(($0 = u32(Add(R32[((b[i+1] & 0x7))], ((-($1 = (((b[i+2])<<24)>>24))<<24)>>24)))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0x2000: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(And($0, ((((b[i+2])<<24)>>24)&0xff))))];
+	case 0xe000: return [3, Mov(R8[((b[i+1] & 0x7))], u8(And(R8[((b[i+1] & 0x7))], ((((b[i+2])<<24)>>24)&0xff))))];
+	case 0x2002: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(And($0, ((((b[i+2])<<24)>>24)&0xff))))];
+	case 0xe002: return [3, Mov(R8[((b[i+1] & 0x7))], u8(And(R8[((b[i+1] & 0x7))], ((((b[i+2])<<24)>>24)&0xff))))];
+	case 0x2003: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(And($0, (($37 = (((b[i+2])<<24)>>24)&~0), ($37 < 0 ? $37+0x100000000 : $37)))))];
+	case 0xe003: return [3, Mov(R32[((b[i+1] & 0x7))], u32(And(R32[((b[i+1] & 0x7))], (($53 = (((b[i+2])<<24)>>24)&~0), ($53 < 0 ? $53+0x100000000 : $53)))))];
+	case 0x2800: return [3, Mov(F[2], Eq(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), ($1 = (((b[i+2])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0xe800: return [3, Mov(F[2], Eq(R8[((b[i+1] & 0x7))], ($0 = (((b[i+2])<<24)>>24)))),Mov(F[1], Lt(R8[((b[i+1] & 0x7))], $0)),Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], ((-$0<<24)>>24))))];
+	case 0x2802: return [3, Mov(F[2], Eq(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), ($1 = (((b[i+2])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u8(Add($0, ((-$1<<24)>>24))))];
+	case 0xe802: return [3, Mov(F[2], Eq(R8[((b[i+1] & 0x7))], ($0 = (((b[i+2])<<24)>>24)))),Mov(F[1], Lt(R8[((b[i+1] & 0x7))], $0)),Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], ((-$0<<24)>>24))))];
+	case 0x2803: return [3, Mov(F[2], Eq(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), ($1 = (((b[i+2])<<24)>>24)))),Mov(F[1], Lt($0, $1)),Mov($0, u32(Add($0, ((-$1<<24)>>24))))];
+	case 0xe803: return [3, Mov(F[2], Eq(R32[((b[i+1] & 0x7))], ($0 = (((b[i+2])<<24)>>24)))),Mov(F[1], Lt(R32[((b[i+1] & 0x7))], $0)),Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], ((-$0<<24)>>24))))];
+	case 0x3000: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Xor($0, (((b[i+2])<<24)>>24))))];
+	case 0xf000: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Xor(R8[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))];
+	case 0x3002: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Xor($0, (((b[i+2])<<24)>>24))))];
+	case 0xf002: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Xor(R8[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))];
+	case 0x3003: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Xor($0, (((b[i+2])<<24)>>24))))];
+	case 0xf003: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Xor(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))];
+	case 0x3800: return [3, Mov(F[2], Eq(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), ($1 = (((b[i+2])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0xf800: return [3, Mov(F[2], Eq(R8[((b[i+1] & 0x7))], ($0 = (((b[i+2])<<24)>>24)))),Mov(F[1], Lt(R8[((b[i+1] & 0x7))], $0))];
+	case 0x3802: return [3, Mov(F[2], Eq(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), ($1 = (((b[i+2])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0xf802: return [3, Mov(F[2], Eq(R8[((b[i+1] & 0x7))], ($0 = (((b[i+2])<<24)>>24)))),Mov(F[1], Lt(R8[((b[i+1] & 0x7))], $0))];
+	case 0x3803: return [3, Mov(F[2], Eq(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), ($1 = (((b[i+2])<<24)>>24)))),Mov(F[1], Lt($0, $1))];
+	case 0xf803: return [3, Mov(F[2], Eq(R32[((b[i+1] & 0x7))], ($0 = (((b[i+2])<<24)>>24)))),Mov(F[1], Lt(R32[((b[i+1] & 0x7))], $0))];
+	case 0x400f: return [3, Mov(u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))), u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
+	case 0x46: return [3, Mov(u8(Mem(R32[((b[i+1] & 0x7))])), (((b[i+2])<<24)>>24))];
+	case 0xc046: return [3, Mov(R8[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))];
+	case 0x40: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Or(u8(LSL($0, ($1 = (((b[i+2])<<24)>>24)))), u8(LSR($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0xc040: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Or(u8(LSL(R8[((b[i+1] & 0x7))], ($0 = (((b[i+2])<<24)>>24)))), u8(LSR(R8[((b[i+1] & 0x7))], (((((-$0<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x41: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Or(u32(LSL($0, ($1 = (((b[i+2])<<24)>>24)))), u32(LSR($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0xc041: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Or(u32(LSL(R32[((b[i+1] & 0x7))], ($0 = (((b[i+2])<<24)>>24)))), u32(LSR(R32[((b[i+1] & 0x7))], (((((-$0<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x4050: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Or(u8(LSL($0, 1)), u8(LSR($0, 7)))))];
+	case 0x4051: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Or(u32(LSL($0, 1)), u32(LSR($0, 31)))))];
+	case 0x4052: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Or(u8(LSL($0, R8[1])), u8(LSR($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x4053: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Or(u32(LSL($0, R8[1])), u32(LSR($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x840: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Or(u8(LSR($0, ($1 = (((b[i+2])<<24)>>24)))), u8(LSL($0, (((((-$1<<24)>>24) + 8)<<24)>>24))))))];
+	case 0xc840: return [3, Mov(R8[((b[i+1] & 0x7))], u8(Or(u8(LSR(R8[((b[i+1] & 0x7))], ($0 = (((b[i+2])<<24)>>24)))), u8(LSL(R8[((b[i+1] & 0x7))], (((((-$0<<24)>>24) + 8)<<24)>>24))))))];
+	case 0x841: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Or(u32(LSR($0, ($1 = (((b[i+2])<<24)>>24)))), u32(LSL($0, (((((-$1<<24)>>24) + 32)<<24)>>24))))))];
+	case 0xc841: return [3, Mov(R32[((b[i+1] & 0x7))], u32(Or(u32(LSR(R32[((b[i+1] & 0x7))], ($0 = (((b[i+2])<<24)>>24)))), u32(LSL(R32[((b[i+1] & 0x7))], (((((-$0<<24)>>24) + 32)<<24)>>24))))))];
+	case 0x4850: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Or(u8(LSR($0, 1)), u8(LSL($0, 7)))))];
+	case 0x4851: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Or(u32(LSR($0, 1)), u32(LSL($0, 31)))))];
+	case 0x4852: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Or(u8(LSR($0, R8[1])), u8(LSL($0, i8(Add(i8(Neg(R8[1])), 8)))))))];
+	case 0x4853: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Or(u32(LSR($0, R8[1])), u32(LSL($0, i8(Add(i8(Neg(R8[1])), 32)))))))];
+	case 0x2040: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(LSL($0, (((b[i+2])<<24)>>24))))];
+	case 0xe040: return [3, Mov(R8[((b[i+1] & 0x7))], u8(LSL(R8[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))];
+	case 0x2041: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(LSL($0, (((b[i+2])<<24)>>24))))];
+	case 0xe041: return [3, Mov(R32[((b[i+1] & 0x7))], u32(LSL(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))];
+	case 0x6050: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(LSL($0, 1)))];
+	case 0x6051: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(LSL($0, 1)))];
+	case 0x6052: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(LSL($0, R8[1])))];
+	case 0x6053: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(LSL($0, R8[1])))];
+	case 0x2840: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(LSR($0, (((b[i+2])<<24)>>24))))];
+	case 0xe840: return [3, Mov(R8[((b[i+1] & 0x7))], u8(LSR(R8[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))];
+	case 0x2841: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(LSR($0, (((b[i+2])<<24)>>24))))];
+	case 0xe841: return [3, Mov(R32[((b[i+1] & 0x7))], u32(LSR(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))];
+	case 0x6850: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(LSR($0, 1)))];
+	case 0x6851: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(LSR($0, 1)))];
+	case 0x6852: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(LSR($0, R8[1])))];
+	case 0x6853: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(LSR($0, R8[1])))];
+	case 0x3840: return [3, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(ASR($0, (((b[i+2])<<24)>>24))))];
+	case 0xf840: return [3, Mov(R8[((b[i+1] & 0x7))], u8(ASR(R8[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))];
+	case 0x3841: return [3, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(ASR($0, (((b[i+2])<<24)>>24))))];
+	case 0xf841: return [3, Mov(R32[((b[i+1] & 0x7))], u32(ASR(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))];
+	case 0x7850: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(ASR($0, 1)))];
+	case 0x7851: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(ASR($0, 1)))];
+	case 0x7852: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(ASR($0, R8[1])))];
+	case 0x7853: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(ASR($0, R8[1])))];
+	case 0x76: return [3, Mov(F[2], Eq(And(u8(Mem(R32[((b[i+1] & 0x7))])), (((b[i+2])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0xc076: return [3, Mov(F[2], Eq(And(R8[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x5076: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Not($0)))];
+	case 0x5077: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Not($0)))];
+	case 0x5876: return [3, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0x5877: return [3, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), 0)))),Mov($0, i32(Neg($0)))];
+	case 0x6076: return [3, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))];
+	case 0x6077: return [3, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))];
+	case 0x6876: return [3, Mov(R16[0], u8(Mul(R8[0], u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))];
+	case 0x6877: return [3, Mov(R32[0], u32(Mul(R32[0], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))))];
+	case 0x407e: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Add($0, 1)))];
+	case 0x407f: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Add($0, 1)))];
+	case 0x487e: return [3, Mov(($0 = u8(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u8(Add($0, -1)))];
+	case 0x487f: return [3, Mov(($0 = u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24)))))), u32(Add($0, -1)))];
+	case 0x507f: return [3, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Add(R32[8], 3))),Mov(R32[8], u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))];
+	case 0x607f: return [3, Mov(R32[8], u32(Add(R32[8], 3)))];
+	case 0x707f: return [3, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), u32(Mem(u32(Add(R32[((b[i+1] & 0x7))], (((b[i+2])<<24)>>24))))))];
 	}
 if(((b[i+0]) & 0xff) == 0xc2)
 	switch(0) {
-	case 0x0: return [3, Mov(R32[4], u32(Add(R32[4], (b[i+1]|(b[i+2]<<8))))),Mov(R32[8], u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
+	case 0x0: return [3, Mov(R32[8], u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4))),Mov(R32[4], u32(Add(R32[4], (((b[i+1]|(b[i+2]<<8))<<16)>>16))))];
 	}
-if(((b[i+0]|(b[i+1]<<8)) & 0xf8ff) == 0xc80f)
-	switch(((b[i+1] & 0x7)) & 0x7) {
-	case 0x0: return [2, Nop(R32[0])];
-	case 0x1: return [2, Nop(R32[1])];
-	case 0x2: return [2, Nop(R32[2])];
-	case 0x3: return [2, Nop(R32[3])];
-	case 0x4: return [2, Nop(R32[4])];
-	case 0x5: return [2, Nop(R32[5])];
-	case 0x6: return [2, Nop(R32[6])];
-	case 0x7: return [2, Nop(R32[7])];
+if(((b[i+0]|(b[i+1]<<8)) & 0x90ff) == 0x800f)
+	switch(((b[i+1] & 0x7f)) & 0x6f) {
+	case 0x22: return [2, Nop()];
+	case 0x48: return [2, Nop(R32[0])];
+	case 0x49: return [2, Nop(R32[1])];
+	case 0x4a: return [2, Nop(R32[2])];
+	case 0x4b: return [2, Nop(R32[3])];
+	case 0x4c: return [2, Nop(R32[4])];
+	case 0x4d: return [2, Nop(R32[5])];
+	case 0x4e: return [2, Nop(R32[6])];
+	case 0x4f: return [2, Nop(R32[7])];
 	}
 if(((((b[i+0] & 0x80)>>>7)) & 0x1) == 0x1)
 	switch((b[i+0]|(b[i+1]<<8)) & 0xf87f) {
@@ -3241,10 +3355,10 @@ if(((((b[i+0] & 0x80)>>>7)) & 0x1) == 0x1)
 	case 0xd076: return [2, Mov(R8[((b[i+1] & 0x7))], u8(Not(R8[((b[i+1] & 0x7))])))];
 	case 0x1077: return [2, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Not($0)))];
 	case 0xd077: return [2, Mov(R32[((b[i+1] & 0x7))], u32(Not(R32[((b[i+1] & 0x7))])))];
-	case 0x1876: return [2, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), i8(Neg($0)))];
-	case 0xd876: return [2, Mov(R8[((b[i+1] & 0x7))], i8(Neg(R8[((b[i+1] & 0x7))])))];
-	case 0x1877: return [2, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), i32(Neg($0)))];
-	case 0xd877: return [2, Mov(R32[((b[i+1] & 0x7))], i32(Neg(R32[((b[i+1] & 0x7))])))];
+	case 0x1876: return [2, Mov(F[1], u1(Not(Eq(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), 0)))),Mov($0, i8(Neg($0)))];
+	case 0xd876: return [2, Mov(F[1], u1(Not(Eq(R8[((b[i+1] & 0x7))], 0)))),Mov(R8[((b[i+1] & 0x7))], i8(Neg(R8[((b[i+1] & 0x7))])))];
+	case 0x1877: return [2, Mov(F[1], u1(Not(Eq(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), 0)))),Mov($0, i32(Neg($0)))];
+	case 0xd877: return [2, Mov(F[1], u1(Not(Eq(R32[((b[i+1] & 0x7))], 0)))),Mov(R32[((b[i+1] & 0x7))], i32(Neg(R32[((b[i+1] & 0x7))])))];
 	case 0x2076: return [2, Mov(R16[0], u8(Mul(R8[0], u8(Mem(R32[((b[i+1] & 0x7))])))))];
 	case 0xe076: return [2, Mov(R16[0], u8(Mul(R8[0], R8[((b[i+1] & 0x7))])))];
 	case 0x2077: return [2, Mov(R32[0], u32(Mul(R32[0], u32(Mem(R32[((b[i+1] & 0x7))])))))];
@@ -3286,22 +3400,22 @@ if(((((b[i+0] & 0x40)>>>6)) & 0x1) == 0x0)
 	case 0xc00a: return [2, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Or(R8[(((b[i+1] & 0x38)>>>3))], R8[((b[i+1] & 0x7))])))];
 	case 0xb: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(R32[((b[i+1] & 0x7))])))))];
 	case 0xc00b: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Or(R32[(((b[i+1] & 0x38)>>>3))], R32[((b[i+1] & 0x7))])))];
-	case 0x10: return [2, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0xc010: return [2, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x11: return [2, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0xc011: return [2, Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], F1[1])))))];
-	case 0x12: return [2, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(R32[((b[i+1] & 0x7))])), F1[1])))))];
-	case 0xc012: return [2, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[((b[i+1] & 0x7))], F1[1])))))];
-	case 0x13: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(R32[((b[i+1] & 0x7))])), F1[1])))))];
-	case 0xc013: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[((b[i+1] & 0x7))], F1[1])))))];
-	case 0x18: return [2, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Add(u8(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0xc018: return [2, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Add(u8(Add(R8[((b[i+1] & 0x7))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x19: return [2, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Add(u32(Add($0, i1(Neg(F1[1])))), 1))))))))];
-	case 0xc019: return [2, Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Add(u32(Add(R32[((b[i+1] & 0x7))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1a: return [2, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), i8(Neg(($1 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0xc01a: return [2, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[((b[i+1] & 0x7))], i8(Neg(($0 = u8(Add(u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0x1b: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), i32(Neg(($1 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
-	case 0xc01b: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[((b[i+1] & 0x7))], i32(Neg(($0 = u32(Add(u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i1(Neg(F1[1])))), 1))))))))];
+	case 0x10: return [2, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add($0, u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0xc010: return [2, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(F[1]))))))];
+	case 0x11: return [2, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add($0, u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0xc011: return [2, Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(F[1]))))))];
+	case 0x12: return [2, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(u8(Mem(R32[((b[i+1] & 0x7))])), u8(F[1]))))))];
+	case 0xc012: return [2, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[((b[i+1] & 0x7))], u8(F[1]))))))];
+	case 0x13: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(u32(Mem(R32[((b[i+1] & 0x7))])), u32(F[1]))))))];
+	case 0xc013: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[((b[i+1] & 0x7))], u32(F[1]))))))];
+	case 0x18: return [2, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add(($1 = u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0xc018: return [2, Mov(R8[((b[i+1] & 0x7))], u8(Add(($0 = u8(Add(R8[((b[i+1] & 0x7))], i8(Neg(R8[(((b[i+1] & 0x38)>>>3))]))))), i8(Neg(($1 = u8(F[1])))))))];
+	case 0x19: return [2, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add(($1 = u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0xc019: return [2, Mov(R32[((b[i+1] & 0x7))], u32(Add(($0 = u32(Add(R32[((b[i+1] & 0x7))], i32(Neg(R32[(((b[i+1] & 0x38)>>>3))]))))), i32(Neg(($1 = u32(F[1])))))))];
+	case 0x1a: return [2, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($1 = u8(Mem(R32[((b[i+1] & 0x7))])))))))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0xc01a: return [2, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(($0 = u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(R8[((b[i+1] & 0x7))]))))), i8(Neg(($1 = u8(F[1])))))))];
+	case 0x1b: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($1 = u32(Mem(R32[((b[i+1] & 0x7))])))))))), i32(Neg(($2 = u32(F[1])))))))];
+	case 0xc01b: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(($0 = u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(R32[((b[i+1] & 0x7))]))))), i32(Neg(($1 = u32(F[1])))))))];
 	case 0x20: return [2, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(And($0, R8[(((b[i+1] & 0x38)>>>3))])))];
 	case 0xc020: return [2, Mov(R8[((b[i+1] & 0x7))], u8(And(R8[((b[i+1] & 0x7))], R8[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x21: return [2, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(And($0, R32[(((b[i+1] & 0x38)>>>3))])))];
@@ -3310,14 +3424,14 @@ if(((((b[i+0] & 0x40)>>>6)) & 0x1) == 0x0)
 	case 0xc022: return [2, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(And(R8[(((b[i+1] & 0x38)>>>3))], R8[((b[i+1] & 0x7))])))];
 	case 0x23: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(R32[((b[i+1] & 0x7))])))))];
 	case 0xc023: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(And(R32[(((b[i+1] & 0x38)>>>3))], R32[((b[i+1] & 0x7))])))];
-	case 0x28: return [2, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0xc028: return [2, Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x29: return [2, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0xc029: return [2, Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
-	case 0x2a: return [2, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))))))))];
-	case 0xc02a: return [2, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(R8[((b[i+1] & 0x7))])))))];
-	case 0x2b: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))))))))];
-	case 0xc02b: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(R32[((b[i+1] & 0x7))])))))];
+	case 0x28: return [2, Mov(F[2], Eq(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))])),Mov($0, u8(Add($0, i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0xc028: return [2, Mov(F[2], Eq(R8[((b[i+1] & 0x7))], R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt(R8[((b[i+1] & 0x7))], R8[(((b[i+1] & 0x38)>>>3))])),Mov(R8[((b[i+1] & 0x7))], u8(Add(R8[((b[i+1] & 0x7))], i8(Neg(R8[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x29: return [2, Mov(F[2], Eq(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))])),Mov($0, u32(Add($0, i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0xc029: return [2, Mov(F[2], Eq(R32[((b[i+1] & 0x7))], R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt(R32[((b[i+1] & 0x7))], R32[(((b[i+1] & 0x38)>>>3))])),Mov(R32[((b[i+1] & 0x7))], u32(Add(R32[((b[i+1] & 0x7))], i32(Neg(R32[(((b[i+1] & 0x38)>>>3))])))))];
+	case 0x2a: return [2, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(R32[((b[i+1] & 0x7))]))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg($0)))))];
+	case 0xc02a: return [2, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], R8[((b[i+1] & 0x7))])),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], R8[((b[i+1] & 0x7))])),Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Add(R8[(((b[i+1] & 0x38)>>>3))], i8(Neg(R8[((b[i+1] & 0x7))])))))];
+	case 0x2b: return [2, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(R32[((b[i+1] & 0x7))]))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0)),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg($0)))))];
+	case 0xc02b: return [2, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], R32[((b[i+1] & 0x7))])),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], R32[((b[i+1] & 0x7))])),Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Add(R32[(((b[i+1] & 0x38)>>>3))], i32(Neg(R32[((b[i+1] & 0x7))])))))];
 	case 0x30: return [2, Mov(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), u8(Xor($0, R8[(((b[i+1] & 0x38)>>>3))])))];
 	case 0xc030: return [2, Mov(R8[((b[i+1] & 0x7))], u8(Xor(R8[((b[i+1] & 0x7))], R8[(((b[i+1] & 0x38)>>>3))])))];
 	case 0x31: return [2, Mov(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), u32(Xor($0, R32[(((b[i+1] & 0x38)>>>3))])))];
@@ -3326,18 +3440,18 @@ if(((((b[i+0] & 0x40)>>>6)) & 0x1) == 0x0)
 	case 0xc032: return [2, Mov(R8[(((b[i+1] & 0x38)>>>3))], u8(Xor(R8[(((b[i+1] & 0x38)>>>3))], R8[((b[i+1] & 0x7))])))];
 	case 0x33: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], u32(Mem(R32[((b[i+1] & 0x7))])))))];
 	case 0xc033: return [2, Mov(R32[(((b[i+1] & 0x38)>>>3))], u32(Xor(R32[(((b[i+1] & 0x38)>>>3))], R32[((b[i+1] & 0x7))])))];
-	case 0x38: return [2, Mov(F1[2], Eq(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0xc038: return [2, Mov(F1[2], Eq(R8[((b[i+1] & 0x7))], R8[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt(R8[((b[i+1] & 0x7))], R8[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x39: return [2, Mov(F1[2], Eq(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0xc039: return [2, Mov(F1[2], Eq(R32[((b[i+1] & 0x7))], R32[(((b[i+1] & 0x38)>>>3))])),Mov(F1[1], Lt(R32[((b[i+1] & 0x7))], R32[(((b[i+1] & 0x38)>>>3))]))];
-	case 0x3a: return [2, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(R32[((b[i+1] & 0x7))]))))),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0xc03a: return [2, Mov(F1[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], R8[((b[i+1] & 0x7))])),Mov(F1[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], R8[((b[i+1] & 0x7))]))];
-	case 0x3b: return [2, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(R32[((b[i+1] & 0x7))]))))),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
-	case 0xc03b: return [2, Mov(F1[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], R32[((b[i+1] & 0x7))])),Mov(F1[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], R32[((b[i+1] & 0x7))]))];
-	case 0x84: return [2, Mov(F1[2], Eq(And(u8(Mem(R32[((b[i+1] & 0x7))])), R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0xc084: return [2, Mov(F1[2], Eq(And(R8[((b[i+1] & 0x7))], R8[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0x85: return [2, Mov(F1[2], Eq(And(u32(Mem(R32[((b[i+1] & 0x7))])), R32[(((b[i+1] & 0x38)>>>3))]), 0))];
-	case 0xc085: return [2, Mov(F1[2], Eq(And(R32[((b[i+1] & 0x7))], R32[(((b[i+1] & 0x38)>>>3))]), 0))];
+	case 0x38: return [2, Mov(F[2], Eq(($0 = u8(Mem(R32[((b[i+1] & 0x7))]))), R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0xc038: return [2, Mov(F[2], Eq(R8[((b[i+1] & 0x7))], R8[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt(R8[((b[i+1] & 0x7))], R8[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x39: return [2, Mov(F[2], Eq(($0 = u32(Mem(R32[((b[i+1] & 0x7))]))), R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt($0, R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0xc039: return [2, Mov(F[2], Eq(R32[((b[i+1] & 0x7))], R32[(((b[i+1] & 0x38)>>>3))])),Mov(F[1], Lt(R32[((b[i+1] & 0x7))], R32[(((b[i+1] & 0x38)>>>3))]))];
+	case 0x3a: return [2, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], ($0 = u8(Mem(R32[((b[i+1] & 0x7))]))))),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0xc03a: return [2, Mov(F[2], Eq(R8[(((b[i+1] & 0x38)>>>3))], R8[((b[i+1] & 0x7))])),Mov(F[1], Lt(R8[(((b[i+1] & 0x38)>>>3))], R8[((b[i+1] & 0x7))]))];
+	case 0x3b: return [2, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], ($0 = u32(Mem(R32[((b[i+1] & 0x7))]))))),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], $0))];
+	case 0xc03b: return [2, Mov(F[2], Eq(R32[(((b[i+1] & 0x38)>>>3))], R32[((b[i+1] & 0x7))])),Mov(F[1], Lt(R32[(((b[i+1] & 0x38)>>>3))], R32[((b[i+1] & 0x7))]))];
+	case 0x84: return [2, Mov(F[2], Eq(And(u8(Mem(R32[((b[i+1] & 0x7))])), R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0xc084: return [2, Mov(F[2], Eq(And(R8[((b[i+1] & 0x7))], R8[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0x85: return [2, Mov(F[2], Eq(And(u32(Mem(R32[((b[i+1] & 0x7))])), R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0xc085: return [2, Mov(F[2], Eq(And(R32[((b[i+1] & 0x7))], R32[(((b[i+1] & 0x38)>>>3))]), 0)),Mov(F[1], 0),Mov(F[0], 0)];
 	case 0x86: return [2, Swap(u8(Mem(R32[((b[i+1] & 0x7))])), R8[(((b[i+1] & 0x38)>>>3))])];
 	case 0xc086: return [2, Swap(R8[((b[i+1] & 0x7))], R8[(((b[i+1] & 0x38)>>>3))])];
 	case 0x87: return [2, Swap(u32(Mem(R32[((b[i+1] & 0x7))])), R32[(((b[i+1] & 0x38)>>>3))])];
@@ -3358,41 +3472,41 @@ if(((((b[i+0] & 0x40)>>>6)) & 0x1) == 0x0)
 	}
 
 	switch((b[i+0]) & 0xff) {
-	case 0x4: return [2, Mov(R8[0], u8(Add(R8[0], (b[i+1]))))];
-	case 0xc: return [2, Mov(R8[0], u8(Or(R8[0], (b[i+1]))))];
-	case 0x14: return [2, Mov(R8[0], u8(Add(R8[0], u8(Add((b[i+1]), F1[1])))))];
-	case 0x1c: return [2, Mov(R8[0], u8(Add(($0 = (b[i+1])), i8(Neg(($1 = u8(Add(u8(Add(R8[0], i1(Neg(F1[1])))), 1))))))))];
-	case 0x24: return [2, Mov(R8[0], u8(And(R8[0], (b[i+1]))))];
-	case 0x2c: return [2, Mov(R8[0], u8(Add(R8[0], ((-($0 = (b[i+1]))<<24)>>>24))))];
-	case 0x34: return [2, Mov(R8[0], u8(Xor(R8[0], (b[i+1]))))];
-	case 0x3c: return [2, Mov(F1[2], Eq(R8[0], ($0 = (b[i+1])))),Mov(F1[1], Lt(R8[0], $0))];
-	case 0x6a: return [2, Mov(R32[4], u32(Add(R32[4], -1))),Mov(u8(Mem(R32[4])), (b[i+1]))];
-	case 0x70: return [2, If(F1[0], Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x71: return [2, If(u1(Not(F1[0])), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x72: return [2, If(F1[1], Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x73: return [2, If(u1(Not(F1[1])), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x74: return [2, If(F1[2], Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x75: return [2, If(u1(Not(F1[2])), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x76: return [2, If(u1(Or(F1[1], F1[2])), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x77: return [2, If(u1(And(u1(Not(F1[1])), u1(Not(F1[2])))), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x78: return [2, If(F1[3], Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x79: return [2, If(u1(Not(F1[3])), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x7a: return [2, If(F1[4], Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x7b: return [2, If(u1(Not(F1[4])), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x7c: return [2, If(u1(Not(Eq(F1[0], F1[3]))), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x7d: return [2, If(Eq(F1[0], F1[3]), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x7e: return [2, If(u1(Or(F1[2], u1(Not(Eq(F1[0], F1[3]))))), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0x7f: return [2, If(u1(And(u1(Not(F1[2])), Eq(F1[0], F1[3]))), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24)))))];
-	case 0xa8: return [2, Mov(F1[2], Eq(And(R8[0], (b[i+1])), 0))];
-	case 0xb0: return [2, Mov(R8[0], (b[i+1]))];
-	case 0xb1: return [2, Mov(R8[1], (b[i+1]))];
-	case 0xb2: return [2, Mov(R8[2], (b[i+1]))];
-	case 0xb3: return [2, Mov(R8[3], (b[i+1]))];
-	case 0xb4: return [2, Mov(R8[4], (b[i+1]))];
-	case 0xb5: return [2, Mov(R8[5], (b[i+1]))];
-	case 0xb6: return [2, Mov(R8[6], (b[i+1]))];
-	case 0xb7: return [2, Mov(R8[7], (b[i+1]))];
-	case 0xeb: return [2, Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>>24) + 2)<<24)>>>24))))];
+	case 0x4: return [2, Mov(R8[0], u8(Add(R8[0], (((b[i+1])<<24)>>24))))];
+	case 0xc: return [2, Mov(R8[0], u8(Or(R8[0], ((((b[i+1])<<24)>>24)&0xff))))];
+	case 0x14: return [2, Mov(R8[0], u8(Add(R8[0], u8(Add((((b[i+1])<<24)>>24), u8(F[1]))))))];
+	case 0x1c: return [2, Mov(R8[0], u8(Add(($0 = u8(Add(R8[0], ((-($1 = (((b[i+1])<<24)>>24))<<24)>>24)))), i8(Neg(($2 = u8(F[1])))))))];
+	case 0x24: return [2, Mov(R8[0], u8(And(R8[0], ((((b[i+1])<<24)>>24)&0xff))))];
+	case 0x2c: return [2, Mov(F[2], Eq(R8[0], ($0 = (((b[i+1])<<24)>>24)))),Mov(F[1], Lt(R8[0], $0)),Mov(R8[0], u8(Add(R8[0], ((-$0<<24)>>24))))];
+	case 0x34: return [2, Mov(R8[0], u8(Xor(R8[0], (((b[i+1])<<24)>>24))))];
+	case 0x3c: return [2, Mov(F[2], Eq(R8[0], ($0 = (((b[i+1])<<24)>>24)))),Mov(F[1], Lt(R8[0], $0))];
+	case 0x6a: return [2, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), (($2 = (((b[i+1])<<24)>>24)&~0), ($2 < 0 ? $2+0x100000000 : $2)))];
+	case 0x70: return [2, If(F[0], Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x71: return [2, If(u1(Not(F[0])), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x72: return [2, If(F[1], Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x73: return [2, If(u1(Not(F[1])), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x74: return [2, If(F[2], Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x75: return [2, If(u1(Not(F[2])), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x76: return [2, If(u1(Or(F[1], F[2])), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x77: return [2, If(u1(And(u1(Not(F[1])), u1(Not(F[2])))), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x78: return [2, If(F[3], Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x79: return [2, If(u1(Not(F[3])), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x7a: return [2, If(F[4], Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x7b: return [2, If(u1(Not(F[4])), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x7c: return [2, If(u1(Not(Eq(F[0], F[3]))), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x7d: return [2, If(Eq(F[0], F[3]), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x7e: return [2, If(u1(Or(F[2], u1(Not(Eq(F[0], F[3]))))), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0x7f: return [2, If(u1(And(u1(Not(F[2])), Eq(F[0], F[3]))), Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24)))))];
+	case 0xa8: return [2, Mov(F[2], Eq(And(R8[0], (((b[i+1])<<24)>>24)), 0)),Mov(F[1], 0),Mov(F[0], 0)];
+	case 0xb0: return [2, Mov(R8[0], (((b[i+1])<<24)>>24))];
+	case 0xb1: return [2, Mov(R8[1], (((b[i+1])<<24)>>24))];
+	case 0xb2: return [2, Mov(R8[2], (((b[i+1])<<24)>>24))];
+	case 0xb3: return [2, Mov(R8[3], (((b[i+1])<<24)>>24))];
+	case 0xb4: return [2, Mov(R8[4], (((b[i+1])<<24)>>24))];
+	case 0xb5: return [2, Mov(R8[5], (((b[i+1])<<24)>>24))];
+	case 0xb6: return [2, Mov(R8[6], (((b[i+1])<<24)>>24))];
+	case 0xb7: return [2, Mov(R8[7], (((b[i+1])<<24)>>24))];
+	case 0xeb: return [2, Mov(R32[8], u32(Add(R32[8], ((((((b[i+1])<<24)>>24) + 2)<<24)>>24))))];
 	}
 
 	switch((b[i+0]) & 0xff) {
@@ -3404,14 +3518,20 @@ if(((((b[i+0] & 0x40)>>>6)) & 0x1) == 0x0)
 	case 0x95: return [1, Swap(R32[0], R32[5])];
 	case 0x96: return [1, Swap(R32[0], R32[6])];
 	case 0x97: return [1, Swap(R32[0], R32[7])];
+	case 0x9c: return [1, Mov(R32[4], u32(Add(R32[4], -4))),Mov(u32(Mem(R32[4])), RFLAGS[0])];
+	case 0xaa: return [1, Mov(u8(Mem(R32[7])), R8[0])];
+	case 0xab: return [1, Mov(u32(Mem(R32[7])), R32[0])];
+	case 0xac: return [1, Mov(R8[0], u8(Mem(R32[6])))];
+	case 0xad: return [1, Mov(R32[0], u32(Mem(R32[6])))];
 	case 0xc3: return [1, Mov(R32[8], u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
+	case 0xc9: return [1, Mov(R32[4], R32[5]),Mov(R32[5], u32(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 4)))];
 	case 0xcc: return [1, Interrupt(3)];
-	case 0xf8: return [1, Mov(F1[1], 0)];
-	case 0xf9: return [1, Mov(F1[1], 1)];
-	case 0xfa: return [1, Mov(F1[7], 0)];
-	case 0xfb: return [1, Mov(F1[7], 1)];
-	case 0xfc: return [1, Mov(F1[6], 0)];
-	case 0xfd: return [1, Mov(F1[6], 1)];
+	case 0xf8: return [1, Mov(F[1], 0)];
+	case 0xf9: return [1, Mov(F[1], 1)];
+	case 0xfa: return [1, Mov(F[7], 0)];
+	case 0xfb: return [1, Mov(F[7], 1)];
+	case 0xfc: return [1, Mov(F[6], 0)];
+	case 0xfd: return [1, Mov(F[6], 1)];
 	case 0x6: return [1, Mov(R32[4], u32(Add(R32[4], -2))),Mov(u16(Mem(R32[4])), RS[0])];
 	case 0x7: return [1, Mov(RS[0], u16(Mem(R32[4]))),Mov(R32[4], u32(Add(R32[4], 2)))];
 	case 0xe: return [1, Mov(R32[4], u32(Add(R32[4], -2))),Mov(u16(Mem(R32[4])), RS[1])];
@@ -3455,4 +3575,4 @@ if(((((b[i+0] & 0x40)>>>6)) & 0x1) == 0x0)
 
 }
 exports.SP = R.ESP;
-exports.IP = R.EIP;
+exports.PC = R.EIP;

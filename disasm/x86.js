@@ -10,7 +10,7 @@ Number.prototype.toBinary = function(n=-1) {
 let raw = ({raw: s}, ...args)=>s.map((x, i)=>i?args[i-1]+x:x).join('');
 
 let R = (reg, bits=32, type=''+bits)=>({bitsof: bits, signed: false, inspect: ()=>'r'+inspect(reg)+'/'+bits, get code() {return 'R'+type+'['+reg.code+']';}});
-dis.codeGen.runtime.push(`var R = exports.R = {}, R8 = [], R16 = [], R32 = [], RS = [];`);
+dis.codeGen.runtime.push(`var R = exports.R = {}, R8 = [], R16 = [], R32 = [], RS = [], RFLAGS = [];`);
 {
     let r = (name, reg, bits=32, type=''+bits)=>{
         R[name] = R(reg, bits, type);
@@ -29,12 +29,13 @@ dis.codeGen.runtime.push(`var R = exports.R = {}, R8 = [], R16 = [], R32 = [], R
         r(x, i+4, 16);
         r('E'+x, i+4, 32);
     });
+    r('EFLAGS', 0, 32, 'FLAGS');
 }
-let F = (f, name='f'+util.inspect(f))=>({bitsof: 1, signed: false, inspect: ()=>name, get code() {return 'F1['+f.code+']';}});
-dis.codeGen.runtime.push(`var F = exports.F = {}, F1 = [];`);
+let F = (f, name='f'+util.inspect(f))=>({bitsof: 1, signed: false, inspect: ()=>name, get code() {return 'F['+f.code+']';}});
+dis.codeGen.runtime.push(`var F = [];`);
 'OCZSPVDI'.split('').forEach((x,i)=>{
     F[x] = F(i, x+'F');
-    dis.codeGen.runtime.push(`F.${x} = F1[${i}] = {bitsof: 1, signed: false, inspect: function() {return '${x}F';}};`);
+    dis.codeGen.runtime.push(`R.${x}F = F[${i}] = {bitsof: 1, signed: false, inspect: function() {return '${x}F';}};`);
 });
 
 // HACK They're functions because otherwise only the first usage gets a value and subsequent ones reference an empty variable.
@@ -58,7 +59,7 @@ function _op(def, b, fn) {
         if(s == 'd' || s == 'v' || s == 'z') return 32;
         throw new TypeError('Unimplemented operand size '+s);
     };
-    
+
     def = def.trim();
     def && def.split(' ').forEach((x, i)=>{
         if(/^[RE]?([ABCD]X|[SBI]P|[SD]I)|[ABCD][HL]|[ECSDFSG]S$/.test(x))
@@ -78,10 +79,16 @@ function _op(def, b, fn) {
             else if(kind == 'G')
                 hasModRM = 1, args[i] = (reg)=>R(reg, bits);
             else if(kind == 'S')
-                hasModRM = 1, args[i] = (reg)=>R(reg, 32, 'S');
+                hasModRM = 1, args[i] = (reg)=>R(reg, bits, 'S');
+            else if(kind == 'F')
+                args[i] = ()=>R(0, bits, 'FLAGS');
+            else if(kind == 'X')
+                args[i] = ()=>IntSize(Mem(R.ESI), bits);
+            else if(kind == 'Y')
+                args[i] = ()=>IntSize(Mem(R.EDI), bits);
             else if(kind == 'I') {
                 let j = imm.push(['Imm_____', 'Imm_____________', null, 'Imm_____________________________'][bits/8-1])-1;
-                args[i] = ()=>arguments[immIdx+j];
+                args[i] = ()=>signed(arguments[immIdx+j]);
             } else if(kind == 'J') { // FIXME negative offsets.
                 let j = imm.push(['Imm_____', 'Imm_____________', null, 'Imm_____________________________'][bits/8-1])-1;
                 args[i] = ()=>Add(R.EIP, Add(signed(arguments[immIdx+j]), byteLen));
@@ -110,11 +117,11 @@ function _op(def, b, fn) {
                 op([mod+reg+'Rm_', ...extra], 1+n, (bits, RM, ...rest)=>IntSize(Mem(fn(R(RM), ...rest)), bits));
                 op([mod+reg+'100', 'SiIdxBas', ...extra], 3+n, (bits, scale, idx, base, ...rest)=>IntSize(Mem(fn(Add(R(base), LSL(R(idx), scale)), ...rest)), bits));
                 op([mod+reg+'100', 'Si100Bas', ...extra], 2+n, (bits, scale, base, ...rest)=>IntSize(Mem(fn(R(base), ...rest)), bits));
-                let newFn = (...x)=>Add(R.EBP, fn(...x));
+                let newFn = (...x)=>Add(R.EBP, signed(fn(...x)));
                 if(mod == '00') {
                     extra = ['Disp____________________________'];
                     n = 1;
-                    newFn = (x, disp32)=>Add(x, disp32);
+                    newFn = (x, disp32)=>Add(x, signed(disp32));
                 }
                 op([mod+reg+'100', 'SiIdx101', ...extra], 2+n, (bits, scale, idx, ...rest)=>IntSize(Mem(newFn(LSL(R(idx), scale), ...rest)), bits));
                 op([mod+reg+'100', 'Si100101', ...extra], 1+n, (bits, scale, ...rest)=>IntSize(Mem(newFn(0, ...rest)), bits));
@@ -130,7 +137,7 @@ function _op(def, b, fn) {
 }
 
 let opMov = (fn)=>(x)=>Mov(x, fn(...arguments));
-let $ = (s, ...args)=>(base, fn=base)=>{
+let _ = (s, ...args)=>(base, fn=base)=>{
     s = s.map((x, i)=>i?args[i-1]+x:x).join('');
     s = s.replace(/^((?:[a-f0-9]{2})+):/i, (s, x)=>((base = x.match(/../g).map((x)=>parseInt(x, 16))), ''));
     var extra = '';
@@ -146,132 +153,151 @@ let $ = (s, ...args)=>(base, fn=base)=>{
     });
 };
 
-let [ADD, OR, ADC, SBB, AND, SUB, XOR, INC, DEC, NOT, NEG] = [Add, Or, (a, b)=>Add(a, Add(b, F.C)), (a, b)=>Sub(b, Add(Sub(a, F.C), 1)), And, Sub, Xor, (x)=>Add(x, 1), (x)=>Sub(x, 1), Not, (x)=>Sub(0, x)].map(opMov);
+let [ADD, OR, ADC, SBB, AND, XOR, INC, DEC, NOT] = [Add, (a, b)=>Or(unsigned(a), unsigned(b)), (a, b)=>Add(a, Add(b, IntSize(F.C, bitsof(a)))), (a, b)=>Sub(Sub(a, b), IntSize(F.C, bitsof(a))), (a, b)=>And(unsigned(a), unsigned(b)), Xor, (x)=>Add(x, 1), (x)=>Sub(x, 1), Not].map(opMov);
+let NEG = (x, v=Neg(x))=>[Mov(F.C, v.CF), Mov(x, v)/*HACK out-of-order so the updated value isn't used*/];
 let CMP = (a, b, v=Sub(a, b))=>[Mov(F.Z, v.ZF || Eq(v, 0)), Mov(F.C, v.CF || 0)]; // FIXME all teh flags.
-let TEST = (a, b, v=And(a, b))=>[Mov(F.Z, v.ZF || Eq(v, 0))]; // FIXME all teh flags.
-let PUSH = (x, bits=bitsof(x, true))=>[SUB(R.ESP, bits/8), Mov(IntSize(Mem(R.ESP), bits), x)];
-let POP =  (x, bits=bitsof(x, true))=>[Mov(x, IntSize(Mem(R.ESP), bits)), ADD(R.ESP, bits/8)];
+let SUB = (a, b, v=Sub(a, b))=>[Mov(F.Z, v.ZF || Eq(v, 0)), Mov(F.C, v.CF || 0), Mov(a, v)/*HACK out-of-order so the updated value isn't used*/]; // FIXME all teh flags.
+let TEST = (a, b, v=And(a, b))=>[Mov(F.Z, v.ZF || Eq(v, 0)), Mov(F.C, 0), Mov(F.O, 0)]; // FIXME all teh flags.
+let PUSH = (x, bits=bitsof(x, true))=>[Mov(R.ESP, Sub(R.ESP, bits/8)), Mov(IntSize(Mem(R.ESP), bits), x)];
+let POP =  (x, bits=bitsof(x, true))=>[Mov(x, IntSize(Mem(R.ESP), bits)), Mov(R.ESP, Add(R.ESP, bits/8))];
 let INT = Interrupt;
 let JMPN = (j)=>Mov(R.EIP, j), CALLN = (EIP, j)=>[...PUSH(EIP), Mov(R.EIP, j)];
+let MOVSX = (a, b)=>Mov(a, IntSizeSigned(b, bitsof(a), true));
 
 /// One-byte opcodes.
 ///\00-0F
-$`00:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(ADD);
-$`06:ES`(PUSH);/*i64*/ $`07:ES`(POP);/*i64*/
-$`08:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(OR);
-$`0E:CS`(PUSH);/*i64*/ /* 0x0F 2-byte escape code */
+_`00:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(ADD);
+_`06:ES`(PUSH);/*i64*/ _`07:ES`(POP);/*i64*/
+_`08:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(OR);
+_`0E:CS`(PUSH);/*i64*/ /* 0x0F 2-byte escape code */
 
 ///\10-1F
-$`10:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(ADC);
-$`16:SS`(PUSH);/*i64*/ $`17:SS`(POP);/*i64*/
-$`18:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(SBB);
-$`1E:DS`(PUSH);/*i64*/ $`1F:DS`(POP);/*i64*/
+_`10:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(ADC);
+_`16:SS`(PUSH);/*i64*/ _`17:SS`(POP);/*i64*/
+_`18:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(SBB);
+_`1E:DS`(PUSH);/*i64*/ _`1F:DS`(POP);/*i64*/
 
 ///\20-2F
-$`20:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(AND);
+_`20:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(AND);
 /* 0x26 SEG=ES (prefix) */ /* 0x27 DAA i64 */
-$`28:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(SUB);
+_`28:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(SUB);
 /* 0x2E SEG=CS (prefix) */ /* 0x2F DAS i64 */
 
 ///\30-3F
-$`30:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(XOR);
+_`30:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(XOR);
 /* 0x36 SEG=SS (prefix) */ /* 0x37 AAA i64 */
-$`38:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(CMP);
+_`38:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz`(CMP);
 /* 0x3E SEG=DS (prefix) */ /* 0x3F AAS i64 */
 
 ///\40-4F
-$`40:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI`(INC);/*i64*/
-$`48:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI`(DEC);/*i64*/
+_`40:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI`(INC);/*i64*/
+_`48:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI`(DEC);/*i64*/
 
 ///\50-5F
-$`50:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI`(PUSH);/*d64*/
-$`58:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI`(POP);/*d64*/
+_`50:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI`(PUSH);/*d64*/
+_`58:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI`(POP);/*d64*/
 
 ///\60-6F
 // TODO more opcodes.
-$`68:Iz`(PUSH);/*d64*/
-$`6A:Ib`(PUSH);/*d64*/
+_`68:Iz`(PUSH);/*d64*/
+_`6A:Ib`((x)=>PUSH(u32(x)));/*d64*/
 
 ///\70-7F
-Object.keys(Cond).map((x, i)=>$`Jb`(0x70+i, (j)=>If(Cond[x](), JMPN(j))));
+Object.keys(Cond).map((x, i)=>_`Jb`(0x70+i, (j)=>If(Cond[x](), JMPN(j))));
 
 ///\80-8F
-[ADD, OR, ADC, SBB, AND, SUB, XOR, CMP].map((fn, i)=>$`80:reg=${i}:Eb Ib;Ev Iz;Eb Ib;Ev Ib`(fn));/*82 i64*/
-$`84:Eb Gb;Ev Gv`(TEST); $`86:Eb Gb;Ev Gv`(Swap);
-$`88:Eb Gb;Ev Gv;Gb Eb;Gv Ev`(Mov);
-$`8C:Ev Sw`(Mov); $`8D:Gv M`((a, b)=>Mov(a, b.a)); $`8E:Sw Ew`(Mov);
-$`8F:reg=0:Ev`(POP);
+[ADD, OR, ADC, SBB, (a, b)=>AND(a, IntSizeSigned(b, bitsof(a), false)) /* HACK forces proper behavior for u32 &= imm8.*/, SUB, XOR, CMP].map((fn, i)=>_`80:reg=${i}:Eb Ib;Ev Iz;Eb Ib;Ev Ib`(fn));/*82 i64*/
+_`84:Eb Gb;Ev Gv`(TEST); _`86:Eb Gb;Ev Gv`(Swap);
+_`88:Eb Gb;Ev Gv;Gb Eb;Gv Ev`(Mov);
+_`8C:Ev Sw`(Mov); _`8D:Gv M`((a, b)=>Mov(a, b.a)); _`8E:Sw Ew`(Mov);
+_`8F:reg=0:Ev`(POP);
 
 ///\90-9F
-$`90:`(Nop);
-$`91:rAX rCX;rAX rDX;rAX rBX;rAX rSP;rAX rBP;rAX rSI;rAX rDI`(Swap);
+_`90:`(Nop);
+_`91:rAX rCX;rAX rDX;rAX rBX;rAX rSP;rAX rBP;rAX rSI;rAX rDI`(Swap);
+_`9C:Fv`(PUSH);
 
 ///\A0-AF
 // TODO more opcodes.
-$`A0:AL Ob;rAX Ov;Ob AL;Ov rAX`(Mov);
-$`A8:AL Ib;rAX Iz`(TEST);
+_`A0:AL Ob;rAX Ov;Ob AL;Ov rAX`(Mov);
+_`A8:AL Ib;rAX Iz`(TEST);
+_`AA:Yb AL;Yv rAX`(Mov);
+_`AC:AL Xb;rAX Xv`(Mov);
 
 ///\B0-BF
-$`B0:AL Ib;CL Ib;DL Ib;BL Ib;AH Ib;CH Ib;DH Ib;BH Ib`(Mov);
-$`B8:rAX Iv;rCX Iv;rDX Iv;rBX Iv;rSP Iv;rBP Iv;rSI Iv;rDI Iv`(Mov);
+_`B0:AL Ib;CL Ib;DL Ib;BL Ib;AH Ib;CH Ib;DH Ib;BH Ib`(Mov);
+_`B8:rAX Iv;rCX Iv;rDX Iv;rBX Iv;rSP Iv;rBP Iv;rSI Iv;rDI Iv`(Mov);
 
 ///\C0-CF
 // TODO more opcodes.
-$`C2:Iw`((x)=>[ADD(R.ESP, x), ...POP(R.EIP)]);/*f64*/
-$`C3:`((x)=>POP(R.EIP));/*f64*/
-$`C6:reg=0:Eb Ib;Ev Iz`(Mov);
-$`CC:`(()=>INT(3));
+_`C2:Iw`((x)=>[...POP(R.EIP), Mov(R.ESP, Add(R.ESP, x))]);/*f64*/
+_`C3:`((x)=>POP(R.EIP));/*f64*/
+_`C6:reg=0:Eb Ib;Ev Iz`(Mov);
+_`C9:`(()=>[Mov(R.ESP, R.EBP), ...POP(R.EBP)]);
+_`CC:`(()=>INT(3));
 
 ///\D0-DF
 // TODO more opcodes (escape to FPU).
 [ROL, ROR, /*RCL*/, /*RCR*/, LSL, LSR, , ASR].map((fn, i)=>{
-    $`C0:reg=${i}:Eb Ib;Ev Ib`(opMov(fn)); // FIXME out of place  ^^.
-    $`D0:reg=${i}:Eb;Ev`(opMov((x)=>fn(x, 1)));
-    $`D2:reg=${i}:Eb CL;Ev CL`(opMov(fn));
+    _`C0:reg=${i}:Eb Ib;Ev Ib`(opMov(fn)); // FIXME out of place  ^^.
+    _`D0:reg=${i}:Eb;Ev`(opMov((x)=>fn(x, 1)));
+    _`D2:reg=${i}:Eb CL;Ev CL`(opMov(fn));
 });
 
 ///\E0-EF
 // TODO more opcodes.
-$`E8:J Jz`(CALLN);/*f64*/
-$`E9:Jz`(JMPN);/*f64*/
-$`EB:Jb`(JMPN);/*f64*/
+_`E8:J Jz`(CALLN);/*f64*/
+_`E9:Jz`(JMPN);/*f64*/
+_`EB:Jb`(JMPN);/*f64*/
 
 ///\F0-FF
 // TODO more opcodes.
-$`F6:reg=0:Eb Ib;Ev Iz`(TEST);
-[NOT, NEG, /*MUL IMUL DIV IDIV AL/rAX*/].map((fn, i)=>$`F6:reg=${i+2}:Eb;Ev`(fn));
-$`F6:reg=4:AX AL Eb;EAX EAX Ev`((d, s1, s2)=>Mov(d, Mul(s1, s2))); // FIXME EDX:EAX.
-$`F6:reg=5:AX AL Eb;EAX EAX Ev`((d, s1, s2)=>Mov(d, Mul(s1, s2))); // FIXME EDX:EAX. IMUL (signed)
-$`F8:`(()=>Mov(F.C, 0)); $`F9:`(()=>Mov(F.C, 1));
-$`FA:`(()=>Mov(F.I, 0)); $`FB:`(()=>Mov(F.I, 1));
-$`FC:`(()=>Mov(F.D, 0)); $`FD:`(()=>Mov(F.D, 1));
-[INC, DEC].map((fn, i)=>$`FE:reg=${i}:Eb;Ev`(fn));
-[CALLN/*f64*/, /*CALLF*/, JMPN/*f64*/, /*JMPF*/].map((fn, i)=>$`FF:reg=${i+2}:J Ev`(fn));
-$`FF:reg=6:Ev`(PUSH);/*d64*/
+_`F6:reg=0:Eb Ib;Ev Iz`(TEST);
+[NOT, NEG, /*MUL IMUL DIV IDIV AL/rAX*/].map((fn, i)=>_`F6:reg=${i+2}:Eb;Ev`(fn));
+_`F6:reg=4:AX AL Eb;EAX EAX Ev`((d, s1, s2)=>Mov(d, Mul(s1, s2))); // FIXME EDX:EAX.
+_`F6:reg=5:AX AL Eb;EAX EAX Ev`((d, s1, s2)=>Mov(d, Mul(s1, s2))); // FIXME EDX:EAX. IMUL (signed)
+_`F8:`(()=>Mov(F.C, 0)); _`F9:`(()=>Mov(F.C, 1));
+_`FA:`(()=>Mov(F.I, 0)); _`FB:`(()=>Mov(F.I, 1));
+_`FC:`(()=>Mov(F.D, 0)); _`FD:`(()=>Mov(F.D, 1));
+[INC, DEC].map((fn, i)=>_`FE:reg=${i}:Eb;Ev`(fn));
+[CALLN/*f64*/, /*CALLF*/, JMPN/*f64*/, /*JMPF*/].map((fn, i)=>_`FF:reg=${i+2}:J Ev`(fn));
+_`FF:reg=6:Ev`(PUSH);/*d64*/
 
 /// Two-byte opcodes.
 ///\0F80-0F8F
-Object.keys(Cond).map((x, i)=>$`Jz`([0x0F, 0x80+i], (j)=>If(Cond[x](), Mov(R.EIP, j))));
+Object.keys(Cond).map((x, i)=>_`Jz`([0x0F, 0x80+i], (j)=>If(Cond[x](), Mov(R.EIP, j))));
 
 ///\0F90-0F9F
-Object.keys(Cond).map((x, i)=>$`Eb`([0x0F, 0x90+i], (a)=>Mov(a, Cond[x]())));
+Object.keys(Cond).map((x, i)=>_`Eb`([0x0F, 0x90+i], (a)=>Mov(a, Cond[x]())));
 
 ///\0FA0-0FAF
-$`0FAC:Ev Gv Ib;Ev Gv CL`(opMov((dest, src, count)=>Or(LSR(dest, count), And(src, LSL(Sub(u32(LSL(1, count)), 1), Sub(32, count))))));
+_`0FA2:`(Nop); // FIXME CPUID
+_`0FAC:Ev Gv Ib;Ev Gv CL`(opMov((dest, src, count)=>Or(LSR(dest, count), And(src, LSL(Sub(u32(LSL(1, count)), 1), Sub(32, count))))));
+_`0FAF:Gv Ev`((a, b, sa=signed(a), sb=signed(b))=>Mov(sa, Mul(sa, sb)));
 
 ///\0FB0-0FBF
-$`0FB6:Gv Eb;Gv Ew`(Mov);
+_`0FB6:Gv Eb;Gv Ew`(Mov);
+_`0FBE:Gv Eb;Gv Ew`(MOVSX);
 
 ///\0FC0-0FCF
-$`0FC8:rAX;rCX;rDX;rBX;rSP;rBP;rSI;rDI`(Nop); // FIXME bswap.
+_`0FC8:rAX;rCX;rDX;rBX;rSP;rBP;rSI;rDI`(Nop); // FIXME BSWAP
 
 dis.out(__dirname+'/arch-x86.js', (code)=>raw`/** @file arch-x86.js This file was auto-generated */
 ${dis.codeGen.runtime.join('\n')}
 exports.dis = function x86dis(b, i) {
-    for(; b[i] == 0xF2 || b[i] == 0xF3; i++)
-        console.log('[PREFIX] '+b[i].toString(16).toUpperCase());
+    // HACK allows skipping prefixes.
+    var pfx = 0;
+    for(; b[i] >= 0x64 && b[i] <= 0x67 || b[i] == 0xF2 || b[i] == 0xF3; i++, pfx++)
+        console.error('[PREFIX] '+b[i].toString(16).toUpperCase());
+    if(pfx) {
+        var r = x86dis(b, i);
+        if(!r || r.length < 1)
+            return r;
+        r[0] += pfx;
+        return r;
+    }
     ${code}
 }
 exports.SP = R.ESP;
-exports.IP = R.EIP;
+exports.PC = R.EIP;
 `);

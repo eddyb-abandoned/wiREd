@@ -94,7 +94,7 @@ codeGen.runtime = [
 //BEGIN runtime
 codeGen.runtime.push(`function ${id}(x) {
     if(known(x))
-        return ${signed ? (bits == codeGen.intBits ? '(x&~0)' : '((x<<'+(codeGen.intBits-bits)+')>>>'+(codeGen.intBits-bits)+')')
+        return ${signed ? (bits == codeGen.intBits ? '(x&~0)' : '((x<<'+(codeGen.intBits-bits)+')>>'+(codeGen.intBits-bits)+')')
                         : (bits == codeGen.intBits ? '((x = x&~0), (x = x < 0 ? x+0x100000000 : x))' : '(x&0x'+((1<<bits)-1).toString(16)+')')};
     if(x.bitsof === ${bits} && x.signed === ${signed})
         return x;
@@ -105,6 +105,8 @@ codeGen.runtime.push(`function ${id}(x) {
                 var v = valueof(x);
                 if(v !== x)
                     return v.fn == 'Mem' ? ${id}(v) : v;
+            }, set: function(v) {
+                x.value = v;
             }},
             lvalue: {get: function() {
                 var v = lvalueof(x);
@@ -120,6 +122,8 @@ codeGen.runtime.push(`function ${id}(x) {
             var v = valueof(x);
             if(v !== x)
                 return ${id}(v);
+        }, set: function(v) {
+            x.value = v;
         }},
         lvalue: {get: function() {
             if(x.fn != 'Mem')
@@ -128,8 +132,10 @@ codeGen.runtime.push(`function ${id}(x) {
             if(v !== x)
                 return ${id}(v);
         }},
-        inspect: {value: function() {
-            return '${id}('+inspect(x)+')';
+        inspect: {value: function(_, p) {
+            var wrap = ('bitsof' in x) && x.bitsof != ${bits};
+            var ix = x.inspect ? x.inspect.call(this, _, !wrap && p || 16) : inspect(x, !wrap && p);
+            return wrap ? '${id}('+ix+')' : ix;
         }}
     });
 }`);
@@ -181,7 +187,7 @@ codeGen.normalize = (a)=>{
             if(bits == codeGen.intBits)
                 props.code = {get: ()=>'('+a.code+'&~0)'};
             else
-                props.code = {get: ()=>'(('+a.code+'<<'+(codeGen.intBits-bits)+')>>>'+(codeGen.intBits-bits)+')'};
+                props.code = {get: ()=>'(('+a.code+'<<'+(codeGen.intBits-bits)+')>>'+(codeGen.intBits-bits)+')'};
         } else {
             if(bits == codeGen.intBits) {
                 var temp = codeGen.getVar();
@@ -191,18 +197,22 @@ codeGen.normalize = (a)=>{
         }
     } else
         props.code = {get: ()=>codeGen.int(bits, a.signed)+'('+a.code+')'};
-    
+
     props.inspect = {value: (_, p)=>codeGen.int(bits, a.signed)+'('+inspect(a, p)+')'};
     return codeGen.mark(a, props);
 };
 
 var exportedFn = {
     inspect, known, bitsof, sizeof,
-    
-    Sub: (a, b)=>Add(a, Neg(b)),
+
+    Sub: (a, b)=>{
+        if(a == b)
+            return 0;
+        return Add(a, Neg(b));
+    },
     ROL: (a, b, bitsa=bitsof(a, true))=>Or(LSL(a, b), LSR(a, Sub(bitsa, b))),
     ROR: (a, b, bitsa=bitsof(a, true))=>Or(LSR(a, b), LSL(a, Sub(bitsa, b))),
-    
+
     IntSize(a, bits) {
         if(bitsof(a) == bits)
             return a;
@@ -212,7 +222,7 @@ var exportedFn = {
             a.signed = false; // HACK deal with it.
         return codeGen.normalize(a);
     },
-    
+
     IntSigned(a, signed) {
         if(a.signed === signed)
             return a;
@@ -220,7 +230,7 @@ var exportedFn = {
         a.signed = signed;
         return codeGen.normalize(a);
     },
-    
+
     IntSizeSigned(a, bits, signed) {
         if(bitsof(a) == bits && a.signed === signed)
             return a;
@@ -229,7 +239,7 @@ var exportedFn = {
         a.signed = signed;
         return codeGen.normalize(a);
     },
-    
+
     signed: (a)=>IntSigned(a, true),
     unsigned: (a)=>IntSigned(a, false),
 };
@@ -249,19 +259,19 @@ var precendence = {
     '&':8,
     '^':9,
     '|':10,
-    
-    
-    '=':13,
+
+
+    '=':13, '<->':13,
     ',':14
 };
 
-'Nop,Interrupt,If'.split(',').forEach(function(fn) {
+'Nop,Interrupt'.split(',').forEach(function(fn) {
     exportedFn[fn] = (...args)=>codeGen.mark({
         inspect: ()=>fn+'('+args.map((x)=>inspect(x)).join(', ')+')',
         get code() {return fn+'('+args.map((x)=>x.code).join(', ')+')';},
         runtimeKnown: false
     });
-    
+
 //BEGIN runtime
 codeGen.runtime.push(`function ${fn}() {
     var args = [].slice.call(arguments);
@@ -284,9 +294,40 @@ codeGen.runtime.push(`function ${fn}() {
 //END runtime
 });
 
+exportedFn.If = (cond, then)=>{
+    if(arguments.length != 2)
+        throw new RangeError('Wrong number of arguments to If');
+    return codeGen.mark({
+        fn: 'If', args: [cond, then], cond, then,
+        inspect() {return 'if('+inspect(cond)+') '+inspect(then)+';';},
+        get code() {return 'If('+cond.code+', '+then.code+')';},
+        runtimeKnown: false
+    });
+};
+
+//BEGIN runtime
+codeGen.runtime.push(`var If = exports.If = function If(cond, then) {
+    if(known(cond)) return cond ? then : Nop();
+    return {
+        constructor: If, fn: 'If', cond: cond, then: then,
+        get value() {
+            var vcond = valueof(cond);
+            if(vcond !== cond) {
+                if(known(vcond)) return cond ? valueof(then) : Nop();
+                return If(vcond, then);
+            }
+        },
+        inspect: function() {
+            return 'if('+inspect(cond)+') '+inspect(then)+';';
+        }
+    };
+};
+`);
+//END runtime
+
 exportedFn.Mem = (a, size=null)=>{
     if(size !== null)
-        throw new Error('Deprecated size argument for Mem');//, IntSize(Mem(a), size*8);
+        throw new Error('Deprecated size argument for Mem');
     return codeGen.mark({
         fn: 'Mem', a,
         inspect() {return '['+inspect(a)+']'+(this.bitsof || '');},
@@ -310,18 +351,18 @@ codeGen.runtime.push(`var Mem = exports.Mem = function Mem(a) {
             if(v !== a) return Mem(v);
         },
         set value(v) {
-            return Mem.write(valueof(a), bitsof(this), valueof(v));
+            return Mem.write(valueof(a), bitsof(this), v);
         },
         inspect: function() {
             return '['+inspect(a)+']'+(this.bitsof || '');
         }
     };
-}
+};
 Mem.read = function(address, bits) {
     console.error('Non-implemented Mem read ['+inspect(address)+']'+bits);
 };
 Mem.write = function(address, bits, value) {
-    console.error('Non-implemented Mem write ['+inspect(address)+']'+bits+' = '+inspect());
+    console.error('Non-implemented Mem write ['+inspect(address)+']'+bits+' = '+inspect(value));
 };
 `);
 //END runtime
@@ -336,6 +377,7 @@ exportedFn.Not = (a)=>known(a) ? ~a : codeGen.normalize({ // FIXME type not enfo
 //BEGIN runtime
 codeGen.runtime.push(`function Not(a) {
     if(known(a)) return ~a;
+    if(a.op == '~') return a.a;
     return {
         constructor: Not, fn: 'Not', op: '~', a: a,
         get value() {
@@ -343,6 +385,14 @@ codeGen.runtime.push(`function Not(a) {
             if(v !== a) return Not(v);
         },
         inspect: function(_, p) {
+            if(this.bitsof == 1 && a.op == '==') {
+                var expr = inspect(a.a, ${precendence['==']})+' != '+inspect(a.b, ${precendence['==']});
+                return ${precendence['==']} <= p ? expr : '('+expr+')'
+            }
+            if(this.bitsof == 1 && a.op == '<') {
+                var expr = inspect(a.a, ${precendence['<']})+' >= '+inspect(a.b, ${precendence['<']});
+                return ${precendence['<']} <= p ? expr : '('+expr+')'
+            }
             var expr = '~'+inspect(a, ${precendence['~']});
             return ${precendence['~']} <= p ? expr : '('+expr+')';
         }
@@ -354,12 +404,14 @@ exportedFn.Neg = (a)=>known(a) ? -a : codeGen.normalize({ // FIXME type not enfo
     fn: 'Neg', op: '-', a, bitsof: bitsof(a), signed: true,
     inspect: ()=>'-'+inspect(a, precendence['~']),
     get code() {return a.runtimeKnown ? '-'+a.code : 'Neg('+a.code+')'},
-    runtimeKnown: a.runtimeKnown
+    runtimeKnown: a.runtimeKnown,
+    CF: Not(Eq(a, 0))
 });
 
 //BEGIN runtime
 codeGen.runtime.push(`function Neg(a) {
     if(known(a)) return -a;
+    if(a.op == '-') return a.a;
     return {
         constructor: Neg, fn: 'Neg', op: '-', a: a,
         get value() {
@@ -384,7 +436,7 @@ var binaryOps = {
 Object.keys(binaryOps).forEach(function(fn) {
     var op = binaryOps[fn], prec = precendence[op];
     var prologue = '', p = (s, ...args)=>prologue += '\n    '+s.map((x, i)=>i?args[i-1]+x:x).join('');
-    
+
     if(op == '+' || op == '&' || op == '|' || op == '^')
         p`if(known(a) && !known(b)) return ${fn}(b, a);`;
     if(op == '+' || op == '|' || op == '^')
@@ -397,11 +449,15 @@ Object.keys(binaryOps).forEach(function(fn) {
         p`if(a === b) return a;`;
     if(op != '=' && op != '<->')
         p`if(known(a) && known(b)) return +(a ${op} b);`;
+    if(op == '|' || op == '&')
+        p`if(b == -1 || !known(a) && a.bitsof && b == Math.pow(2, a.bitsof)-1) return ${op == '|' ? 'b' : 'a'};`;
     if(op == '+')
         p`if(a.op == '+' && known(a.b) && known(b)) return Add(a.a, a.b+b);`;
-    
+    if(op == '+')
+        p`if(a.op == '-' && a.a == b || b.op == '-' && b.a == a) return 0;`;
+
     var prologueFn = eval(`(function(a, b) {${prologue}})`);
-    
+
     exportedFn[fn] = function(a, b) {
         var o = prologueFn(a, b);
         if(typeof o !== 'undefined')
@@ -412,7 +468,7 @@ Object.keys(binaryOps).forEach(function(fn) {
                 var op = this.op, a = this.a, b = this.b;
                 if(op == '+' && b < 0)
                     op = '-', b = -b;
-                if(op == '=' && b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.a === a) {
+                if(op == '=' && b.op && b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.a === a) {
                     op = b.op+'=';
                     b = b.b;
                 }
@@ -455,11 +511,11 @@ Object.keys(binaryOps).forEach(function(fn) {
         }
         return codeGen.normalize(o);
     };
-    
+
 //BEGIN runtime
 codeGen.runtime.push(`var ${fn} = exports.${fn} = function ${fn}(a, b) {${prologue}
     return {
-        constructor: ${fn}, fn: '${fn}', op: '${op}', a: a, b: b,
+        constructor: ${fn}, fn: '${fn}', op: '${op}', a: a, b: b,${op == '=' || op == '<' ? ' bitsof: 1,' : ''}
         get value() {
             var va = ${op == '=' || op == '<->' ? 'lvalueof' : 'valueof'}(a), vb = ${op == '<->' ? 'lvalueof' : 'valueof'}(b);
             if(va !== a || vb !== b) return ${fn}(va, vb);
@@ -470,7 +526,10 @@ codeGen.runtime.push(`var ${fn} = exports.${fn} = function ${fn}(a, b) {${prolog
             ` : ''}${op == '+' ? `if(b < 0) {
                 op = '-';
                 b = -b;
-            }` : ''}${op == '=' ? `if(b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.a === a) {
+            } else if(b.op == '-') {
+                op = '-';
+                b = b.a;
+            }` : ''}${op == '=' ? `if(b.op && b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.op != '-' && b.op != '~' && b.a === a) {
                 if(b.op == '+' && b.b < 0) {
                     op = '-=';
                     b = -b.b;
@@ -640,13 +699,13 @@ exports.out = function out(outFile, fn) {
             var cval = '0x'+parseInt(ct.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'), 2).toString(16);
             cond = 'if(('+cmask+') == '+cval+')';
         }
-        
+
         cstart = cend = 0;
         var mask = ct.replace(/^[^K]+/, (s)=>{cstart += s.length; return '';}).replace(/[^K]+$/, (s)=>{cend += s.length; return '';});
         mask = parseInt(mask.replace(/[^K]/g,'0').replace(/K/g,'1'), 2);
-        
+
         var val = mask ? Var(' ', cend, ct.length-cend-cstart, self.bigEndian).code+' & 0x'+mask.toString(16) : '0';
-        
+
         code += cond+'\n\tswitch('+val+') {\n';
         console.log('  \''+ct.replace(/K/g,'#').replace(/x/g,'_')+'\': {');
         for(var j in v)
