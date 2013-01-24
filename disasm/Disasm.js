@@ -647,7 +647,7 @@ exports.op = function op(def, fn) {
     }
     var vals = [];
     vals.byName = {};
-    (function back(i, ct) {
+    let back = (i, ct)=>{
         ct = ct.slice();
         if(i >= vars.length)
             return make(ct, vals);
@@ -656,7 +656,8 @@ exports.op = function op(def, fn) {
             vals[i] = vals.byName[name] = v;
             back(i+1, ct2 || ct);
         }, ct, i, vals);
-    })(0, ct);
+    };
+    back(0, ct);
     console.log();
 }
 

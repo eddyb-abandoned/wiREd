@@ -462,7 +462,7 @@ exports.op = function op(def, fn) {
   }
   var vals = [];
   vals.byName = {};
-  (function back(i, ct) {
+  var back = (function(i, ct) {
     ct = ct.slice();
     if (i >= vars.length) return make(ct, vals);
     var v = traceur.runtime.elementGet(vars, i), name = v.name;
@@ -470,7 +470,8 @@ exports.op = function op(def, fn) {
       traceur.runtime.elementSet(vals, i, traceur.runtime.elementSet(vals.byName, name, v));
       back(i + 1, ct2 || ct);
     }), ct, i, vals);
-  })(0, ct);
+  }).bind(this);
+  back(0, ct);
   console.log();
 };
 exports.out = function out(outFile, fn) {
