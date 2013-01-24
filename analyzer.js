@@ -553,7 +553,7 @@ let makeAnalyzer = (arch)=>{
                     block.op(v);
 
                     if(j)
-                        s = (j==r.length-1?'└':'│').padLeft(13+bytes*2).padRight(31)+s;
+                        s = (j==r.length-1?'└':'├').padLeft(13+bytes*2).padRight(31, '─')+s;
                     else
                         s = '0x'+block.PC.toString(16).padLeft(8, '0')+' 0x'+slice.toString('hex').padRight(18)+s;
                     console.log(s);

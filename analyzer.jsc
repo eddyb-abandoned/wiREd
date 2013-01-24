@@ -1036,7 +1036,7 @@ var makeAnalyzer = (function(arch) {
                   $state = 37;
                   break;
                 case 37:
-                  if (j) s = (j == r.length - 1 ? '└': '│').padLeft(13 + bytes * 2).padRight(31) + s; else s = '0x' + block.PC.toString(16).padLeft(8, '0') + ' 0x' + slice.toString('hex').padRight(18) + s;
+                  if (j) s = (j == r.length - 1 ? '└': '├').padLeft(13 + bytes * 2).padRight(31, '─') + s; else s = '0x' + block.PC.toString(16).padLeft(8, '0') + ' 0x' + slice.toString('hex').padRight(18) + s;
                   $state = 39;
                   break;
                 case 39:
