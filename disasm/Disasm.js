@@ -724,7 +724,7 @@ exports.out = function out(outFile, fn) {
         let s = '\n\tvar $0';
         for(var i = 1; i < codeGen.runtime.maxVars; i++)
             s += ', $'+i;
-        code = s+';'+code;
+        code = s+';\n'+code;
     }
     console.log('}\n');
     fs.writeFileSync(outFile, fn(code));
