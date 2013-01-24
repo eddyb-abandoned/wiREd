@@ -22,7 +22,7 @@ node_modules: package.json
 	@touch node_modules
 
 %.analyzed: % analyzer.jsc | windows.h
-	@node --stack_trace_limit=64 analyzer.jsc "$<" > "$@" 2>&1
+	@node --stack_trace_limit=64 analyzer.jsc ${ANALYSIS_ARGS} "$<" > "$@" 2>&1
 
 windows.h:
 	@echo '#include <windows.h>' | winegcc -I/usr/include/wine/windows/ -m32 -DMIDL_PASS -E -P - > "$@"

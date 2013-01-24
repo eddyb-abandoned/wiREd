@@ -1174,25 +1174,25 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                   } catch (sections) {
                     try {
                       throw undefined;
-                    } catch (analyzer) {
+                    } catch (asm) {
                       try {
                         throw undefined;
-                      } catch (buf) {
+                      } catch (analyzer) {
                         try {
                           throw undefined;
-                        } catch (binInfo) {
+                        } catch (fileName) {
                           try {
                             throw undefined;
-                          } catch (baseAddress) {
+                          } catch (entries) {
                             try {
                               throw undefined;
-                            } catch (fileName) {
+                            } catch (program) {
                               try {
                                 throw undefined;
                               } catch (bin) {
                                 try {
                                   throw undefined;
-                                } catch (asm) {
+                                } catch (path) {
                                   try {
                                     throw undefined;
                                   } catch (fs) {
@@ -1202,46 +1202,110 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                       {
                                         r2 = require('radare2.js');
                                         fs = require('fs');
+                                        path = require('path');
                                       }
-                                      {
-                                        asm = new r2.RAsm();
-                                        bin = new r2.RBin();
-                                        fileName = traceur.runtime.elementGet(process.argv, 2);
+                                      bin = new r2.RBin();
+                                      program = require('commander').option('-a, --arch <ARCH>').option('-b, --base <BASE ADDRESS>', 'base address', parseInt).option('-e, --entry <ENTRY POINT>');
+                                      entries = [];
+                                      program.on('entry', (function(x) {
+                                        return entries.push(x);
+                                      }));
+                                      program.parse(process.argv);
+                                      fileName = traceur.runtime.elementGet(program.args, 0);
+                                      if (!fileName) program.help();
+                                      if (!bin.load(fileName, false)) {
+                                        try {
+                                          throw undefined;
+                                        } catch (buffer) {
+                                          ;
+                                          try {
+                                            buffer = fs.readFileSync(fileName);
+                                          } catch (e) {
+                                            console.error(e);
+                                            process.exit(1);
+                                          }
+                                          console.error('r2 cannot open', fileName);
+                                          if (!program.arch) {
+                                            if (process.env.ARCH) program.arch = process.env.ARCH; else program.missingArgument('arch');
+                                          }
+                                          bin = {
+                                            buffer: buffer,
+                                            baseAddress: program.base || 0,
+                                            arch: program.arch,
+                                            bits: program.bits || 32,
+                                            sections: [{
+                                              name: '.text',
+                                              rva: 0,
+                                              offset: 0,
+                                              size: buffer.length,
+                                              srwx: 5
+                                            }],
+                                            imports: [],
+                                            symbols: [],
+                                            entries: entries.length ? entries.map((function(x) {
+                                              return ({
+                                                rva: x,
+                                                offset: x
+                                              });
+                                            })): [{
+                                              rva: 0,
+                                              offset: 0
+                                            }]
+                                          };
+                                        }
+                                      } else {
+                                        try {
+                                          throw undefined;
+                                        } catch (buffer) {
+                                          try {
+                                            throw undefined;
+                                          } catch (binInfo) {
+                                            try {
+                                              throw undefined;
+                                            } catch (rbin) {
+                                              rbin = bin;
+                                              binInfo = rbin.get_info();
+                                              buffer = rbin.cur.buf.buf;
+                                              buffer.type = Object.create(buffer.type);
+                                              buffer.type.size = rbin.cur.buf.length;
+                                              buffer = buffer.ref().deref();
+                                              bin = {
+                                                buffer: buffer,
+                                                baseAddress: rbin.get_baddr(),
+                                                arch: binInfo.arch,
+                                                bits: binInfo.bits,
+                                                sections: rbin.get_sections(),
+                                                imports: rbin.get_imports(),
+                                                symbols: rbin.get_symbols(),
+                                                entries: rbin.get_entries()
+                                              };
+                                            }
+                                          }
+                                        }
                                       }
-                                      if (!bin.load(fileName, false)) console.error('Cannot open ' + fileName), process.exit(1);
-                                      {
-                                        baseAddress = bin.get_baddr();
-                                        binInfo = bin.get_info();
-                                        buf = bin.cur.buf.buf;
-                                      }
-                                      buf.type = Object.create(buf.type);
-                                      buf.type.size = bin.cur.buf.length;
-                                      buf = buf.ref().deref();
-                                      analyzer = makeAnalyzer(require('./disasm/arch-' + binInfo.arch));
-                                      asm.use(binInfo.arch);
-                                      asm.set_bits(binInfo.bits);
-                                      analyzer.arch.legacyDisasm = (function(PC, buffer) {
+                                      analyzer = makeAnalyzer(require('./disasm/arch-' + bin.arch));
+                                      asm = new r2.RAsm();
+                                      if (asm.use(bin.arch) && asm.set_bits(bin.bits)) analyzer.arch.legacyDisasm = (function(PC, buffer) {
                                         asm.set_pc(PC);
                                         return asm.mdisassemble(buffer, buffer.length).buf_asm;
                                       });
                                       sections = [];
-                                      bin.get_sections().forEach((function(x) {
+                                      bin.sections.forEach((function(x) {
                                         x = {
                                           name: x.name,
-                                          addr: baseAddress + x.rva,
+                                          addr: bin.baseAddress + x.rva,
                                           offset: x.offset,
                                           size: x.size,
                                           srwx: x.srwx
                                         };
                                         sections.push(x);
                                         if (x.srwx & 1) {
-                                          if (codeSection) throw new Error('Multiple code sections');
-                                          codeSection = x;
+                                          if (codeSection || !x.size) console.error('Ignoring code section ' + x.name); else codeSection = x;
                                         }
                                       }));
                                       if (!codeSection) throw new Error('No code section');
-                                      analyzer.codeBuffer = buf.slice(codeSection.offset, codeSection.offset + codeSection.size);
-                                      analyzer.codeBase = codeSection.addr;
+                                      analyzer.codeBuffer = bin.buffer.slice(codeSection.offset, codeSection.offset + codeSection.size);
+                                      analyzer.codeBase = analyzer.arch.PCbase = codeSection.addr;
                                       {
                                         isWin = /\.(dll|exe)$/i.test(fileName);
                                         importHeaders = [];
@@ -1252,16 +1316,16 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                         importsByAddr = [];
                                       }
                                       console.group('Imports');
-                                      bin.get_imports().forEach((function(x) {
-                                        x = traceur.runtime.elementSet(importsByAddr, baseAddress + x.rva, {
+                                      bin.imports.forEach((function(x) {
+                                        x = traceur.runtime.elementSet(importsByAddr, bin.baseAddress + x.rva, {
                                           name: x.name,
-                                          addr: baseAddress + x.rva,
+                                          addr: bin.baseAddress + x.rva,
                                           bind: x.bind,
                                           type: x.type
                                         });
                                         imports.push(x);
                                         var fn = x.name;
-                                        if (isWin) fn = fn.replace(/^[A-Z]+(32|64|)\.dll_/, '');
+                                        if (isWin) fn = fn.replace(/^[a-z]+(32|64|)\.dll_/i, '');
                                         var args, fnRE = new RegExp('\\b' + fn + '\\b\\s*\\(([^()]*)\\)');
                                         {
                                           var $__1 = traceur.runtime.getIterator(importHeaders);
@@ -1280,7 +1344,7 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                                     stackMaxAccess: 4 + args
                                                   });
                                                   x.block.emit('returnPoint', x.block);
-                                                  if (binInfo.arch == 'x86') {
+                                                  if (bin.arch == 'x86') {
                                                     try {
                                                       throw undefined;
                                                     } catch (argVals) {
@@ -1374,7 +1438,7 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                                 x = $__1.current;
                                                 if (x.addr <= addr && addr < x.addr + x.size) {
                                                   if (x.srwx & 2) return;
-                                                  return ($__7 = buf, traceur.runtime.elementGet($__7, 'readUInt' + bits + 'LE').call($__7, addr - x.addr + x.offset));
+                                                  return ($__7 = bin.buffer, traceur.runtime.elementGet($__7, 'readUInt' + bits + 'LE').call($__7, addr - x.addr + x.offset));
                                                 }
                                               }
                                             }
@@ -1385,18 +1449,18 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                         return read(addr, bits);
                                       });
                                       var symbols = [];
-                                      bin.get_symbols().forEach((function(x) {
-                                        console.log('Symbol %s: fw=%s bind=%s type=%s addr=%s offset=%s size=%d ordinal=%d', x.name, x.forwarder, x.bind, x.type, (baseAddress + x.rva).toString(16), x.offset.toString(16), x.size, x.ordinal);
+                                      bin.symbols.forEach((function(x) {
+                                        console.log('Symbol %s: fw=%s bind=%s type=%s addr=%s offset=%s size=%d ordinal=%d', x.name, x.forwarder, x.bind, x.type, (bin.baseAddress + x.rva).toString(16), x.offset.toString(16), x.size, x.ordinal);
                                         if (x.type == 'FUNC') symbols.push({
                                           name: x.name,
-                                          addr: baseAddress + x.rva
+                                          addr: bin.baseAddress + x.rva
                                         });
                                       }));
-                                      bin.get_entries().forEach((function(x) {
-                                        console.log('Entry: addr=%s offset=%s', (baseAddress + x.rva).toString(16), x.offset.toString(16));
+                                      bin.entries.forEach((function(x) {
+                                        console.log('Entry: addr=%s offset=%s', (bin.baseAddress + x.rva).toString(16), x.offset.toString(16));
                                         symbols.push({
                                           name: 'entry',
-                                          addr: baseAddress + x.rva
+                                          addr: bin.baseAddress + x.rva
                                         });
                                       }));
                                       if (!symbols.length) console.error('No usable symbols'), process.exit(1);

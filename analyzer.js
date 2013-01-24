@@ -588,52 +588,93 @@ let makeAnalyzer = (arch)=>{
 if(process.argv.length < 3)
     console.error('Usage: analyzer FILE'), process.exit(1);
 {
-    let r2 = require('radare2.js'), fs = require('fs');
-    let asm = new r2.RAsm(), bin = new r2.RBin(), fileName = process.argv[2];
-    if(!bin.load(fileName, false))
-        console.error('Cannot open '+fileName), process.exit(1);
+    let r2 = require('radare2.js'), fs = require('fs'), path = require('path');
+    let bin = new r2.RBin();
+    let program = require('commander')
+        .option('-a, --arch <ARCH>')
+        .option('-b, --base <BASE ADDRESS>', 'base address', parseInt)
+        .option('-e, --entry <ENTRY POINT>');
+    let entries = [];
+    program.on('entry', (x)=>entries.push(x));
+    program.parse(process.argv);
 
-    let baseAddress = bin.get_baddr(), binInfo = bin.get_info(), buf = bin.cur.buf.buf;
-    buf.type = Object.create(buf.type);
-    buf.type.size = bin.cur.buf.length;
-    buf = buf.ref().deref();
+    let fileName = program.args[0];
+    if(!fileName)
+        program.help();
+    if(!bin.load(fileName, false)) {
+        let buffer;
+        try {
+            buffer = fs.readFileSync(fileName);
+        } catch(e) {
+            console.error(e);
+            process.exit(1);
+        }
+        console.error('r2 cannot open', fileName);
+        if(!program.arch) {
+            if(process.env.ARCH)
+                program.arch = process.env.ARCH;
+            else
+                program.missingArgument('arch');
+        }
+        bin = {
+            buffer, baseAddress: program.base || 0,
+            arch: program.arch, bits: program.bits || 32,
+            sections: [{name: '.text', rva: 0, offset: 0, size: buffer.length, srwx: 5}],
+            imports: [], symbols: [],
+            entries: entries.length ? entries.map((x)=>({rva: x, offset: x})) : [{rva: 0, offset: 0}]
+        };
+    } else {
+        let rbin = bin;
+        let binInfo = rbin.get_info();
+        let buffer = rbin.cur.buf.buf;
+        buffer.type = Object.create(buffer.type);
+        buffer.type.size = rbin.cur.buf.length;
+        buffer = buffer.ref().deref();
+        bin = {
+            buffer, baseAddress: rbin.get_baddr(),
+            arch: binInfo.arch, bits: binInfo.bits,
+            sections: rbin.get_sections(), imports: rbin.get_imports(),
+            symbols: rbin.get_symbols(), entries: rbin.get_entries()
+        };
+    }
 
-    let analyzer = makeAnalyzer(require('./disasm/arch-'+binInfo.arch));
+    let analyzer = makeAnalyzer(require('./disasm/arch-'+bin.arch));
 
-    asm.use(binInfo.arch);
-    asm.set_bits(binInfo.bits);
-    analyzer.arch.legacyDisasm = (PC, buffer)=>{
-        asm.set_pc(PC);
-        return asm.mdisassemble(buffer, buffer.length).buf_asm;
-    };
+    let asm = new r2.RAsm();
+    if(asm.use(bin.arch) && asm.set_bits(bin.bits))
+        analyzer.arch.legacyDisasm = (PC, buffer)=>{
+            asm.set_pc(PC);
+            return asm.mdisassemble(buffer, buffer.length).buf_asm;
+        };
 
     let sections = [], codeSection;
-    bin.get_sections().forEach((x)=>{
-        x = {name: x.name, addr: baseAddress+x.rva, offset: x.offset, size: x.size, srwx: x.srwx};
+    bin.sections.forEach((x)=>{
+        x = {name: x.name, addr: bin.baseAddress+x.rva, offset: x.offset, size: x.size, srwx: x.srwx};
         sections.push(x);
         if(x.srwx & 1) {
-            if(codeSection)
-                throw new Error('Multiple code sections');
-            codeSection = x;
+            if(codeSection || !x.size)
+                console.error('Ignoring code section '+x.name);
+            else
+                codeSection = x;
         }
     });
     if(!codeSection)
         throw new Error('No code section');
-    analyzer.codeBuffer = buf.slice(codeSection.offset, codeSection.offset+codeSection.size);
-    analyzer.codeBase = codeSection.addr;
+    analyzer.codeBuffer = bin.buffer.slice(codeSection.offset, codeSection.offset+codeSection.size);
+    analyzer.codeBase = analyzer.arch.PCbase = codeSection.addr;
 
     let isWin = /\.(dll|exe)$/i.test(fileName), importHeaders = [];
     if(isWin)
         importHeaders.push(fs.readFileSync('windows.h'));
     let imports = [], importsByAddr = [];
     console.group('Imports');
-    bin.get_imports().forEach((x)=>{
-        x = importsByAddr[baseAddress+x.rva] = {name: x.name, addr: baseAddress+x.rva, bind: x.bind, type: x.type};
+    bin.imports.forEach((x)=>{
+        x = importsByAddr[bin.baseAddress+x.rva] = {name: x.name, addr: bin.baseAddress+x.rva, bind: x.bind, type: x.type};
         imports.push(x);
 
         var fn = x.name;
         if(isWin)
-            fn = fn.replace(/^[A-Z]+(32|64|)\.dll_/, '');
+            fn = fn.replace(/^[a-z]+(32|64|)\.dll_/i, '');
         var args, fnRE = new RegExp('\\b'+fn+'\\b\\s*\\(([^()]*)\\)');
         for(let header of importHeaders)
             if(args = fnRE.exec(header)) {
@@ -645,7 +686,7 @@ if(process.argv.length < 3)
                     args = args.split(',').length*4; // HACK Assuming 32bit arguments.
                 x.block = new analyzer.Block({returns: true, stackMaxAccess: 4+args});
                 x.block.emit('returnPoint', x.block);
-                if(binInfo.arch == 'x86') {
+                if(bin.arch == 'x86') {
                     let argVals = [];
                     for(let i = 0; i < args; i += 4) { // HACK Assuming 32bit arguments.
                         let arg = analyzer.arch.Mem(analyzer.arch.Add(x.block.SP0[0], 4+i));
@@ -676,22 +717,22 @@ if(process.argv.length < 3)
             if(x.addr <= addr && addr < x.addr+x.size) {
                 if(x.srwx & 2) // Writable, not good.
                     return;
-                return buf['readUInt'+bits+'LE'](addr-x.addr+x.offset);
+                return bin.buffer['readUInt'+bits+'LE'](addr-x.addr+x.offset);
             }
         return read(addr, bits);
     };
 
     var symbols = [];
-    bin.get_symbols().forEach((x)=>{
+    bin.symbols.forEach((x)=>{
         console.log('Symbol %s: fw=%s bind=%s type=%s addr=%s offset=%s size=%d ordinal=%d',
-            x.name, x.forwarder, x.bind, x.type, (baseAddress+x.rva).toString(16),
+            x.name, x.forwarder, x.bind, x.type, (bin.baseAddress+x.rva).toString(16),
             x.offset.toString(16), x.size, x.ordinal);
         if(x.type == 'FUNC')
-            symbols.push({name: x.name, addr: baseAddress+x.rva});
+            symbols.push({name: x.name, addr: bin.baseAddress+x.rva});
     });
-    bin.get_entries().forEach((x)=>{
-        console.log('Entry: addr=%s offset=%s', (baseAddress+x.rva).toString(16), x.offset.toString(16));
-        symbols.push({name: 'entry', addr: baseAddress+x.rva});
+    bin.entries.forEach((x)=>{
+        console.log('Entry: addr=%s offset=%s', (bin.baseAddress+x.rva).toString(16), x.offset.toString(16));
+        symbols.push({name: 'entry', addr: bin.baseAddress+x.rva});
     });
     if(!symbols.length)
         console.error('No usable symbols'), process.exit(1);
