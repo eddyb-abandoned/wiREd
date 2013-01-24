@@ -152,11 +152,11 @@ var exportedFn = {
         } catch (signed) {
           try {
             throw undefined;
-          } catch ($__11) {
+          } catch ($__12) {
             {
-              $__11 = $__10.current;
-              signed = traceur.runtime.elementGet($__11, 0);
-              pfx = traceur.runtime.elementGet($__11, 1);
+              $__12 = $__10.current;
+              signed = traceur.runtime.elementGet($__12, 0);
+              pfx = traceur.runtime.elementGet($__12, 1);
             }
             {
               var $__9 = traceur.runtime.getIterator([8, 16, 32]);
@@ -206,7 +206,7 @@ var precendence = {
 };
 'Nop,Interrupt'.split(',').forEach(function(fn) {
   traceur.runtime.elementSet(exportedFn, fn, (function() {
-    var args = Array.prototype.slice.call(arguments, 0);
+    for (var args = [], $__11 = 0; $__11 < arguments.length; $__11++) traceur.runtime.elementSet(args, $__11, traceur.runtime.elementGet(arguments, $__11));
     return codeGen.mark({
       inspect: (function() {
         return fn + '(' + args.map((function(x) {
@@ -308,7 +308,7 @@ var binaryOps = {
 Object.keys(binaryOps).forEach(function(fn) {
   var op = traceur.runtime.elementGet(binaryOps, fn), prec = traceur.runtime.elementGet(precendence, op);
   var prologue = '', p = (function(s) {
-    var args = Array.prototype.slice.call(arguments, 1);
+    for (var args = [], $__11 = 1; $__11 < arguments.length; $__11++) traceur.runtime.elementSet(args, $__11 - 1, traceur.runtime.elementGet(arguments, $__11));
     return prologue += '\n    ' + s.map((function(x, i) {
       return i ? traceur.runtime.elementGet(args, i - 1) + x: x;
     })).join('');

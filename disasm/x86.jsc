@@ -20,9 +20,9 @@ Number.prototype.toBinary = function() {
   while (s.length < n) s = '0' + s;
   return s;
 };
-var raw = (function($__72) {
-  var s = $__72.raw;
-  var args = Array.prototype.slice.call(arguments, 1);
+var raw = (function($__79) {
+  var s = $__79.raw;
+  for (var args = [], $__72 = 1; $__72 < arguments.length; $__72++) traceur.runtime.elementSet(args, $__72 - 1, traceur.runtime.elementGet(arguments, $__72));
   return s.map((function(x, i) {
     return i ? traceur.runtime.elementGet(args, i - 1) + x: x;
   })).join('');
@@ -159,7 +159,7 @@ function _op(def, b, fn) {
     })); else if (x == 'J') traceur.runtime.elementSet(args, i, (function() {
       return Add(R.EIP, byteLen);
     })); else if (x == 'M') hasModRM = 2, traceur.runtime.elementSet(args, i, (function() {
-      var args = Array.prototype.slice.call(arguments, 0);
+      for (var args = [], $__73 = 0; $__73 < arguments.length; $__73++) traceur.runtime.elementSet(args, $__73, traceur.runtime.elementGet(arguments, $__73));
       return ModRM.apply(null, $__spread([4], args.slice(ctReg ? 0: 1)));
     })); else {
       try {
@@ -174,7 +174,7 @@ function _op(def, b, fn) {
             bits = getBits(traceur.runtime.elementGet(x, 1));
           }
           if (kind == 'E') hasModRM = 1, traceur.runtime.elementSet(args, i, (function() {
-            var args = Array.prototype.slice.call(arguments, 0);
+            for (var args = [], $__74 = 0; $__74 < arguments.length; $__74++) traceur.runtime.elementSet(args, $__74, traceur.runtime.elementGet(arguments, $__74));
             return ModRM.apply(null, $__spread([bits], args.slice(ctReg ? 0: 1)));
           })); else if (kind == 'G') hasModRM = 1, traceur.runtime.elementSet(args, i, (function(reg) {
             return R(reg, bits);
@@ -227,7 +227,7 @@ function _op(def, b, fn) {
     byteLen = bytes.join('').length / 8;
     ModRM = modRM;
     return dis.op(bytes, (function() {
-      var a = Array.prototype.slice.call(arguments, 0);
+      for (var a = [], $__74 = 0; $__74 < arguments.length; $__74++) traceur.runtime.elementSet(a, $__74, traceur.runtime.elementGet(arguments, $__74));
       var res = fn.apply(null, $__toObject(args.map((function(x) {
         return x.apply(null, $__toObject(a));
       }))));
@@ -246,19 +246,19 @@ function _op(def, b, fn) {
             return x;
           });
           op($__spread([mod + reg + 'Rm_'], extra), 1 + n, (function(bits, RM) {
-            var rest = Array.prototype.slice.call(arguments, 2);
+            for (var rest = [], $__74 = 2; $__74 < arguments.length; $__74++) traceur.runtime.elementSet(rest, $__74 - 2, traceur.runtime.elementGet(arguments, $__74));
             return IntSize(Mem(fn.apply(null, $__spread([R(RM)], rest))), bits);
           }));
           op($__spread([mod + reg + '100', 'SiIdxBas'], extra), 3 + n, (function(bits, scale, idx, base) {
-            var rest = Array.prototype.slice.call(arguments, 4);
+            for (var rest = [], $__73 = 4; $__73 < arguments.length; $__73++) traceur.runtime.elementSet(rest, $__73 - 4, traceur.runtime.elementGet(arguments, $__73));
             return IntSize(Mem(fn.apply(null, $__spread([Add(R(base), LSL(R(idx), scale))], rest))), bits);
           }));
           op($__spread([mod + reg + '100', 'Si100Bas'], extra), 2 + n, (function(bits, scale, base) {
-            var rest = Array.prototype.slice.call(arguments, 3);
+            for (var rest = [], $__75 = 3; $__75 < arguments.length; $__75++) traceur.runtime.elementSet(rest, $__75 - 3, traceur.runtime.elementGet(arguments, $__75));
             return IntSize(Mem(fn.apply(null, $__spread([R(base)], rest))), bits);
           }));
           var newFn = (function() {
-            var x = Array.prototype.slice.call(arguments, 0);
+            for (var x = [], $__76 = 0; $__76 < arguments.length; $__76++) traceur.runtime.elementSet(x, $__76, traceur.runtime.elementGet(arguments, $__76));
             return Add(R.EBP, signed(fn.apply(null, $__toObject(x))));
           });
           if (mod == '00') {
@@ -269,11 +269,11 @@ function _op(def, b, fn) {
             });
           }
           op($__spread([mod + reg + '100', 'SiIdx101'], extra), 2 + n, (function(bits, scale, idx) {
-            var rest = Array.prototype.slice.call(arguments, 3);
+            for (var rest = [], $__77 = 3; $__77 < arguments.length; $__77++) traceur.runtime.elementSet(rest, $__77 - 3, traceur.runtime.elementGet(arguments, $__77));
             return IntSize(Mem(newFn.apply(null, $__spread([LSL(R(idx), scale)], rest))), bits);
           }));
           op($__spread([mod + reg + '100', 'Si100101'], extra), 1 + n, (function(bits, scale) {
-            var rest = Array.prototype.slice.call(arguments, 2);
+            for (var rest = [], $__78 = 2; $__78 < arguments.length; $__78++) traceur.runtime.elementSet(rest, $__78 - 2, traceur.runtime.elementGet(arguments, $__78));
             return IntSize(Mem(newFn.apply(null, $__spread([0], rest))), bits);
           }));
         });
@@ -300,7 +300,7 @@ var opMov = (function(fn) {
   });
 });
 var _ = (function(s) {
-  var args = Array.prototype.slice.call(arguments, 1);
+  for (var args = [], $__78 = 1; $__78 < arguments.length; $__78++) traceur.runtime.elementSet(args, $__78 - 1, traceur.runtime.elementGet(arguments, $__78));
   return (function(base) {
     var fn = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): base;
     s = s.map((function(x, i) {
@@ -324,7 +324,7 @@ var _ = (function(s) {
     }));
   });
 });
-var $__73 = [Add, (function(a, b) {
+var $__80 = [Add, (function(a, b) {
   return Or(unsigned(a), unsigned(b));
 }), (function(a, b) {
   return Add(a, Add(b, IntSize(F.C, bitsof(a))));
@@ -336,7 +336,7 @@ var $__73 = [Add, (function(a, b) {
   return Add(x, 1);
 }), (function(x) {
   return Sub(x, 1);
-}), Not].map(opMov), ADD = traceur.runtime.elementGet($__73, 0), OR = traceur.runtime.elementGet($__73, 1), ADC = traceur.runtime.elementGet($__73, 2), SBB = traceur.runtime.elementGet($__73, 3), AND = traceur.runtime.elementGet($__73, 4), XOR = traceur.runtime.elementGet($__73, 5), INC = traceur.runtime.elementGet($__73, 6), DEC = traceur.runtime.elementGet($__73, 7), NOT = traceur.runtime.elementGet($__73, 8);
+}), Not].map(opMov), ADD = traceur.runtime.elementGet($__80, 0), OR = traceur.runtime.elementGet($__80, 1), ADC = traceur.runtime.elementGet($__80, 2), SBB = traceur.runtime.elementGet($__80, 3), AND = traceur.runtime.elementGet($__80, 4), XOR = traceur.runtime.elementGet($__80, 5), INC = traceur.runtime.elementGet($__80, 6), DEC = traceur.runtime.elementGet($__80, 7), NOT = traceur.runtime.elementGet($__80, 8);
 var NEG = (function(x) {
   var v = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): Neg(x);
   return [Mov(F.C, v.CF), Mov(x, v)];
@@ -395,8 +395,8 @@ _($__20)((function(x) {
 }));
 Object.keys(Cond).map((function(x, i) {
   return _($__21)(0x70 + i, (function(j) {
-    var $__74;
-    return If(($__74 = Cond, traceur.runtime.elementGet($__74, x).call($__74)), JMPN(j));
+    var $__81;
+    return If(($__81 = Cond, traceur.runtime.elementGet($__81, x).call($__81)), JMPN(j));
   }));
 }));
 [ADD, OR, ADC, SBB, (function(a, b) {
@@ -482,14 +482,14 @@ _($__59)((function() {
 _($__62)(PUSH);
 Object.keys(Cond).map((function(x, i) {
   return _($__63)([0x0F, 0x80 + i], (function(j) {
-    var $__74;
-    return If(($__74 = Cond, traceur.runtime.elementGet($__74, x).call($__74)), Mov(R.EIP, j));
+    var $__81;
+    return If(($__81 = Cond, traceur.runtime.elementGet($__81, x).call($__81)), Mov(R.EIP, j));
   }));
 }));
 Object.keys(Cond).map((function(x, i) {
   return _($__64)([0x0F, 0x90 + i], (function(a) {
-    var $__74;
-    return Mov(a, ($__74 = Cond, traceur.runtime.elementGet($__74, x).call($__74)));
+    var $__81;
+    return Mov(a, ($__81 = Cond, traceur.runtime.elementGet($__81, x).call($__81)));
   }));
 }));
 _($__65)(Nop);
