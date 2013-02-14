@@ -422,21 +422,20 @@ function Var(name, pos, len, bigEndian) {
 exports.totals = 0;
 exports.maps = {};
 exports.op = function op(def, fn) {
-  var self = this;
   var ct = [], vars = [], nBits = 0;
-  def.forEach(function(x) {
+  def.forEach((function(x) {
     var n = x.length, bits = x.match(/[A-Z][a-z$]*_*|./g);
     if (n & 7) throw new TypeError('Opcode definition ' + x + ' does not align to a byte boundary');
-    var part = Var(' ', nBits + (self.bigEndian ? n - 8: 0), n, self.bigEndian);
+    var part = Var(' ', nBits + (this.bigEndian ? n - 8: 0), n, this.bigEndian);
     for (var i = 0, j = n; i < bits.length && j > 0; i++) {
       var b = traceur.runtime.elementGet(bits, i);
       if (b === '0' || b === '1') traceur.runtime.elementSet(ct, part.posAt(j - 1), + b); else vars.push(part.slice(b.replace(/_+/g, ''), j - b.length, j));
       j -= b.length;
     }
     nBits += n;
-  });
-  function make(ct, vals) {
-    var res = fn.apply(this, vals);
+  }).bind(this));
+  var make = (function(ct, vals) {
+    var res = fn.apply(null, vals);
     if (!res) return;
     res = res.filter((function(x) {
       return x;
@@ -451,15 +450,15 @@ exports.op = function op(def, fn) {
     }
     ct = niceCT(ct);
     var ctMask = ct.replace(/[01]/g, 'K');
-    self.totals += 100 / Math.pow(2, ctMask.split('').reduce((function(a, b) {
+    this.totals += 100 / Math.pow(2, ctMask.split('').reduce((function(a, b) {
       return a + (b == 'K');
     }), 0));
-    if (!traceur.runtime.elementGet(self.maps, ctMask)) traceur.runtime.elementSet(self.maps, ctMask, {$ct: ct}); else traceur.runtime.elementGet(self.maps, ctMask).$ct = traceur.runtime.elementGet(self.maps, ctMask).$ct.split('').map((function(x, i) {
+    if (!traceur.runtime.elementGet(this.maps, ctMask)) traceur.runtime.elementSet(this.maps, ctMask, {$ct: ct}); else traceur.runtime.elementGet(this.maps, ctMask).$ct = traceur.runtime.elementGet(this.maps, ctMask).$ct.split('').map((function(x, i) {
       return x == traceur.runtime.elementGet(ct, i) ? x: 'K';
     })).join('');
-    traceur.runtime.elementSet(traceur.runtime.elementGet(self.maps, ctMask), ct, res);
+    traceur.runtime.elementSet(traceur.runtime.elementGet(this.maps, ctMask), ct, res);
     console.log.apply(console, [ct + ':'].concat(res));
-  }
+  }).bind(this);
   var vals = [];
   vals.byName = {};
   var back = (function(i, ct) {

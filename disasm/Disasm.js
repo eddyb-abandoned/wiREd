@@ -554,7 +554,7 @@ function Var(name, pos, len, bigEndian) {
     return codeGen.mark({
         name, pos, len, bitsof: len, // FIXME len/bitsof are redundant.
         signed: len == codeGen.intBits,
-        posAt: function(d) {
+        posAt(d) {
             if(!(d >= 0 && d < this.len))
                 throw new RangeError('Offset '+d+' is outside the bit range');
             d += this.pos & 7;
@@ -563,7 +563,7 @@ function Var(name, pos, len, bigEndian) {
                 return pos - (d & ~7);
             return pos + (d & ~7);
         },
-        inspect: function() {
+        inspect() {
             return '<'+this.pos+(this.len > 1 ? ':'+(this.pos+this.len-1) : '')+'>';
         },
         get code() {
@@ -584,7 +584,7 @@ function Var(name, pos, len, bigEndian) {
             return '('+bytes.join('|')+')';
         },
         runtimeKnown: true,
-        slice: function(name, start, end) {
+        slice(name, start, end) {
             if(typeof start !== 'number')
                 start = 0;
             else if(start < 0)
@@ -605,13 +605,12 @@ function Var(name, pos, len, bigEndian) {
 exports.totals = 0;
 exports.maps = {};
 exports.op = function op(def, fn) {
-    var self = this;
     var ct = [], vars = [], nBits = 0;
-    def.forEach(function(x) {
+    def.forEach((x)=>{
         var n = x.length, bits = x.match(/[A-Z][a-z$]*_*|./g);
         if(n & 7)
             throw new TypeError('Opcode definition '+x+' does not align to a byte boundary');
-        var part = Var(' ', nBits+(self.bigEndian?n-8:0), n, self.bigEndian);
+        var part = Var(' ', nBits+(this.bigEndian?n-8:0), n, this.bigEndian);
         for(var i = 0, j = n; i < bits.length && j > 0; i++) {
             var b = bits[i];
             if(b === '0' || b === '1')
@@ -623,8 +622,8 @@ exports.op = function op(def, fn) {
 
         nBits += n;
     });
-    function make(ct, vals) {
-        var res = fn.apply(this, vals);
+    let make = (ct, vals)=>{
+        var res = fn.apply(null, vals);
         if(!res)
             return;
         res = res.filter((x)=>x);
@@ -637,12 +636,12 @@ exports.op = function op(def, fn) {
         }
         ct = niceCT(ct);
         var ctMask = ct.replace(/[01]/g, 'K');
-        self.totals += 100/Math.pow(2, ctMask.split('').reduce((a, b)=>a+(b=='K'), 0));
-        if(!self.maps[ctMask])
-            self.maps[ctMask] = {$ct: ct};
+        this.totals += 100/Math.pow(2, ctMask.split('').reduce((a, b)=>a+(b=='K'), 0));
+        if(!this.maps[ctMask])
+            this.maps[ctMask] = {$ct: ct};
         else
-            self.maps[ctMask].$ct = self.maps[ctMask].$ct.split('').map((x, i)=>x==ct[i]?x:'K').join('');
-        self.maps[ctMask][ct] = res;
+            this.maps[ctMask].$ct = this.maps[ctMask].$ct.split('').map((x, i)=>x==ct[i]?x:'K').join('');
+        this.maps[ctMask][ct] = res;
         console.log.apply(console, [ct+':'].concat(res));
     }
     var vals = [];
