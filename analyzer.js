@@ -717,7 +717,7 @@ if(process.argv.length < 3)
             if(x.addr <= addr && addr < x.addr+x.size) {
                 if(x.srwx & 2) // Writable, not good.
                     return;
-                return bin.buffer['readUInt'+bits+'LE'](addr-x.addr+x.offset);
+                return bin.buffer['readUInt'+bits+(bits==8?'':'LE')](addr-x.addr+x.offset);
             }
         return read(addr, bits);
     };

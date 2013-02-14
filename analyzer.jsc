@@ -1450,7 +1450,7 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                                 x = $__1.current;
                                                 if (x.addr <= addr && addr < x.addr + x.size) {
                                                   if (x.srwx & 2) return;
-                                                  return ($__10 = bin.buffer, traceur.runtime.elementGet($__10, 'readUInt' + bits + 'LE').call($__10, addr - x.addr + x.offset));
+                                                  return ($__10 = bin.buffer, traceur.runtime.elementGet($__10, 'readUInt' + bits + (bits == 8 ? '': 'LE')).call($__10, addr - x.addr + x.offset));
                                                 }
                                               }
                                             }
