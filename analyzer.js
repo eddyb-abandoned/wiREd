@@ -47,7 +47,7 @@ Number.prototype.toSupString = function toSupString(...args) {
 
 let makeAnalyzer = (arch)=>{
     let EventEmitter = require('events').EventEmitter;
-    let {R, PC, SP, Add, Mov, Mem, known, valueof, lvalueof, sizeof, inspect} = arch, analyzer;
+    let {R, PC, SP, FP, Add, Mov, Mem, known, valueof, lvalueof, sizeof, inspect} = arch, analyzer;
 
     class AnalysisPauseError extends Error {
         constructor(reason='') {
@@ -375,9 +375,13 @@ let makeAnalyzer = (arch)=>{
                     target.stackMaxAccess = j - i + sizeof(PC);
 
                     this.once('preOp', (x)=>{
-                        if(x.some((x)=>(x.op == '=' && x.a == SP))) // HACK detect whether the caller cleans the stack or not.
-                            return;
-                        console.error('Assuming callee cleans the stack ('+(j-i)+')', x);
+                        for(let op of x) { // HACK detect whether the caller cleans the stack or not.
+                            if(op.op == '=' && op.b.fn == 'Mem' && op.b.a == SP && (op.a == PC || op.a == SP || op.a == FP))
+                                break; // HACK Ignore pop PC/SP/FP, they tend to not remove arguments from the stack.
+                            if(op.op == '=' && op.a == SP)
+                                return;
+                        }
+                        console.error('Assuming callee cleans the stack ('+(j-i)+')');
                         this.op(valueof(Mov(SP, Add(SP, j-i))));
                     });
 

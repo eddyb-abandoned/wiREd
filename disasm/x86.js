@@ -298,6 +298,7 @@ exports.dis = function x86dis(b, i) {
     }
     ${code}
 }
-exports.SP = R.ESP;
 exports.PC = R.EIP;
+exports.SP = R.ESP;
+exports.FP = R.EBP;
 `);

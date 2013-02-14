@@ -3574,5 +3574,6 @@ if(((((b[i+0] & 0x40)>>>6)) & 0x1) == 0x0)
 	}
 
 }
-exports.SP = R.ESP;
 exports.PC = R.EIP;
+exports.SP = R.ESP;
+exports.FP = R.EBP;

@@ -96,7 +96,7 @@ Number.prototype.toSupString = function toSupString() {
 }
 var makeAnalyzer = (function(arch) {
   var EventEmitter = require('events').EventEmitter;
-  var $__5 = arch, R = $__5.R, PC = $__5.PC, SP = $__5.SP, Add = $__5.Add, Mov = $__5.Mov, Mem = $__5.Mem, known = $__5.known, valueof = $__5.valueof, lvalueof = $__5.lvalueof, sizeof = $__5.sizeof, inspect = $__5.inspect, analyzer;
+  var $__7 = arch, R = $__7.R, PC = $__7.PC, SP = $__7.SP, FP = $__7.FP, Add = $__7.Add, Mov = $__7.Mov, Mem = $__7.Mem, known = $__7.known, valueof = $__7.valueof, lvalueof = $__7.lvalueof, sizeof = $__7.sizeof, inspect = $__7.inspect, analyzer;
   var AnalysisPauseError = function($__super) {
     var $__proto = $__getProtoParent($__super);
     var $AnalysisPauseError = ($__createClass)({constructor: function() {
@@ -714,17 +714,32 @@ var makeAnalyzer = (function(arch) {
                             console.error(("stack[-" + inspect(- j) + "]" + v.bitsof + " (" + k + ") ="), inspect(v.value));
                             j += v.bitsof / 8;
                             pc = v.PC;
+                          target.stackMaxAccess = j - i + sizeof(PC);
                           }
+                          this.once('preOp', (function(x) {
+                            {
+                              var $__1 = traceur.runtime.getIterator(x);
+                              try {
+                                while ($__1.moveNext()) {
+                                  try {
+                                    throw undefined;
+                                  } catch (op) {
+                                    op = $__1.current;
+                                    {
+                                      if (op.op == '=' && op.b.fn == 'Mem' && op.b.a == SP && (op.a == PC || op.a == SP || op.a == FP)) break;
+                                      if (op.op == '=' && op.a == SP) return;
+                                    }
+                                  }
+                                }
+                              } finally {
+                                if ($__1.close) $__1.close();
+                              }
+                            }
+                            console.error('Assuming callee cleans the stack (' + (j - i) + ')');
+                            this.op(valueof(Mov(SP, Add(SP, j - i))));
+                          }).bind(this));
+                          return target;
                         }
-                        target.stackMaxAccess = j - i + sizeof(PC);
-                        this.once('preOp', (function(x) {
-                          if (x.some((function(x) {
-                            return (x.op == '=' && x.a == SP);
-                          }))) return;
-                          console.error('Assuming callee cleans the stack (' + (j - i) + ')', x);
-                          this.op(valueof(Mov(SP, Add(SP, j - i))));
-                        }).bind(this));
-                        return target;
                       }
                     }
                   }
