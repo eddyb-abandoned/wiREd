@@ -260,7 +260,7 @@ _`F8:`(()=>Mov(F.C, 0)); _`F9:`(()=>Mov(F.C, 1));
 _`FA:`(()=>Mov(F.I, 0)); _`FB:`(()=>Mov(F.I, 1));
 _`FC:`(()=>Mov(F.D, 0)); _`FD:`(()=>Mov(F.D, 1));
 [INC, DEC].map((fn, i)=>_`FE:reg=${i}:Eb;Ev`(fn));
-[CALLN/*f64*/, /*CALLF*/, JMPN/*f64*/, /*JMPF*/].map((fn, i)=>_`FF:reg=${i+2}:J Ev`(fn));
+[CALLN/*f64*/, /*CALLF*/, (EIP, j)=>JMPN(j)/*f64*/, /*JMPF*/].map((fn, i)=>_`FF:reg=${i+2}:J Ev`(fn));
 _`FF:reg=6:Ev`(PUSH);/*d64*/
 
 /// Two-byte opcodes.

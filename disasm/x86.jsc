@@ -476,7 +476,9 @@ _($__59)((function() {
 [INC, DEC].map((function(fn, i) {
   return _($__60, i)(fn);
 }));
-[CALLN,, JMPN].map((function(fn, i) {
+[CALLN,, (function(EIP, j) {
+  return JMPN(j);
+})].map((function(fn, i) {
   return _($__61, (i + 2))(fn);
 }));
 _($__62)(PUSH);
