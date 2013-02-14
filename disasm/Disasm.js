@@ -694,7 +694,7 @@ exports.out = function out(outFile, fn) {
         var cstart = 0, cend = 0;
         var cmask = ct.replace(/^[^01]+/, (s)=>{cstart += s.length; return '';}).replace(/[^01]+$/, (s)=>{cend += s.length; return '';});
         if(cmask.length) {
-            cmask = Var(' ', cend, ct.length-cend-cstart, self.bigEndian).code+' & 0x'+parseInt(cmask.replace(/0/g,'1').replace(/[^1]/g,'0'), 2).toString(16);
+            cmask = Var(' ', cend, ct.length-cend-cstart).code+' & 0x'+parseInt(cmask.replace(/0/g,'1').replace(/[^1]/g,'0'), 2).toString(16);
 
             console.log(ct.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'));
             var cval = '0x'+parseInt(ct.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'), 2).toString(16);
@@ -705,7 +705,7 @@ exports.out = function out(outFile, fn) {
         var mask = ct.replace(/^[^K]+/, (s)=>{cstart += s.length; return '';}).replace(/[^K]+$/, (s)=>{cend += s.length; return '';});
         mask = parseInt(mask.replace(/[^K]/g,'0').replace(/K/g,'1'), 2);
 
-        var val = mask ? Var(' ', cend, ct.length-cend-cstart, self.bigEndian).code+' & 0x'+mask.toString(16) : '0';
+        var val = mask ? Var(' ', cend, ct.length-cend-cstart).code+' & 0x'+mask.toString(16) : '0';
 
         code += cond+'\n\tswitch('+val+') {\n';
         console.log('  \''+ct.replace(/K/g,'#').replace(/x/g,'_')+'\': {');
