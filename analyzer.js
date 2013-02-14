@@ -124,7 +124,7 @@ let makeAnalyzer = (arch)=>{
             if(v.invalid)
                 throw new Error('Reading invalid stack value '+inspect(v));
             if(v.bitsof != bits)
-                throw new Error('Reading differently sized stack value '+inspect(v));
+                return console.error('Reading differently sized stack value '+v.bitsof+' vs '+bits+' '+inspect(v.value)), null;
             return v.value;
         }
 
@@ -500,7 +500,14 @@ let makeAnalyzer = (arch)=>{
 
             block.decoderGenerator = this.decodeBlock(block);
             block.decoder = block.decoderGenerator.moveNext.bind(block.decoderGenerator);
-            block.decoder();
+            try {
+                block.decoder();
+            } catch(e) {
+                if(e.stack)
+                    console.error(e.stack);
+                else
+                    throw e;
+            }
 
             return block;
         }

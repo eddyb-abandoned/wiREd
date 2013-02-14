@@ -215,7 +215,7 @@ var makeAnalyzer = (function(arch) {
         var v = traceur.runtime.elementGet(stack, pos);
         if (!v) return;
         if (v.invalid) throw new Error('Reading invalid stack value ' + inspect(v));
-        if (v.bitsof != bits) throw new Error('Reading differently sized stack value ' + inspect(v));
+        if (v.bitsof != bits) return console.error('Reading differently sized stack value ' + v.bitsof + ' vs ' + bits + ' ' + inspect(v.value)), null;
         return v.value;
       },
       writeStack: function(pos, bits, v) {
@@ -853,7 +853,11 @@ var makeAnalyzer = (function(arch) {
         block.inProgress = true;
         block.decoderGenerator = this.decodeBlock(block);
         block.decoder = block.decoderGenerator.moveNext.bind(block.decoderGenerator);
-        block.decoder();
+        try {
+          block.decoder();
+        } catch (e) {
+          if (e.stack) console.error(e.stack); else throw e;
+        }
         return block;
       },
       decodeBlock: function(block) {
