@@ -451,8 +451,8 @@ exports.op = function op(def, fn) {
     }
     ct = niceCT(ct);
     var ctMask = ct.replace(/[01]/g, 'K');
-    self.totals += Math.pow(2, ct.split('').reduce((function(a, b) {
-      return a + (b == 'x');
+    self.totals += 100 / Math.pow(2, ctMask.split('').reduce((function(a, b) {
+      return a + (b == 'K');
     }), 0));
     if (!traceur.runtime.elementGet(self.maps, ctMask)) traceur.runtime.elementSet(self.maps, ctMask, {$ct: ct}); else traceur.runtime.elementGet(self.maps, ctMask).$ct = traceur.runtime.elementGet(self.maps, ctMask).$ct.split('').map((function(x, i) {
       return x == traceur.runtime.elementGet(ct, i) ? x: 'K';
@@ -475,7 +475,7 @@ exports.op = function op(def, fn) {
   console.log();
 };
 exports.out = function out(outFile, fn) {
-  console.log('Totals', this.totals, '0x' + this.totals.toString(16), Math.round(this.totals / (1 << 28) * 1000) / 10 + '%');
+  console.error('Totals:', Math.round(this.totals * 100) / 100 + '%');
   console.log('{');
   var self = this;
   var mapKeys = Object.keys(self.maps).map((function(x) {

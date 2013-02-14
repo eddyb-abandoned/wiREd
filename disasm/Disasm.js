@@ -637,7 +637,7 @@ exports.op = function op(def, fn) {
         }
         ct = niceCT(ct);
         var ctMask = ct.replace(/[01]/g, 'K');
-        self.totals += Math.pow(2, ct.split('').reduce((a, b)=>a+(b=='x'), 0));
+        self.totals += 100/Math.pow(2, ctMask.split('').reduce((a, b)=>a+(b=='K'), 0));
         if(!self.maps[ctMask])
             self.maps[ctMask] = {$ct: ct};
         else
@@ -662,7 +662,7 @@ exports.op = function op(def, fn) {
 }
 
 exports.out = function out(outFile, fn) {
-    console.log('Totals', this.totals, '0x'+this.totals.toString(16), Math.round(this.totals/(1<<28)*1000)/10+'%');
+    console.error('Totals:', Math.round(this.totals*100)/100+'%'/*, '0x'+this.totals.toString(16), Math.round(this.totals/(1<<28)*1000)/10+'%'*/);
     console.log('{');
     var self = this;
     var mapKeys = Object.keys(self.maps).map((x)=>[self.maps[x], self.maps[x].$ct.split('').map((x)=>({'0':0, '1':1, K:2})[x])]);
