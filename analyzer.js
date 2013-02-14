@@ -19,7 +19,7 @@ Number.prototype.toSubString = function toSubString(...args) {
     });
 };
 Number.prototype.toSupString = function toSupString(...args) {
-    return this.toString(...args).replace(/1/g, '¹').replace(/2/g, '²').replace(/3/g, '³').replace(/x/g, 'ˣ').replace(/[0-9]/g, function(x) {
+    return this.toString(...args).replace(/1/g, '¹').replace(/2/g, '²').replace(/3/g, '³').replace(/[04-9]/g, function(x) {
         return String.fromCharCode('⁰'.charCodeAt()+(+x));
     }).replace(/[a-z]/g, function(x) {
         return 'ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖqʳˢᵗᵘᵛʷˣʸᶻ'[x.charCodeAt()-'a'.charCodeAt()];
@@ -58,6 +58,8 @@ let makeAnalyzer = (arch)=>{
     class Block extends EventEmitter {
         constructor(options={}) {
             super();
+
+            this.setMaxListeners(64);
 
             this.stack = [{down: [], up: []}];
             this.stackMaxAccess = -Infinity;
@@ -178,6 +180,8 @@ let makeAnalyzer = (arch)=>{
                 if(x.a == PC.lvalue) // HACK
                     this.PCwritten = true;
                 else if(x.a == SP.lvalue) {
+                    if(known(x.b))
+                        return console.error('Ignoring known SP = '+inspect(x.b));
                     let [i, diff] = this.SPdiffAll(x.b);
                     if(diff is NaN) {
                         if(x.b.op == '+' && known(x.b.b))

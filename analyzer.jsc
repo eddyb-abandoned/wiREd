@@ -54,9 +54,9 @@ Number.prototype.toSubString = function toSubString() {
   });
 };
 Number.prototype.toSupString = function toSupString() {
-  var $__9;
-  for (var args = [], $__3 = 0; $__3 < arguments.length; $__3++) traceur.runtime.elementSet(args, $__3, traceur.runtime.elementGet(arguments, $__3));
-  return ($__9 = this).toString.apply($__9, $__toObject(args)).replace(/1/g, '¹').replace(/2/g, '²').replace(/3/g, '³').replace(/x/g, 'ˣ').replace(/[0-9]/g, function(x) {
+  var $__11;
+  for (var args = [], $__4 = 0; $__4 < arguments.length; $__4++) traceur.runtime.elementSet(args, $__4, traceur.runtime.elementGet(arguments, $__4));
+  return ($__11 = this).toString.apply($__11, $__toObject(args)).replace(/1/g, '¹').replace(/2/g, '²').replace(/3/g, '³').replace(/[04-9]/g, function(x) {
     return String.fromCharCode('⁰'.charCodeAt() + (+ x));
   }).replace(/[a-z]/g, function(x) {
     return traceur.runtime.elementGet('ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖqʳˢᵗᵘᵛʷˣʸᶻ', x.charCodeAt() - 'a'.charCodeAt());
@@ -111,6 +111,7 @@ var makeAnalyzer = (function(arch) {
       constructor: function() {
         var options = traceur.runtime.elementGet(arguments, 0) !== (void 0) ? traceur.runtime.elementGet(arguments, 0): {};
         $__superCall(this, $__proto, "constructor", []);
+        this.setMaxListeners(64);
         this.stack = [{
           down: [],
           up: []
@@ -320,6 +321,7 @@ var makeAnalyzer = (function(arch) {
                   try {
                     throw undefined;
                   } catch ($__5) {
+                    if (known(x.b)) return console.error('Ignoring known SP = ' + inspect(x.b));
                     {
                       $__5 = this.SPdiffAll(x.b);
                       i = traceur.runtime.elementGet($__5, 0);
