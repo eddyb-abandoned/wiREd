@@ -592,10 +592,10 @@ if(process.argv.length < 3)
     let bin = new r2.RBin();
     let program = require('commander')
         .option('-a, --arch <ARCH>')
-        .option('-b, --base <BASE ADDRESS>', 'base address', parseInt)
-        .option('-e, --entry <ENTRY POINT>');
+        .option('-b, --base <ADDRESS>', 'base address', parseInt)
+        .option('-e, --entry <ADDRESS>', 'entry point', parseInt);
     let entries = [];
-    program.on('entry', (x)=>entries.push(x));
+    program.on('entry', (x)=>entries.push(parseInt(x)));
     program.parse(process.argv);
 
     let fileName = program.args[0];

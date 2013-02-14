@@ -1217,10 +1217,10 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                         path = require('path');
                                       }
                                       bin = new r2.RBin();
-                                      program = require('commander').option('-a, --arch <ARCH>').option('-b, --base <BASE ADDRESS>', 'base address', parseInt).option('-e, --entry <ENTRY POINT>');
+                                      program = require('commander').option('-a, --arch <ARCH>').option('-b, --base <ADDRESS>', 'base address', parseInt).option('-e, --entry <ADDRESS>', 'entry point', parseInt);
                                       entries = [];
                                       program.on('entry', (function(x) {
-                                        return entries.push(x);
+                                        return entries.push(parseInt(x));
                                       }));
                                       program.parse(process.argv);
                                       fileName = traceur.runtime.elementGet(program.args, 0);
