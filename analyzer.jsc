@@ -47,9 +47,9 @@ String.prototype.padRight = function padRight(n, p) {
   return s;
 };
 Number.prototype.toSubString = function toSubString() {
-  var $__9;
-  for (var args = [], $__2 = 0; $__2 < arguments.length; $__2++) traceur.runtime.elementSet(args, $__2, traceur.runtime.elementGet(arguments, $__2));
-  return ($__9 = this).toString.apply($__9, $__toObject(args)).replace(/[0-9]/g, function(x) {
+  var $__11;
+  for (var args = [], $__3 = 0; $__3 < arguments.length; $__3++) traceur.runtime.elementSet(args, $__3, traceur.runtime.elementGet(arguments, $__3));
+  return ($__11 = this).toString.apply($__11, $__toObject(args)).replace(/[0-9]/g, function(x) {
     return String.fromCharCode('₀'.charCodeAt() + (+ x));
   });
 };
@@ -78,7 +78,7 @@ Number.prototype.toSupString = function toSupString() {
           indent = '';
         }
         util.format = function() {
-          for (var args = [], $__4 = 0; $__4 < arguments.length; $__4++) traceur.runtime.elementSet(args, $__4, traceur.runtime.elementGet(arguments, $__4));
+          for (var args = [], $__5 = 0; $__5 < arguments.length; $__5++) traceur.runtime.elementSet(args, $__5, traceur.runtime.elementGet(arguments, $__5));
           return oldFormat.apply(this, args).replace(/(?:^|\n)/g, '$&' + indent);
         };
         console.group = (function(name) {
@@ -282,21 +282,21 @@ var makeAnalyzer = (function(arch) {
         }
       },
       restoreContext: function() {
-        var $__5;
+        var $__7;
         for (var $i in R) {
           try {
             throw undefined;
           } catch (i) {
             i = $i;
-            (($__5 = traceur.runtime.elementGet(this.R, i), traceur.runtime.elementGet(R, i).nthValue = $__5.nthValue, traceur.runtime.elementGet(R, i).value = $__5.value, $__5));
+            (($__7 = traceur.runtime.elementGet(this.R, i), traceur.runtime.elementGet(R, i).nthValue = $__7.nthValue, traceur.runtime.elementGet(R, i).value = $__7.value, $__7));
           }
         }
         analyzer.memRead = (function(addr, bits) {
-          var $__6 = this.SPdiffAll(addr), i = traceur.runtime.elementGet($__6, 0), diff = traceur.runtime.elementGet($__6, 1);
+          var $__8 = this.SPdiffAll(addr), i = traceur.runtime.elementGet($__8, 0), diff = traceur.runtime.elementGet($__8, 1);
           if (traceur.runtime.isnt(diff, NaN)) return this.readStack(diff, bits, traceur.runtime.elementGet(this.stack, i));
         }).bind(this);
         analyzer.memWrite = (function(addr, bits, v) {
-          var $__6 = this.SPdiffAll(addr), i = traceur.runtime.elementGet($__6, 0), diff = traceur.runtime.elementGet($__6, 1);
+          var $__8 = this.SPdiffAll(addr), i = traceur.runtime.elementGet($__8, 0), diff = traceur.runtime.elementGet($__8, 1);
           if (traceur.runtime.isnt(diff, NaN)) return this.writeStack(diff, bits, v, traceur.runtime.elementGet(this.stack, i)) !== false;
         }).bind(this);
       },
@@ -320,12 +320,12 @@ var makeAnalyzer = (function(arch) {
                 } catch (i) {
                   try {
                     throw undefined;
-                  } catch ($__5) {
+                  } catch ($__7) {
                     if (known(x.b)) return console.error('Ignoring known SP = ' + inspect(x.b));
                     {
-                      $__5 = this.SPdiffAll(x.b);
-                      i = traceur.runtime.elementGet($__5, 0);
-                      diff = traceur.runtime.elementGet($__5, 1);
+                      $__7 = this.SPdiffAll(x.b);
+                      i = traceur.runtime.elementGet($__7, 0);
+                      diff = traceur.runtime.elementGet($__7, 1);
                     }
                     if (traceur.runtime.is(diff, NaN)) {
                       if (x.b.op == '+' && known(x.b.b)) this.SP0.push(x.b.a); else this.SP0.push(x.b);
@@ -371,13 +371,13 @@ var makeAnalyzer = (function(arch) {
         if (this.PCwritten && PC.value != this.PCnext) {
           try {
             throw undefined;
-          } catch (targetBlock) {
+          } catch (savesPC) {
             try {
               throw undefined;
-            } catch (savesPC) {
+            } catch (targetBlock) {
               console.log('-->', inspect(PC.value));
+              targetBlock = this.getJumpTarget(PC.value);
               savesPC = analyzer.memRead(valueof(SP), PC.bitsof) == this.PCnext;
-              targetBlock = this.getJumpTarget(PC.value, savesPC);
               if (savesPC) {
                 try {
                   throw undefined;
@@ -388,7 +388,7 @@ var makeAnalyzer = (function(arch) {
                     try {
                       throw undefined;
                     } catch (stackMaxAccess) {
-                      if (!targetBlock.returnPoints.length) throw new Error('Not returning from a function call ' + inspect(targetBlock));
+                      if (!targetBlock.returnPoints.length) throw new Error('Not returning from a function call');
                       stackMaxAccess = targetBlock.returnPoints.reduce((function(a, b) {
                         return ({stackMaxAccess: Math.max(a.stackMaxAccess, b.stackMaxAccess)});
                       })).stackMaxAccess;
@@ -500,7 +500,7 @@ var makeAnalyzer = (function(arch) {
                                           } catch (j) {
                                             try {
                                               throw undefined;
-                                            } catch ($__5) {
+                                            } catch ($__7) {
                                               try {
                                                 throw undefined;
                                               } catch (v) {
@@ -508,9 +508,9 @@ var makeAnalyzer = (function(arch) {
                                                 if (v.frozenValue) v = v.frozenValue;
                                                 v = valueof(v);
                                                 {
-                                                  $__5 = this.SPdiffAll(v);
-                                                  j = traceur.runtime.elementGet($__5, 0);
-                                                  diff = traceur.runtime.elementGet($__5, 1);
+                                                  $__7 = this.SPdiffAll(v);
+                                                  j = traceur.runtime.elementGet($__7, 0);
+                                                  diff = traceur.runtime.elementGet($__7, 1);
                                                 }
                                                 if (traceur.runtime.is(diff, NaN)) {
                                                   if (traceur.runtime.elementGet(R, i) != SP && v == traceur.runtime.elementGet(this.R0, i) && traceur.runtime.elementGet(R, i).value != traceur.runtime.elementGet(this.R0, i)) {
@@ -550,7 +550,7 @@ var makeAnalyzer = (function(arch) {
                               if (SP0) {
                                 this.op(valueof(Mov(traceur.runtime.elementGet(R, i), Add(SP0, SPdiff))));
                                 updatedR.push(i);
-                                console.log('<-', traceur.runtime.elementGet(R, i), '=', traceur.runtime.elementGet(R, i).value, '//', traceur.runtime.elementGet(targetBlock.returnPoints[0].R, i).value);
+                                console.log('<-', traceur.runtime.elementGet(R, i), '=', traceur.runtime.elementGet(R, i).value, '//', inspect(traceur.runtime.elementGet(targetBlock.returnPoints[0].R, i).value));
                               }
                             }
                           }
@@ -571,16 +571,16 @@ var makeAnalyzer = (function(arch) {
                               } catch (SP0) {
                                 try {
                                   throw undefined;
-                                } catch ($__5) {
+                                } catch ($__7) {
                                   {
-                                    $__5 = traceur.runtime.elementGet(targetBlock.returnPoints, 0);
-                                    SP0 = traceur.runtime.elementGet($__5.SP0, 0).value;
-                                    stack = traceur.runtime.elementGet($__5.stack, 0);
+                                    $__7 = traceur.runtime.elementGet(targetBlock.returnPoints, 0);
+                                    SP0 = traceur.runtime.elementGet($__7.SP0, 0).value;
+                                    stack = traceur.runtime.elementGet($__7.stack, 0);
                                   }
                                   {
-                                    $__5 = this.SPdiffAll(SP0);
-                                    j = traceur.runtime.elementGet($__5, 0);
-                                    diff = traceur.runtime.elementGet($__5, 1);
+                                    $__7 = this.SPdiffAll(SP0);
+                                    j = traceur.runtime.elementGet($__7, 0);
+                                    diff = traceur.runtime.elementGet($__7, 1);
                                   }
                                   ([stack].map((function(x, i) {
                                     var r = '';
@@ -658,65 +658,86 @@ var makeAnalyzer = (function(arch) {
         }
       },
       getJumpTarget: function(newPC) {
-        var $__5;
-        var savesPC = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): analyzer.memRead(valueof(SP), PC.bitsof) == this.PCnext;
+        var $__7;
+        var savesPC = analyzer.memRead(valueof(SP), PC.bitsof) == this.PCnext;
         if (!known(newPC)) {
-          if (newPC == this.retPC) {
-            this.emit('returnPoint', this);
-            return this.retPC;
-          } else if (savesPC && newPC.fn == 'Function') {
-            try {
-              throw undefined;
-            } catch (target) {
-              target = newPC.block;
-              if (!target) throw new Error('Cannot jump to function -> ' + inspect(newPC));
-              return target;
-            }
-          } else if (savesPC) {
-            try {
-              throw undefined;
-            } catch (pc) {
+          try {
+            throw undefined;
+          } catch (isTailJump) {
+            isTailJump = !savesPC && this.SP0.length == 1 && this.SPdiff(valueof(SP)) == 0;
+            if (newPC == this.retPC) {
+              this.emit('returnPoint', this);
+              return this.retPC;
+            } else if (newPC.fn == 'Function') {
               try {
                 throw undefined;
-              } catch (k) {
+              } catch (target) {
+                target = newPC.block;
+                if (!target) throw new Error('Cannot ' + (savesPC ? 'call': 'jump to') + ' unknown function -> ' + inspect(newPC));
+                if (savesPC) return target;
+                if (isTailJump) {
+                  console.error('Tail-jumping to function -> ' + inspect(newPC));
+                  this.returns = true;
+                  this.emit('returnPoint', this);
+                  this.PCnext = this.retPC;
+                  return target;
+                }
+                throw new Error('Cannot tail-jump to function -> ' + inspect(newPC));
+              }
+            } else if (savesPC || isTailJump) {
+              try {
+                throw undefined;
+              } catch (pc) {
                 try {
                   throw undefined;
-                } catch (j) {
+                } catch (k) {
                   try {
                     throw undefined;
-                  } catch (i) {
+                  } catch (j) {
                     try {
                       throw undefined;
-                    } catch (stack) {
+                    } catch (i) {
                       try {
                         throw undefined;
-                      } catch (target) {
-                        console.error('Unknown call, assuming arguments');
-                        target = new Block({returnts: true});
-                        target.SP.value = Add(traceur.runtime.elementGet(target.SP0, 0), sizeof(PC));
-                        target.returnPoints.push(target);
-                        {
-                          stack = traceur.runtime.elementGet(this.stack, this.stack.length - 1).down;
-                          i = this.SPdiff(valueof(SP)) + sizeof(PC);
-                          j = i;
-                          k = 0;
-                          pc = this.PC;
-                        }
-                        while (j < 0) {
-                          try {
-                            throw undefined;
-                          } catch (v) {
-                            v = traceur.runtime.elementGet(stack, ~j);
-                            if (!v || v.invalid || v.parent != this || !v.canBeArg) break;
-                            if (pc > v.PCnext) k += pc - v.PCnext;
-                            if (k > 12) {
-                              console.error(("!!stack[-" + inspect(- j) + "]" + v.bitsof + " (" + k + ") ="), inspect(v.value));
-                              break;
+                      } catch (stack) {
+                        try {
+                          throw undefined;
+                        } catch (target) {
+                          console.error('Unknown ' + (savesPC ? 'call': 'tail-jump') + ', assuming arguments');
+                          target = new Block({returns: true});
+                          target.SP.value = Add(traceur.runtime.elementGet(target.SP0, 0), sizeof(PC));
+                          target.returnPoints.push(target);
+                          {
+                            stack = traceur.runtime.elementGet(this.stack, this.stack.length - 1).down;
+                            i = this.SPdiff(valueof(SP)) + sizeof(PC);
+                            j = i;
+                            k = 0;
+                            pc = this.PC;
+                          }
+                          while (j < 0) {
+                            try {
+                              throw undefined;
+                            } catch (v) {
+                              v = traceur.runtime.elementGet(stack, ~j);
+                              if (!v || v.invalid || v.parent != this || !v.canBeArg) break;
+                              if (pc > v.PCnext) k += pc - v.PCnext;
+                              if (k > 12) {
+                                console.error(("!!stack[-" + inspect(- j) + "]" + v.bitsof + " (" + k + ") ="), inspect(v.value));
+                                break;
+                              }
+                              console.error(("stack[-" + inspect(- j) + "]" + v.bitsof + " (" + k + ") ="), inspect(v.value));
+                              j += v.bitsof / 8;
+                              pc = v.PC;
                             }
-                            console.error(("stack[-" + inspect(- j) + "]" + v.bitsof + " (" + k + ") ="), inspect(v.value));
-                            j += v.bitsof / 8;
-                            pc = v.PC;
+                          }
                           target.stackMaxAccess = j - i + sizeof(PC);
+                          if (isTailJump) {
+                            console.error('Assuming callee cleans the stack (' + (j - i) + ')');
+                            target.SP.value = Add(target.SP.value, j - i);
+                            this.returns = true;
+                            this.emit('returnPoint', this);
+                            this.PCnext = this.retPC;
+                            return target;
                           }
                           this.once('preOp', (function(x) {
                             {
@@ -747,20 +768,9 @@ var makeAnalyzer = (function(arch) {
                   }
                 }
               }
+            } else {
+              throw new Error('Unknown jump -> ' + inspect(newPC));
             }
-          } else {
-            (this.stack.map((function(x, i) {
-              var r = '';
-              x.up.forEach((function(x, i) {
-                if (x && !x.invalid) r = ',\n  ' + i + ': ' + inspect(x.value) + r;
-              }));
-              r = '[:' + inspect(traceur.runtime.elementGet(this.SP0, i)) + r;
-              x.down.forEach((function(x, i) {
-                if (x && !x.invalid) r += ',\n  ' + ~i + ': ' + inspect(x.value);
-              }));
-              return r + ']';
-            }).bind(this)).join(',\n'));
-            throw new Error('Unknown jump -> ' + inspect(newPC));
           }
         }
         this.saveContext();
@@ -783,7 +793,7 @@ var makeAnalyzer = (function(arch) {
               throw undefined;
             } catch (i) {
               i = $i;
-              if (traceur.runtime.isnt(traceur.runtime.elementGet(this.SPdiffAll(this.R[i].value), 1), NaN) || traceur.runtime.elementGet(R, i) != SP && traceur.runtime.elementGet(this.R, i).value == traceur.runtime.elementGet(this.R0, i) || traceur.runtime.elementGet(this.R, i).value.fn == 'Function')($__5 = traceur.runtime.elementGet(this.R, i), traceur.runtime.elementGet(target.R, i).value = $__5.value, traceur.runtime.elementGet(target.R, i).nthValue = $__5.nthValue, $__5);
+              if (traceur.runtime.isnt(traceur.runtime.elementGet(this.SPdiffAll(this.R[i].value), 1), NaN) || traceur.runtime.elementGet(R, i) != SP && traceur.runtime.elementGet(this.R, i).value == traceur.runtime.elementGet(this.R0, i) || traceur.runtime.elementGet(this.R, i).value.fn == 'Function')($__7 = traceur.runtime.elementGet(this.R, i), traceur.runtime.elementGet(target.R, i).value = $__7.value, traceur.runtime.elementGet(target.R, i).nthValue = $__7.nthValue, $__7);
               if (traceur.runtime.elementGet(R, i) != SP) traceur.runtime.elementSet(target.R0, i, traceur.runtime.elementGet(this.R0, i));
             }
           }
@@ -844,7 +854,7 @@ var makeAnalyzer = (function(arch) {
             };
           }
         }
-        var $__5 = Mem, read = $__5.read, write = $__5.write;
+        var $__7 = Mem, read = $__7.read, write = $__7.write;
         Mem.read = (function(addr, bits) {
           if (this.memRead) {
             var v = this.memRead(addr, bits);
@@ -1080,11 +1090,11 @@ var makeAnalyzer = (function(arch) {
                   $state = 57;
                   break;
                 case 57:
-                  block.postOp();
+                  $that.emit('Block.postOp', block);
                   $state = 58;
                   break;
                 case 58:
-                  $that.emit('Block.postOp', block);
+                  block.postOp();
                   $state = 60;
                   break;
                 case 60:
@@ -1186,7 +1196,7 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
     } catch (read) {
       try {
         throw undefined;
-      } catch ($__5) {
+      } catch ($__7) {
         try {
           throw undefined;
         } catch (importsByAddr) {

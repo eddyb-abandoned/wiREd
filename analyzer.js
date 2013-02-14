@@ -211,11 +211,11 @@ let makeAnalyzer = (arch)=>{
             this.emit('postOp');
             if(this.PCwritten && PC.value != this.PCnext) {
                 console.log('-->', inspect(PC.value));
+                let targetBlock = this.getJumpTarget(PC.value);
                 let savesPC = analyzer.memRead(valueof(SP), PC.bitsof) == this.PCnext;
-                let targetBlock = this.getJumpTarget(PC.value, savesPC);
                 if(savesPC) {
                     if(!targetBlock.returnPoints.length)
-                        throw new Error('Not returning from a function call '+inspect(targetBlock));
+                        throw new Error('Not returning from a function call'/*+inspect(targetBlock)*/);
 
                     // HACK mark touched args so they don't get reused.
                     let {stackMaxAccess} = targetBlock.returnPoints.reduce((a, b)=>({stackMaxAccess: Math.max(a.stackMaxAccess, b.stackMaxAccess)}));
@@ -284,7 +284,7 @@ let makeAnalyzer = (arch)=>{
                         if(SP0) {
                             this.op(valueof(Mov(R[i], Add(SP0, SPdiff))));
                             updatedR.push(i);
-                            console.log('<-', R[i], '=', R[i].value, '//', targetBlock.returnPoints[0].R[i].value);
+                            console.log('<-', R[i], '=', R[i].value, '//', inspect(targetBlock.returnPoints[0].R[i].value));
                         }
                     }
 
@@ -345,19 +345,32 @@ let makeAnalyzer = (arch)=>{
             }
         }
 
-        getJumpTarget(newPC, savesPC=analyzer.memRead(valueof(SP), PC.bitsof) == this.PCnext) {
+        getJumpTarget(newPC) {
+            let savesPC = analyzer.memRead(valueof(SP), PC.bitsof) == this.PCnext;
             if(!known(newPC)) {
+                let isTailJump = !savesPC && this.SP0.length == 1 && this.SPdiff(valueof(SP)) == 0;
                 if(newPC == this.retPC) {
                     this.emit('returnPoint', this);
                     return this.retPC;
-                } else if(savesPC && newPC.fn == 'Function') {
+                } else if(newPC.fn == 'Function') { // HACK required for imported functions.
                     let target = newPC.block;
                     if(!target)
-                        throw new Error('Cannot jump to function -> '+inspect(newPC));
-                    return target;
-                } else if(savesPC) {
-                    console.error('Unknown call, assuming arguments');
-                    let target = new Block({returnts: true});
+                        throw new Error('Cannot '+(savesPC?'call':'jump to')+' unknown function -> '+inspect(newPC));
+                    if(savesPC)
+                        return target;
+                    if(isTailJump) {
+                        console.error('Tail-jumping to function -> '+inspect(newPC));
+                        // HACK this fakes a return following the current instruction.
+                        this.returns = true;
+                        this.emit('returnPoint', this); // FIXME could cause problem with some deferred block processing.
+                        // HACK this makes savesPC true in postOp().
+                        this.PCnext = this.retPC;
+                        return target;
+                    }
+                    throw new Error('Cannot tail-jump to function -> '+inspect(newPC));
+                } else if(savesPC || isTailJump) {
+                    console.error('Unknown '+(savesPC?'call':'tail-jump')+', assuming arguments');
+                    let target = new Block({returns: true});
                     target.SP.value = Add(target.SP0[0], sizeof(PC));
                     target.returnPoints.push(target);
 
@@ -378,6 +391,18 @@ let makeAnalyzer = (arch)=>{
                     }
                     target.stackMaxAccess = j - i + sizeof(PC);
 
+                    if(isTailJump) { // FIXME duplicated code.
+                        console.error('Assuming callee cleans the stack ('+(j-i)+')');
+                        target.SP.value = Add(target.SP.value, j-i);
+
+                        // HACK this fakes a return following the current instruction.
+                        this.returns = true;
+                        this.emit('returnPoint', this); // FIXME could cause problem with some deferred block processing.
+                        // HACK this makes savesPC true in postOp().
+                        this.PCnext = this.retPC;
+                        return target;
+                    }
+
                     this.once('preOp', (x)=>{
                         for(let op of x) { // HACK detect whether the caller cleans the stack or not.
                             if(op.op == '=' && op.b.fn == 'Mem' && op.b.a == SP && (op.a == PC || op.a == SP || op.a == FP))
@@ -392,7 +417,7 @@ let makeAnalyzer = (arch)=>{
                     return target;
                 } else {
                     // Dump the stack.
-                    /*console.log*/(this.stack.map((x, i)=>{
+                    /*console.log(this.stack.map((x, i)=>{
                         let r = '';
                         x.up.forEach((x, i)=>{
                             if(x && !x.invalid)
@@ -404,7 +429,7 @@ let makeAnalyzer = (arch)=>{
                                 r += ',\n  '+~i+': '+inspect(x.value);
                         });
                         return r+']';
-                    }).join(',\n'));
+                    }).join(',\n'));*/
                     throw new Error('Unknown jump -> '+inspect(newPC));
                 }
             }
@@ -576,8 +601,8 @@ let makeAnalyzer = (arch)=>{
 
                 for(;;) {
                     try {
-                        block.postOp();
                         this.emit('Block.postOp', block);
+                        block.postOp();
                         break;
                     } catch(e) {
                         if(!(e instanceof AnalysisPauseError))
