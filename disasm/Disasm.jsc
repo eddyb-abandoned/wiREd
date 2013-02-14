@@ -413,6 +413,9 @@ function Var(name, pos, len, bigEndian) {
       if (typeof end !== 'number') end = this.len; else if (end < 0) end += this.len;
       return Var(name, this.posAt(start), end - start, bigEndian);
     },
+    clone: function() {
+      return Var(this.name, this.pos, this.len, bigEndian);
+    },
     filter: traceur.runtime.elementGet(exports.filters, name) || traceur.runtime.elementGet(exports.filters, name[0]) || function(next, ct) {
       if (this.len === 1) return next(traceur.runtime.elementSet(ct, this.pos, 0)), next(traceur.runtime.elementSet(ct, this.pos, 1));
       next(this);
@@ -459,17 +462,22 @@ exports.op = function op(def, fn) {
     traceur.runtime.elementSet(traceur.runtime.elementGet(this.maps, ctMask), ct, res);
     console.log.apply(console, [ct + ':'].concat(res));
   }).bind(this);
-  var vals = [];
+  var vals = [], isUnfiltered = [];
   vals.byName = {};
   var back = (function(i, ct) {
     ct = ct.slice();
-    if (i >= vars.length) return make(ct, vals);
+    if (i >= vars.length) return make(ct, vals.map((function(x, i) {
+      return traceur.runtime.elementGet(isUnfiltered, i) ? x.clone(): x;
+    })));
     var v = traceur.runtime.elementGet(vars, i), name = v.name;
-    Var(name, v.pos, v.len, this.bigEndian).filter((function(v, ct2) {
+    var cloned = v.clone();
+    cloned.filter((function(v) {
+      var ct2 = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): ct;
       traceur.runtime.elementSet(vals, i, traceur.runtime.elementSet(vals.byName, name, v));
-      back(i + 1, ct2 || ct);
+      traceur.runtime.elementSet(isUnfiltered, i, cloned == v);
+      back(i + 1, ct2);
     }), ct, i, vals);
-  }).bind(this);
+  });
   back(0, ct);
   console.log();
 };

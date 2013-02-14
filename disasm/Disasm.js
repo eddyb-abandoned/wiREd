@@ -595,6 +595,9 @@ function Var(name, pos, len, bigEndian) {
                 end += this.len;
             return Var(name, this.posAt(start), end-start, bigEndian);
         },
+        clone() {
+            return Var(this.name, this.pos, this.len, bigEndian);
+        },
         filter: exports.filters[name] || exports.filters[name[0]] || function(next, ct) {
             if(this.len === 1)
                 return next(ct[this.pos] = 0), next(ct[this.pos] = 1);
@@ -644,16 +647,18 @@ exports.op = function op(def, fn) {
         this.maps[ctMask][ct] = res;
         console.log.apply(console, [ct+':'].concat(res));
     }
-    var vals = [];
+    var vals = [], isUnfiltered = [];
     vals.byName = {};
     let back = (i, ct)=>{
         ct = ct.slice();
         if(i >= vars.length)
-            return make(ct, vals);
+            return make(ct, vals.map((x, i)=>isUnfiltered[i]?x.clone():x));
         var v = vars[i], name = v.name;
-        Var(name, v.pos, v.len, this.bigEndian).filter((v, ct2)=>{
+        var cloned = v.clone();
+        cloned.filter((v, ct2=ct)=>{
             vals[i] = vals.byName[name] = v;
-            back(i+1, ct2 || ct);
+            isUnfiltered[i] = cloned == v;
+            back(i+1, ct2);
         }, ct, i, vals);
     };
     back(0, ct);
