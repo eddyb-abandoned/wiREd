@@ -15415,8 +15415,8 @@ typedef struct _VOLUME_DISK_EXTENTS {
   errno_t __cdecl _get_winver(unsigned int *_Value);
   errno_t __cdecl _get_winmajor(unsigned int *_Value);
   errno_t __cdecl _get_winminor(unsigned int *_Value);
-  void __cdecl __attribute__ ((__nothrow__)) exit(int _Code) __attribute__ ((__noreturn__));
-  void __cdecl __attribute__ ((__nothrow__)) _exit(int _Code) __attribute__ ((__noreturn__));
+  void __cdecl exit(int _Code) __attribute__ ((__noreturn__));
+  void __cdecl _exit(int _Code) __attribute__ ((__noreturn__));
   void __cdecl _Exit(int) __attribute__ ((__noreturn__));
        
   void __cdecl __declspec(noreturn) abort(void);
@@ -15462,10 +15462,10 @@ typedef struct _VOLUME_DISK_EXTENTS {
   int __cdecl rand(void);
   int __cdecl _set_error_mode(int _Mode);
   void __cdecl srand(unsigned int _Seed);
-  double __cdecl __attribute__ ((__nothrow__)) strtod(const char * __restrict__ _Str,char ** __restrict__ _EndPtr);
-  float __cdecl __attribute__ ((__nothrow__)) strtof(const char * __restrict__ nptr, char ** __restrict__ endptr);
-  long double __cdecl __attribute__ ((__nothrow__)) strtold(const char * __restrict__ , char ** __restrict__ );
-  extern double __cdecl __attribute__ ((__nothrow__))
+  double __cdecl strtod(const char * __restrict__ _Str,char ** __restrict__ _EndPtr);
+  float __cdecl strtof(const char * __restrict__ nptr, char ** __restrict__ endptr);
+  long double __cdecl strtold(const char * __restrict__ , char ** __restrict__ );
+  extern double __cdecl
   __strtod (const char * __restrict__ , char ** __restrict__);
   float __cdecl __mingw_strtof (const char * __restrict__, char ** __restrict__);
   long double __cdecl __mingw_strtold(const char * __restrict__, char ** __restrict__);
@@ -15569,9 +15569,9 @@ typedef struct _VOLUME_DISK_EXTENTS {
   int __cdecl _wputenv(const wchar_t *_EnvString);
   void __cdecl _wsearchenv(const wchar_t *_Filename,const wchar_t *_EnvVar,wchar_t *_ResultPath) ;
   void __cdecl _wsplitpath(const wchar_t *_FullPath,wchar_t *_Drive,wchar_t *_Dir,wchar_t *_Filename,wchar_t *_Ext) ;
-  void __cdecl _beep(unsigned _Frequency,unsigned _Duration) __attribute__ ((__deprecated__));
-  void __cdecl _seterrormode(int _Mode) __attribute__ ((__deprecated__));
-  void __cdecl _sleep(unsigned long _Duration) __attribute__ ((__deprecated__));
+  void __cdecl _beep(unsigned _Frequency,unsigned _Duration) ;
+  void __cdecl _seterrormode(int _Mode) ;
+  void __cdecl _sleep(unsigned long _Duration) ;
   char *__cdecl ecvt(double _Val,int _NumOfDigits,int *_PtDec,int *_PtSign) ;
   char *__cdecl fcvt(double _Val,int _NumOfDec,int *_PtDec,int *_PtSign) ;
   char *__cdecl gcvt(double _Val,int _NumOfDigits,char *_DstBuf) ;
@@ -25097,6 +25097,23 @@ extern char ** _imp___wcmdln;
   PIMAGE_SECTION_HEADER __cdecl _FindPESection (PBYTE pImageBase, DWORD_PTR rva);
   BOOL __cdecl _IsNonwritableInCurrentImage (PBYTE pTarget);
 #pragma pack(pop)
+ unsigned int __cdecl _controlfp (unsigned int unNew, unsigned int unMask) ;
+ errno_t __cdecl _controlfp_s(unsigned int *_CurrentState, unsigned int _NewValue, unsigned int _Mask);
+ unsigned int __cdecl _control87 (unsigned int unNew, unsigned int unMask);
+ unsigned int __cdecl _clearfp (void);
+ unsigned int __cdecl _statusfp (void);
+void __cdecl _fpreset (void);
+void __cdecl fpreset (void);
+ int * __cdecl __fpecode(void);
+ double __cdecl _chgsign (double _X);
+ double __cdecl _copysign (double _Number,double _Sign);
+ double __cdecl _logb (double);
+ double __cdecl _nextafter (double, double);
+ double __cdecl _scalb (double, long);
+ int __cdecl _finite (double);
+ int __cdecl _fpclass (double);
+ int __cdecl _isnan (double);
+extern long double __cdecl _chgsignl (long double);
        
 struct _exception;
 #pragma pack(push,_CRT_PACKING)
@@ -25150,14 +25167,6 @@ struct _exception;
   double __cdecl _y1(double _X);
   double __cdecl _yn(int _X,double _Y);
   int __cdecl _matherr (struct _exception *);
-  double __cdecl _chgsign (double _X);
-  double __cdecl _copysign (double _Number,double _Sign);
-  double __cdecl _logb (double);
-  double __cdecl _nextafter (double, double);
-  double __cdecl _scalb (double, long);
-  int __cdecl _finite (double);
-  int __cdecl _fpclass (double);
-  int __cdecl _isnan (double);
  double __cdecl j0 (double) ;
  double __cdecl j1 (double) ;
  double __cdecl jn (int, double) ;
@@ -25168,6 +25177,9 @@ struct _exception;
   int __cdecl finite (double);
   int __cdecl fpclass (double);
   int __cdecl _set_SSE2_enable(int _Flag);
+extern const float __INFF;
+extern const long double __INFL;
+extern const double __QNAN;
 typedef long double float_t;
 typedef long double double_t;
   extern int __cdecl __fpclassifyl (long double);
@@ -25338,6 +25350,541 @@ __extension__ long long __cdecl llrintl (long double);
    int __cdecl _fpclassf(float _X);
    extern long double __cdecl _chgsignl (long double);
 #pragma pack(pop)
+#pragma pack(push,_CRT_PACKING)
+  typedef long _off_t;
+  typedef long off32_t;
+  __extension__ typedef long long _off64_t;
+  __extension__ typedef long long off64_t;
+typedef off32_t off_t;
+extern FILE (* _imp___iob)[];
+  __extension__ typedef long long fpos_t;
+extern
+  __attribute__((__format__ (gnu_scanf, 2, 3)))
+  int __cdecl __mingw_sscanf(const char * __restrict__ _Src,const char * __restrict__ _Format,...);
+extern
+  __attribute__((__format__ (gnu_scanf, 2, 0)))
+  int __cdecl __mingw_vsscanf (const char * __restrict__ _Str,const char * __restrict__ Format,va_list argp);
+extern
+  __attribute__((__format__ (gnu_scanf, 1, 2)))
+  int __cdecl __mingw_scanf(const char * __restrict__ _Format,...);
+extern
+  __attribute__((__format__ (gnu_scanf, 1, 0)))
+  int __cdecl __mingw_vscanf(const char * __restrict__ Format, va_list argp);
+extern
+  __attribute__((__format__ (gnu_scanf, 2, 3)))
+  int __cdecl __mingw_fscanf(FILE * __restrict__ _File,const char * __restrict__ _Format,...);
+extern
+  __attribute__((__format__ (gnu_scanf, 2, 0)))
+  int __cdecl __mingw_vfscanf (FILE * __restrict__ fp, const char * __restrict__ Format,va_list argp);
+extern
+  __attribute__((__format__ (gnu_printf, 3, 0)))
+  int __cdecl __mingw_vsnprintf(char * __restrict__ _DstBuf,size_t _MaxCount,const char * __restrict__ _Format,
+                               va_list _ArgList);
+extern
+  __attribute__((__format__ (gnu_printf, 3, 4)))
+  int __cdecl __mingw_snprintf(char * __restrict__ s, size_t n, const char * __restrict__ format, ...);
+extern
+  __attribute__((__format__ (gnu_printf, 1, 2)))
+  int __cdecl __mingw_printf(const char * __restrict__ , ... ) ;
+extern
+  __attribute__((__format__ (gnu_printf, 1, 0)))
+  int __cdecl __mingw_vprintf (const char * __restrict__ , va_list) ;
+extern
+  __attribute__((__format__ (gnu_printf, 2, 3)))
+  int __cdecl __mingw_fprintf (FILE * __restrict__ , const char * __restrict__ , ...) ;
+extern
+  __attribute__((__format__ (gnu_printf, 2, 0)))
+  int __cdecl __mingw_vfprintf (FILE * __restrict__ , const char * __restrict__ , va_list) ;
+extern
+  __attribute__((__format__ (gnu_printf, 2, 3)))
+  int __cdecl __mingw_sprintf (char * __restrict__ , const char * __restrict__ , ...) ;
+extern
+  __attribute__((__format__ (gnu_printf, 2, 0)))
+  int __cdecl __mingw_vsprintf (char * __restrict__ , const char * __restrict__ , va_list) ;
+extern
+  __attribute__((__format__ (gnu_printf, 2, 3))) __attribute__((nonnull (1,2)))
+  int __cdecl __mingw_asprintf(char ** __restrict__ , const char * __restrict__ , ...) ;
+extern
+  __attribute__((__format__ (gnu_printf, 2, 0))) __attribute__((nonnull (1,2)))
+  int __cdecl __mingw_vasprintf(char ** __restrict__ , const char * __restrict__ , va_list) ;
+  int __cdecl fprintf(FILE * __restrict__ _File,const char * __restrict__ _Format,...);
+  int __cdecl printf(const char * __restrict__ _Format,...);
+  int __cdecl sprintf(char * __restrict__ _Dest,const char * __restrict__ _Format,...) ;
+  int __cdecl vfprintf(FILE * __restrict__ _File,const char * __restrict__ _Format,va_list _ArgList);
+  int __cdecl vprintf(const char * __restrict__ _Format,va_list _ArgList);
+  int __cdecl vsprintf(char * __restrict__ _Dest,const char * __restrict__ _Format,va_list _Args) ;
+  int __cdecl fscanf(FILE * __restrict__ _File,const char * __restrict__ _Format,...) ;
+  int __cdecl scanf(const char * __restrict__ _Format,...) ;
+  int __cdecl sscanf(const char * __restrict__ _Src,const char * __restrict__ _Format,...) ;
+  int __cdecl vscanf(const char * __restrict__ Format, va_list argp);
+  int __cdecl vfscanf (FILE * __restrict__ fp, const char * __restrict__ Format,va_list argp);
+  int __cdecl vsscanf (const char * __restrict__ _Str,const char * __restrict__ Format,va_list argp);
+  int __cdecl _filbuf(FILE *_File);
+  int __cdecl _flsbuf(int _Ch,FILE *_File);
+  FILE *__cdecl _fsopen(const char *_Filename,const char *_Mode,int _ShFlag);
+  void __cdecl clearerr(FILE *_File);
+  int __cdecl fclose(FILE *_File);
+  int __cdecl _fcloseall(void);
+  FILE *__cdecl _fdopen(int _FileHandle,const char *_Mode);
+  int __cdecl feof(FILE *_File);
+  int __cdecl ferror(FILE *_File);
+  int __cdecl fflush(FILE *_File);
+  int __cdecl fgetc(FILE *_File);
+  int __cdecl _fgetchar(void);
+  int __cdecl fgetpos(FILE * __restrict__ _File ,fpos_t * __restrict__ _Pos);
+  int __cdecl fgetpos64(FILE * __restrict__ _File ,fpos_t * __restrict__ _Pos);
+  char *__cdecl fgets(char * __restrict__ _Buf,int _MaxCount,FILE * __restrict__ _File);
+  int __cdecl _fileno(FILE *_File);
+  char *__cdecl _tempnam(const char *_DirName,const char *_FilePrefix);
+  int __cdecl _flushall(void);
+  FILE *__cdecl fopen(const char * __restrict__ _Filename,const char * __restrict__ _Mode) ;
+  FILE *fopen64(const char * __restrict__ filename,const char * __restrict__ mode);
+  int __cdecl fputc(int _Ch,FILE *_File);
+  int __cdecl _fputchar(int _Ch);
+  int __cdecl fputs(const char * __restrict__ _Str,FILE * __restrict__ _File);
+  size_t __cdecl fread(void * __restrict__ _DstBuf,size_t _ElementSize,size_t _Count,FILE * __restrict__ _File);
+  FILE *__cdecl freopen(const char * __restrict__ _Filename,const char * __restrict__ _Mode,FILE * __restrict__ _File) ;
+  int __cdecl _fscanf_l(FILE * __restrict__ _File,const char * __restrict__ _Format,_locale_t locale,...) ;
+  int __cdecl fsetpos(FILE *_File,const fpos_t *_Pos);
+  int __cdecl fsetpos64(FILE *_File,const fpos_t *_Pos);
+  int __cdecl fseek(FILE *_File,long _Offset,int _Origin);
+  int fseeko64(FILE* stream, _off64_t offset, int whence);
+  int fseeko(FILE* stream, _off_t offset, int whence);
+  long __cdecl ftell(FILE *_File);
+  _off_t ftello(FILE * stream);
+  _off64_t ftello64(FILE * stream);
+  __extension__ int __cdecl _fseeki64(FILE *_File,long long _Offset,int _Origin);
+  __extension__ long long __cdecl _ftelli64(FILE *_File);
+  size_t __cdecl fwrite(const void * __restrict__ _Str,size_t _Size,size_t _Count,FILE * __restrict__ _File);
+  int __cdecl getc(FILE *_File);
+  int __cdecl getchar(void);
+  int __cdecl _getmaxstdio(void);
+  char *__cdecl gets(char *_Buffer) ;
+  int __cdecl _getw(FILE *_File);
+  int __cdecl _pclose(FILE *_File);
+  FILE *__cdecl _popen(const char *_Command,const char *_Mode);
+  int __cdecl putc(int _Ch,FILE *_File);
+  int __cdecl putchar(int _Ch);
+  int __cdecl puts(const char *_Str);
+  int __cdecl _putw(int _Word,FILE *_File);
+  int __cdecl remove(const char *_Filename);
+  int __cdecl rename(const char *_OldFilename,const char *_NewFilename);
+  int __cdecl _unlink(const char *_Filename);
+  int __cdecl unlink(const char *_Filename) ;
+  void __cdecl rewind(FILE *_File);
+  int __cdecl _rmtmp(void);
+  int __cdecl _scanf_l(const char * __restrict__ format,_locale_t locale,... ) ;
+  void __cdecl setbuf(FILE * __restrict__ _File,char * __restrict__ _Buffer) ;
+  int __cdecl _setmaxstdio(int _Max);
+  unsigned int __cdecl _set_output_format(unsigned int _Format);
+  unsigned int __cdecl _get_output_format(void);
+  unsigned int __cdecl __mingw_set_output_format(unsigned int _Format);
+  unsigned int __cdecl __mingw_get_output_format(void);
+  int __cdecl setvbuf(FILE * __restrict__ _File,char * __restrict__ _Buf,int _Mode,size_t _Size);
+  int __cdecl _scprintf(const char * __restrict__ _Format,...);
+  int __cdecl _sscanf_l(const char * __restrict__ buffer,const char * __restrict__ format,_locale_t locale,...) ;
+  int __cdecl _snscanf(const char * __restrict__ _Src,size_t _MaxCount,const char * __restrict__ _Format,...) ;
+  int __cdecl _snscanf_l(const char * __restrict__ input,size_t length,const char * __restrict__ format,_locale_t locale,...) ;
+  FILE *__cdecl tmpfile(void) ;
+  char *__cdecl tmpnam(char *_Buffer);
+  int __cdecl ungetc(int _Ch,FILE *_File);
+  int __cdecl _snprintf(char * __restrict__ _Dest,size_t _Count,const char * __restrict__ _Format,...) ;
+  int __cdecl _snprintf_l(char * __restrict__ buffer,size_t count,const char * __restrict__ format,_locale_t locale,...) ;
+  int __cdecl _vsnprintf(char * __restrict__ _Dest,size_t _Count,const char * __restrict__ _Format,va_list _Args) ;
+  int __cdecl _vsnprintf_l(char * __restrict__ buffer,size_t count,const char * __restrict__ format,_locale_t locale,va_list argptr) ;
+  int __cdecl _sprintf_l(char * __restrict__ buffer,const char * __restrict__ format,_locale_t locale,...) ;
+       
+       
+  int __cdecl vsnprintf(char * __restrict__ d,size_t n,const char * __restrict__ format,va_list arg)
+    ;
+  int __cdecl snprintf(char * __restrict__ s, size_t n, const char * __restrict__ format, ...);
+       
+       
+  int __cdecl _vscprintf(const char * __restrict__ _Format,va_list _ArgList);
+  int __cdecl _set_printf_count_output(int _Value);
+  int __cdecl _get_printf_count_output(void);
+                                                    
+  int __cdecl __mingw_swscanf(const wchar_t * __restrict__ _Src,const wchar_t * __restrict__ _Format,...);
+                                                    
+  int __cdecl __mingw_vswscanf (const wchar_t * __restrict__ _Str,const wchar_t * __restrict__ Format,va_list argp);
+                                                    
+  int __cdecl __mingw_wscanf(const wchar_t * __restrict__ _Format,...);
+                                                    
+  int __cdecl __mingw_vwscanf(const wchar_t * __restrict__ Format, va_list argp);
+                                                    
+  int __cdecl __mingw_fwscanf(FILE * __restrict__ _File,const wchar_t * __restrict__ _Format,...);
+                                                    
+  int __cdecl __mingw_vfwscanf (FILE * __restrict__ fp, const wchar_t * __restrict__ Format,va_list argp);
+                                                     
+  int __cdecl __mingw_fwprintf(FILE * __restrict__ _File,const wchar_t * __restrict__ _Format,...);
+                                                     
+  int __cdecl __mingw_wprintf(const wchar_t * __restrict__ _Format,...);
+                                                    
+  int __cdecl __mingw_vfwprintf(FILE * __restrict__ _File,const wchar_t * __restrict__ _Format,va_list _ArgList);
+                                                    
+  int __cdecl __mingw_vwprintf(const wchar_t * __restrict__ _Format,va_list _ArgList);
+                                                     
+  int __cdecl __mingw_swprintf(wchar_t * __restrict__ , const wchar_t * __restrict__ , ...) ;
+                                                     
+  int __cdecl __mingw_vswprintf(wchar_t * __restrict__ , const wchar_t * __restrict__ ,va_list) ;
+                                                     
+  int __cdecl __mingw_snwprintf (wchar_t * __restrict__ s, size_t n, const wchar_t * __restrict__ format, ...);
+                                                     
+  int __cdecl __mingw_vsnwprintf (wchar_t * __restrict__ , size_t, const wchar_t * __restrict__ , va_list);
+  int __cdecl fwscanf(FILE * __restrict__ _File,const wchar_t * __restrict__ _Format,...) ;
+  int __cdecl swscanf(const wchar_t * __restrict__ _Src,const wchar_t * __restrict__ _Format,...) ;
+  int __cdecl wscanf(const wchar_t * __restrict__ _Format,...) ;
+  int __cdecl vwscanf (const wchar_t * __restrict__ , va_list);
+  int __cdecl vfwscanf (FILE * __restrict__ ,const wchar_t * __restrict__ ,va_list);
+  int __cdecl vswscanf (const wchar_t * __restrict__ ,const wchar_t * __restrict__ ,va_list);
+  int __cdecl fwprintf(FILE * __restrict__ _File,const wchar_t * __restrict__ _Format,...);
+  int __cdecl wprintf(const wchar_t * __restrict__ _Format,...);
+  int __cdecl vfwprintf(FILE * __restrict__ _File,const wchar_t * __restrict__ _Format,va_list _ArgList);
+  int __cdecl vwprintf(const wchar_t * __restrict__ _Format,va_list _ArgList);
+  int __cdecl swprintf(wchar_t * __restrict__ , const wchar_t * __restrict__ , ...) ;
+  int __cdecl vswprintf(wchar_t * __restrict__ , const wchar_t * __restrict__ ,va_list) ;
+  FILE *__cdecl _wfsopen(const wchar_t *_Filename,const wchar_t *_Mode,int _ShFlag);
+  wint_t __cdecl fgetwc(FILE *_File);
+  wint_t __cdecl _fgetwchar(void);
+  wint_t __cdecl fputwc(wchar_t _Ch,FILE *_File);
+  wint_t __cdecl _fputwchar(wchar_t _Ch);
+  wint_t __cdecl getwc(FILE *_File);
+  wint_t __cdecl getwchar(void);
+  wint_t __cdecl putwc(wchar_t _Ch,FILE *_File);
+  wint_t __cdecl putwchar(wchar_t _Ch);
+  wint_t __cdecl ungetwc(wint_t _Ch,FILE *_File);
+  wchar_t *__cdecl fgetws(wchar_t * __restrict__ _Dst,int _SizeInWords,FILE * __restrict__ _File);
+  int __cdecl fputws(const wchar_t * __restrict__ _Str,FILE * __restrict__ _File);
+  wchar_t *__cdecl _getws(wchar_t *_String) ;
+  int __cdecl _putws(const wchar_t *_Str);
+  int __cdecl _scwprintf(const wchar_t * __restrict__ _Format,...);
+  int __cdecl _swprintf_l(wchar_t * __restrict__ buffer,size_t count,const wchar_t * __restrict__ format,_locale_t locale,... ) ;
+  int __cdecl _swprintf_c(wchar_t * __restrict__ _DstBuf,size_t _SizeInWords,const wchar_t * __restrict__ _Format,...);
+  int __cdecl _vswprintf_c(wchar_t * __restrict__ _DstBuf,size_t _SizeInWords,const wchar_t * __restrict__ _Format,va_list _ArgList);
+  int __cdecl _snwprintf(wchar_t * __restrict__ _Dest,size_t _Count,const wchar_t * __restrict__ _Format,...) ;
+  int __cdecl _vsnwprintf(wchar_t * __restrict__ _Dest,size_t _Count,const wchar_t * __restrict__ _Format,va_list _Args) ;
+       
+       
+  int __cdecl snwprintf (wchar_t * __restrict__ s, size_t n, const wchar_t * __restrict__ format, ...);
+  int __cdecl vsnwprintf (wchar_t * __restrict__ , size_t, const wchar_t * __restrict__ , va_list);
+       
+       
+  int __cdecl _fwprintf_p(FILE * __restrict__ _File,const wchar_t * __restrict__ _Format,...);
+  int __cdecl _wprintf_p(const wchar_t * __restrict__ _Format,...);
+  int __cdecl _vfwprintf_p(FILE * __restrict__ _File,const wchar_t * __restrict__ _Format,va_list _ArgList);
+  int __cdecl _vwprintf_p(const wchar_t * __restrict__ _Format,va_list _ArgList);
+  int __cdecl _swprintf_p(wchar_t * __restrict__ _DstBuf,size_t _MaxCount,const wchar_t * __restrict__ _Format,...);
+  int __cdecl _vswprintf_p(wchar_t * __restrict__ _DstBuf,size_t _MaxCount,const wchar_t * __restrict__ _Format,va_list _ArgList);
+  int __cdecl _scwprintf_p(const wchar_t * __restrict__ _Format,...);
+  int __cdecl _vscwprintf_p(const wchar_t * __restrict__ _Format,va_list _ArgList);
+  int __cdecl _wprintf_l(const wchar_t * __restrict__ _Format,_locale_t _Locale,...);
+  int __cdecl _wprintf_p_l(const wchar_t * __restrict__ _Format,_locale_t _Locale,...);
+  int __cdecl _vwprintf_l(const wchar_t * __restrict__ _Format,_locale_t _Locale,va_list _ArgList);
+  int __cdecl _vwprintf_p_l(const wchar_t * __restrict__ _Format,_locale_t _Locale,va_list _ArgList);
+  int __cdecl _fwprintf_l(FILE * __restrict__ _File,const wchar_t * __restrict__ _Format,_locale_t _Locale,...);
+  int __cdecl _fwprintf_p_l(FILE * __restrict__ _File,const wchar_t * __restrict__ _Format,_locale_t _Locale,...);
+  int __cdecl _vfwprintf_l(FILE * __restrict__ _File,const wchar_t * __restrict__ _Format,_locale_t _Locale,va_list _ArgList);
+  int __cdecl _vfwprintf_p_l(FILE * __restrict__ _File,const wchar_t * __restrict__ _Format,_locale_t _Locale,va_list _ArgList);
+  int __cdecl _swprintf_c_l(wchar_t * __restrict__ _DstBuf,size_t _MaxCount,const wchar_t * __restrict__ _Format,_locale_t _Locale,...);
+  int __cdecl _swprintf_p_l(wchar_t * __restrict__ _DstBuf,size_t _MaxCount,const wchar_t * __restrict__ _Format,_locale_t _Locale,...);
+  int __cdecl _vswprintf_c_l(wchar_t * __restrict__ _DstBuf,size_t _MaxCount,const wchar_t * __restrict__ _Format,_locale_t _Locale,va_list _ArgList);
+  int __cdecl _vswprintf_p_l(wchar_t * __restrict__ _DstBuf,size_t _MaxCount,const wchar_t * __restrict__ _Format,_locale_t _Locale,va_list _ArgList);
+  int __cdecl _scwprintf_l(const wchar_t * __restrict__ _Format,_locale_t _Locale,...);
+  int __cdecl _scwprintf_p_l(const wchar_t * __restrict__ _Format,_locale_t _Locale,...);
+  int __cdecl _vscwprintf_p_l(const wchar_t * __restrict__ _Format,_locale_t _Locale,va_list _ArgList);
+  int __cdecl _snwprintf_l(wchar_t * __restrict__ _DstBuf,size_t _MaxCount,const wchar_t * __restrict__ _Format,_locale_t _Locale,...);
+  int __cdecl _vsnwprintf_l(wchar_t * __restrict__ _DstBuf,size_t _MaxCount,const wchar_t * __restrict__ _Format,_locale_t _Locale,va_list _ArgList) ;
+  int __cdecl _swprintf(wchar_t * __restrict__ _Dest,const wchar_t * __restrict__ _Format,...);
+  int __cdecl _vswprintf(wchar_t * __restrict__ _Dest,const wchar_t * __restrict__ _Format,va_list _Args);
+  int __cdecl __swprintf_l(wchar_t * __restrict__ _Dest,const wchar_t * __restrict__ _Format,_locale_t _Plocinfo,...) ;
+  int __cdecl _vswprintf_l(wchar_t * __restrict__ buffer,size_t count,const wchar_t * __restrict__ format,_locale_t locale,va_list argptr) ;
+  int __cdecl __vswprintf_l(wchar_t * __restrict__ _Dest,const wchar_t * __restrict__ _Format,_locale_t _Plocinfo,va_list _Args) ;
+  wchar_t *__cdecl _wtempnam(const wchar_t *_Directory,const wchar_t *_FilePrefix);
+  int __cdecl _vscwprintf(const wchar_t * __restrict__ _Format,va_list _ArgList);
+  int __cdecl _vscwprintf_l(const wchar_t * __restrict__ _Format,_locale_t _Locale,va_list _ArgList);
+  int __cdecl _fwscanf_l(FILE * __restrict__ _File,const wchar_t * __restrict__ _Format,_locale_t _Locale,...) ;
+  int __cdecl _swscanf_l(const wchar_t * __restrict__ _Src,const wchar_t * __restrict__ _Format,_locale_t _Locale,...) ;
+  int __cdecl _snwscanf(const wchar_t * __restrict__ _Src,size_t _MaxCount,const wchar_t * __restrict__ _Format,...);
+  int __cdecl _snwscanf_l(const wchar_t * __restrict__ _Src,size_t _MaxCount,const wchar_t * __restrict__ _Format,_locale_t _Locale,...);
+  int __cdecl _wscanf_l(const wchar_t * __restrict__ _Format,_locale_t _Locale,...) ;
+  FILE *__cdecl _wfdopen(int _FileHandle ,const wchar_t *_Mode);
+  FILE *__cdecl _wfopen(const wchar_t * __restrict__ _Filename,const wchar_t *__restrict__ _Mode) ;
+  FILE *__cdecl _wfreopen(const wchar_t * __restrict__ _Filename,const wchar_t * __restrict__ _Mode,FILE * __restrict__ _OldFile) ;
+  FILE *__cdecl _wpopen(const wchar_t *_Command,const wchar_t *_Mode);
+  int __cdecl _wremove(const wchar_t *_Filename);
+  wchar_t *__cdecl _wtmpnam(wchar_t *_Buffer);
+  wint_t __cdecl _fgetwc_nolock(FILE *_File);
+  wint_t __cdecl _fputwc_nolock(wchar_t _Ch,FILE *_File);
+  wint_t __cdecl _ungetwc_nolock(wint_t _Ch,FILE *_File);
+  void __cdecl _lock_file(FILE *_File);
+  void __cdecl _unlock_file(FILE *_File);
+  int __cdecl _fclose_nolock(FILE *_File);
+  int __cdecl _fflush_nolock(FILE *_File);
+  size_t __cdecl _fread_nolock(void * __restrict__ _DstBuf,size_t _ElementSize,size_t _Count,FILE * __restrict__ _File);
+  int __cdecl _fseek_nolock(FILE *_File,long _Offset,int _Origin);
+  long __cdecl _ftell_nolock(FILE *_File);
+  __extension__ int __cdecl _fseeki64_nolock(FILE *_File,long long _Offset,int _Origin);
+  __extension__ long long __cdecl _ftelli64_nolock(FILE *_File);
+  size_t __cdecl _fwrite_nolock(const void * __restrict__ _DstBuf,size_t _Size,size_t _Count,FILE * __restrict__ _File);
+  int __cdecl _ungetc_nolock(int _Ch,FILE *_File);
+  char *__cdecl tempnam(const char *_Directory,const char *_FilePrefix) ;
+  int __cdecl fcloseall(void) ;
+  FILE *__cdecl fdopen(int _FileHandle,const char *_Format) ;
+  int __cdecl fgetchar(void) ;
+  int __cdecl fileno(FILE *_File) ;
+  int __cdecl flushall(void) ;
+  int __cdecl fputchar(int _Ch) ;
+  int __cdecl getw(FILE *_File) ;
+  int __cdecl putw(int _Ch,FILE *_File) ;
+  int __cdecl rmtmp(void) ;
+int __cdecl __mingw_str_wide_utf8 (const wchar_t * const wptr, char **mbptr, size_t * buflen);
+int __cdecl __mingw_str_utf8_wide (const char *const mbptr, wchar_t ** wptr, size_t * buflen);
+void __cdecl __mingw_str_free(void *ptr);
+#pragma pack(pop)
+#pragma pack(push,_CRT_PACKING)
+ char* __cdecl _getcwd (char*, int);
+  typedef unsigned long _fsize_t;
+  struct _finddata32_t {
+    unsigned attrib;
+    __time32_t time_create;
+    __time32_t time_access;
+    __time32_t time_write;
+    _fsize_t size;
+    char name[260];
+  };
+  struct _finddata32i64_t {
+    unsigned attrib;
+    __time32_t time_create;
+    __time32_t time_access;
+    __time32_t time_write;
+    __extension__ long long size;
+    char name[260];
+  };
+  struct _finddata64i32_t {
+    unsigned attrib;
+    __time64_t time_create;
+    __time64_t time_access;
+    __time64_t time_write;
+    _fsize_t size;
+    char name[260];
+  };
+  struct __finddata64_t {
+    unsigned attrib;
+    __time64_t time_create;
+    __time64_t time_access;
+    __time64_t time_write;
+    __extension__ long long size;
+    char name[260];
+  };
+  struct _wfinddata32_t {
+    unsigned attrib;
+    __time32_t time_create;
+    __time32_t time_access;
+    __time32_t time_write;
+    _fsize_t size;
+    wchar_t name[260];
+  };
+  struct _wfinddata32i64_t {
+    unsigned attrib;
+    __time32_t time_create;
+    __time32_t time_access;
+    __time32_t time_write;
+    __extension__ long long size;
+    wchar_t name[260];
+  };
+  struct _wfinddata64i32_t {
+    unsigned attrib;
+    __time64_t time_create;
+    __time64_t time_access;
+    __time64_t time_write;
+    _fsize_t size;
+    wchar_t name[260];
+  };
+  struct _wfinddata64_t {
+    unsigned attrib;
+    __time64_t time_create;
+    __time64_t time_access;
+    __time64_t time_write;
+    __extension__ long long size;
+    wchar_t name[260];
+  };
+  int __cdecl _access(const char *_Filename,int _AccessMode);
+  int __cdecl _chmod(const char *_Filename,int _Mode);
+  int __cdecl _chsize(int _FileHandle,long _Size) ;
+  int __cdecl _close(int _FileHandle);
+  int __cdecl _commit(int _FileHandle);
+  int __cdecl _creat(const char *_Filename,int _PermissionMode) ;
+  int __cdecl _dup(int _FileHandle);
+  int __cdecl _dup2(int _FileHandleSrc,int _FileHandleDst);
+  int __cdecl _eof(int _FileHandle);
+  long __cdecl _filelength(int _FileHandle);
+  intptr_t __cdecl _findfirst(const char *_Filename,struct _finddata32_t *_FindData);
+  int __cdecl _findnext(intptr_t _FindHandle,struct _finddata32_t *_FindData);
+  int __cdecl _findclose(intptr_t _FindHandle);
+  int __cdecl _isatty(int _FileHandle);
+  int __cdecl _locking(int _FileHandle,int _LockMode,long _NumOfBytes);
+  long __cdecl _lseek(int _FileHandle,long _Offset,int _Origin);
+  _off64_t lseek64(int fd,_off64_t offset, int whence);
+  char *__cdecl _mktemp(char *_TemplateName) ;
+  int __cdecl _pipe(int *_PtHandles,unsigned int _PipeSize,int _TextMode);
+  int __cdecl _read(int _FileHandle,void *_DstBuf,unsigned int _MaxCharCount);
+  int __cdecl _setmode(int _FileHandle,int _Mode);
+  long __cdecl _tell(int _FileHandle);
+  int __cdecl _umask(int _Mode) ;
+  int __cdecl _write(int _FileHandle,const void *_Buf,unsigned int _MaxCharCount);
+  __extension__ long long __cdecl _filelengthi64(int _FileHandle);
+  intptr_t __cdecl _findfirst32i64(const char *_Filename,struct _finddata32i64_t *_FindData);
+  intptr_t __cdecl _findfirst64(const char *_Filename,struct __finddata64_t *_FindData);
+  intptr_t __cdecl _findfirst64i32(const char *_Filename,struct _finddata64i32_t *_FindData);
+  int __cdecl _findnext32i64(intptr_t _FindHandle,struct _finddata32i64_t *_FindData);
+  int __cdecl _findnext64(intptr_t _FindHandle,struct __finddata64_t *_FindData);
+  int __cdecl _findnext64i32(intptr_t _FindHandle,struct _finddata64i32_t *_FindData);
+  __extension__ long long __cdecl _lseeki64(int _FileHandle,long long _Offset,int _Origin);
+  __extension__ long long __cdecl _telli64(int _FileHandle);
+  int __cdecl chdir (const char *) ;
+  char *__cdecl getcwd (char *, int) ;
+  int __cdecl mkdir (const char *) ;
+  char *__cdecl mktemp(char *) ;
+  int __cdecl rmdir (const char*) ;
+  int __cdecl chmod (const char *, int) ;
+  errno_t __cdecl _sopen_s(int *_FileHandle,const char *_Filename,int _OpenFlag,int _ShareFlag,int _PermissionMode);
+  int __cdecl _open(const char *_Filename,int _OpenFlag,...) ;
+  int __cdecl _sopen(const char *_Filename,int _OpenFlag,int _ShareFlag,...) ;
+  int __cdecl _waccess(const wchar_t *_Filename,int _AccessMode);
+  int __cdecl _wchmod(const wchar_t *_Filename,int _Mode);
+  int __cdecl _wcreat(const wchar_t *_Filename,int _PermissionMode) ;
+  intptr_t __cdecl _wfindfirst(const wchar_t *_Filename,struct _wfinddata32_t *_FindData);
+  int __cdecl _wfindnext(intptr_t _FindHandle,struct _wfinddata32_t *_FindData);
+  int __cdecl _wunlink(const wchar_t *_Filename);
+  int __cdecl _wrename(const wchar_t *_OldFilename,const wchar_t *_NewFilename);
+  wchar_t *__cdecl _wmktemp(wchar_t *_TemplateName) ;
+  intptr_t __cdecl _wfindfirsti64(const wchar_t *_Filename,struct _wfinddata32i64_t *_FindData);
+  intptr_t __cdecl _wfindfirst64i32(const wchar_t *_Filename,struct _wfinddata64i32_t *_FindData);
+  intptr_t __cdecl _wfindfirst64(const wchar_t *_Filename,struct _wfinddata64_t *_FindData);
+  int __cdecl _wfindnexti64(intptr_t _FindHandle,struct _wfinddata32i64_t *_FindData);
+  int __cdecl _wfindnext64i32(intptr_t _FindHandle,struct _wfinddata64i32_t *_FindData);
+  int __cdecl _wfindnext64(intptr_t _FindHandle,struct _wfinddata64_t *_FindData);
+  errno_t __cdecl _wsopen_s(int *_FileHandle,const wchar_t *_Filename,int _OpenFlag,int _ShareFlag,int _PermissionFlag);
+  int __cdecl _wopen(const wchar_t *_Filename,int _OpenFlag,...) ;
+  int __cdecl _wsopen(const wchar_t *_Filename,int _OpenFlag,int _ShareFlag,...) ;
+  int __cdecl __lock_fhandle(int _Filehandle);
+  void __cdecl _unlock_fhandle(int _Filehandle);
+  intptr_t __cdecl _get_osfhandle(int _FileHandle);
+  int __cdecl _open_osfhandle(intptr_t _OSFileHandle,int _Flags);
+  int __cdecl access(const char *_Filename,int _AccessMode) ;
+  int __cdecl chmod(const char *_Filename,int _AccessMode) ;
+  int __cdecl chsize(int _FileHandle,long _Size) ;
+  int __cdecl close(int _FileHandle) ;
+  int __cdecl creat(const char *_Filename,int _PermissionMode) ;
+  int __cdecl dup(int _FileHandle) ;
+  int __cdecl dup2(int _FileHandleSrc,int _FileHandleDst) ;
+  int __cdecl eof(int _FileHandle) ;
+  long __cdecl filelength(int _FileHandle) ;
+  int __cdecl isatty(int _FileHandle) ;
+  int __cdecl locking(int _FileHandle,int _LockMode,long _NumOfBytes) ;
+  long __cdecl lseek(int _FileHandle,long _Offset,int _Origin) ;
+  char *__cdecl mktemp(char *_TemplateName) ;
+  int __cdecl open(const char *_Filename,int _OpenFlag,...) ;
+  int __cdecl read(int _FileHandle,void *_DstBuf,unsigned int _MaxCharCount) ;
+  int __cdecl setmode(int _FileHandle,int _Mode) ;
+  int __cdecl sopen(const char *_Filename,int _OpenFlag,int _ShareFlag,...) ;
+  long __cdecl tell(int _FileHandle) ;
+  int __cdecl umask(int _Mode) ;
+  int __cdecl write(int _Filehandle,const void *_Buf,unsigned int _MaxCharCount) ;
+#pragma pack(pop)
+typedef unsigned short _ino_t;
+typedef unsigned short ino_t;
+typedef unsigned int _dev_t;
+typedef unsigned int dev_t;
+typedef int _pid_t;
+typedef _pid_t pid_t;
+typedef unsigned short _mode_t;
+typedef _mode_t mode_t;
+typedef unsigned int useconds_t;
+struct timespec {
+  time_t tv_sec;
+  long tv_nsec;
+};
+struct itimerspec {
+  struct timespec it_interval;
+  struct timespec it_value;
+};
+typedef unsigned long _sigset_t;
+  uintptr_t __cdecl _beginthread(void (__cdecl *_StartAddress) (void *),unsigned _StackSize,void *_ArgList);
+  void __cdecl _endthread(void) __attribute__ ((__noreturn__));
+  uintptr_t __cdecl _beginthreadex(void *_Security,unsigned _StackSize,unsigned (__stdcall *_StartAddress) (void *),void *_ArgList,unsigned _InitFlag,unsigned *_ThrdAddr);
+  void __cdecl _endthreadex(unsigned _Retval) __attribute__ ((__noreturn__));
+  void __cdecl _cexit(void);
+  void __cdecl _c_exit(void);
+  int __cdecl _getpid(void);
+  intptr_t __cdecl _cwait(int *_TermStat,intptr_t _ProcHandle,int _Action);
+  intptr_t __cdecl _execl(const char *_Filename,const char *_ArgList,...);
+  intptr_t __cdecl _execle(const char *_Filename,const char *_ArgList,...);
+  intptr_t __cdecl _execlp(const char *_Filename,const char *_ArgList,...);
+  intptr_t __cdecl _execlpe(const char *_Filename,const char *_ArgList,...);
+  intptr_t __cdecl _execv(const char *_Filename,const char *const *_ArgList);
+  intptr_t __cdecl _execve(const char *_Filename,const char *const *_ArgList,const char *const *_Env);
+  intptr_t __cdecl _execvp(const char *_Filename,const char *const *_ArgList);
+  intptr_t __cdecl _execvpe(const char *_Filename,const char *const *_ArgList,const char *const *_Env);
+  intptr_t __cdecl _spawnl(int _Mode,const char *_Filename,const char *_ArgList,...);
+  intptr_t __cdecl _spawnle(int _Mode,const char *_Filename,const char *_ArgList,...);
+  intptr_t __cdecl _spawnlp(int _Mode,const char *_Filename,const char *_ArgList,...);
+  intptr_t __cdecl _spawnlpe(int _Mode,const char *_Filename,const char *_ArgList,...);
+  intptr_t __cdecl _spawnv(int _Mode,const char *_Filename,const char *const *_ArgList);
+  intptr_t __cdecl _spawnve(int _Mode,const char *_Filename,const char *const *_ArgList,const char *const *_Env);
+  intptr_t __cdecl _spawnvp(int _Mode,const char *_Filename,const char *const *_ArgList);
+  intptr_t __cdecl _spawnvpe(int _Mode,const char *_Filename,const char *const *_ArgList,const char *const *_Env);
+  intptr_t __cdecl _wexecl(const wchar_t *_Filename,const wchar_t *_ArgList,...);
+  intptr_t __cdecl _wexecle(const wchar_t *_Filename,const wchar_t *_ArgList,...);
+  intptr_t __cdecl _wexeclp(const wchar_t *_Filename,const wchar_t *_ArgList,...);
+  intptr_t __cdecl _wexeclpe(const wchar_t *_Filename,const wchar_t *_ArgList,...);
+  intptr_t __cdecl _wexecv(const wchar_t *_Filename,const wchar_t *const *_ArgList);
+  intptr_t __cdecl _wexecve(const wchar_t *_Filename,const wchar_t *const *_ArgList,const wchar_t *const *_Env);
+  intptr_t __cdecl _wexecvp(const wchar_t *_Filename,const wchar_t *const *_ArgList);
+  intptr_t __cdecl _wexecvpe(const wchar_t *_Filename,const wchar_t *const *_ArgList,const wchar_t *const *_Env);
+  intptr_t __cdecl _wspawnl(int _Mode,const wchar_t *_Filename,const wchar_t *_ArgList,...);
+  intptr_t __cdecl _wspawnle(int _Mode,const wchar_t *_Filename,const wchar_t *_ArgList,...);
+  intptr_t __cdecl _wspawnlp(int _Mode,const wchar_t *_Filename,const wchar_t *_ArgList,...);
+  intptr_t __cdecl _wspawnlpe(int _Mode,const wchar_t *_Filename,const wchar_t *_ArgList,...);
+  intptr_t __cdecl _wspawnv(int _Mode,const wchar_t *_Filename,const wchar_t *const *_ArgList);
+  intptr_t __cdecl _wspawnve(int _Mode,const wchar_t *_Filename,const wchar_t *const *_ArgList,const wchar_t *const *_Env);
+  intptr_t __cdecl _wspawnvp(int _Mode,const wchar_t *_Filename,const wchar_t *const *_ArgList);
+  intptr_t __cdecl _wspawnvpe(int _Mode,const wchar_t *_Filename,const wchar_t *const *_ArgList,const wchar_t *const *_Env);
+  void __cdecl __security_init_cookie(void);
+  void __fastcall __security_check_cookie(uintptr_t _StackCookie);
+  __declspec(noreturn) void __cdecl __report_gsfailure(void);
+  extern uintptr_t __security_cookie;
+  intptr_t __cdecl _loaddll(char *_Filename);
+  int __cdecl _unloaddll(intptr_t _Handle);
+  int (__cdecl *__cdecl _getdllprocaddr(intptr_t _Handle,char *_ProcedureName,intptr_t _Ordinal))(void);
+  intptr_t __cdecl cwait(int *_TermStat,intptr_t _ProcHandle,int _Action) ;
+  int __cdecl execl(const char *_Filename,const char *_ArgList,...) ;
+  int __cdecl execle(const char *_Filename,const char *_ArgList,...) ;
+  int __cdecl execlp(const char *_Filename,const char *_ArgList,...) ;
+  int __cdecl execlpe(const char *_Filename,const char *_ArgList,...) ;
+  intptr_t __cdecl spawnl(int,const char *_Filename,const char *_ArgList,...) ;
+  intptr_t __cdecl spawnle(int,const char *_Filename,const char *_ArgList,...) ;
+  intptr_t __cdecl spawnlp(int,const char *_Filename,const char *_ArgList,...) ;
+  intptr_t __cdecl spawnlpe(int,const char *_Filename,const char *_ArgList,...) ;
+  int __cdecl getpid(void) ;
+  int __cdecl execv(const char *_Filename,char *const _ArgList[]) ;
+  int __cdecl execve(const char *_Filename,char *const _ArgList[],char *const _Env[]) ;
+  int __cdecl execvp(const char *_Filename,char *const _ArgList[]) ;
+  int __cdecl execvpe(const char *_Filename,char *const _ArgList[],char *const _Env[]) ;
+  intptr_t __cdecl spawnv(int,const char *_Filename,char *const _ArgList[]) ;
+  intptr_t __cdecl spawnve(int,const char *_Filename,char *const _ArgList[],char *const _Env[]) ;
+  intptr_t __cdecl spawnvp(int,const char *_Filename,char *const _ArgList[]) ;
+  intptr_t __cdecl spawnvpe(int,const char *_Filename,char *const _ArgList[],char *const _Env[]) ;
+extern int optind;
+extern int optopt;
+extern int opterr;
+extern char *optarg;
+extern int getopt(int nargc, char * const *nargv, const char *options);
+int __cdecl usleep(useconds_t useconds);
+int ftruncate(int, off32_t);
+int ftruncate64(int, off64_t);
+int truncate(const char *, off32_t);
+int truncate64(const char *, off64_t);
 int* __p___argc(void);
 unsigned int* __p__commode(void);
 char** __p__pgmptr(void);
@@ -25355,3 +25902,1215 @@ wchar_t*** __p__wenviron(void);
 char*** __p___initenv(void);
 wchar_t*** __p___winitenv(void);
 int* __p__timezone(void);
+int __cdecl _initterm(_PVFV *,_PVFV *);
+int __cdecl _initterm_e(_PVFV *,_PVFV *);
+  __declspec(dllimport) void __stdcall InitCommonControls(void);
+  typedef struct tagINITCOMMONCONTROLSEX {
+    DWORD dwSize;
+    DWORD dwICC;
+  } INITCOMMONCONTROLSEX,*LPINITCOMMONCONTROLSEX;
+  __declspec(dllimport) WINBOOL __stdcall InitCommonControlsEx(const INITCOMMONCONTROLSEX *);
+  typedef struct tagCOLORSCHEME {
+    DWORD dwSize;
+    COLORREF clrBtnHighlight;
+    COLORREF clrBtnShadow;
+  } COLORSCHEME,*LPCOLORSCHEME;
+  typedef struct tagNMTOOLTIPSCREATED {
+    NMHDR hdr;
+    HWND hwndToolTips;
+  } NMTOOLTIPSCREATED,*LPNMTOOLTIPSCREATED;
+  typedef struct tagNMMOUSE {
+    NMHDR hdr;
+    DWORD_PTR dwItemSpec;
+    DWORD_PTR dwItemData;
+    POINT pt;
+    LPARAM dwHitInfo;
+  } NMMOUSE,*LPNMMOUSE;
+  typedef NMMOUSE NMCLICK;
+  typedef LPNMMOUSE LPNMCLICK;
+  typedef struct tagNMOBJECTNOTIFY {
+    NMHDR hdr;
+    int iItem;
+    const IID *piid;
+    void *pObject;
+    HRESULT hResult;
+    DWORD dwFlags;
+  } NMOBJECTNOTIFY,*LPNMOBJECTNOTIFY;
+  typedef struct tagNMKEY {
+    NMHDR hdr;
+    UINT nVKey;
+    UINT uFlags;
+  } NMKEY,*LPNMKEY;
+  typedef struct tagNMCHAR {
+    NMHDR hdr;
+    UINT ch;
+    DWORD dwItemPrev;
+    DWORD dwItemNext;
+  } NMCHAR,*LPNMCHAR;
+  typedef struct tagNMCUSTOMDRAWINFO {
+    NMHDR hdr;
+    DWORD dwDrawStage;
+    HDC hdc;
+    RECT rc;
+    DWORD_PTR dwItemSpec;
+    UINT uItemState;
+    LPARAM lItemlParam;
+  } NMCUSTOMDRAW,*LPNMCUSTOMDRAW;
+  typedef struct tagNMTTCUSTOMDRAW {
+    NMCUSTOMDRAW nmcd;
+    UINT uDrawFlags;
+  } NMTTCUSTOMDRAW,*LPNMTTCUSTOMDRAW;
+  struct _IMAGELIST;
+  typedef struct _IMAGELIST *HIMAGELIST;
+  typedef struct _IMAGELISTDRAWPARAMS {
+    DWORD cbSize;
+    HIMAGELIST himl;
+    int i;
+    HDC hdcDst;
+    int x;
+    int y;
+    int cx;
+    int cy;
+    int xBitmap;
+    int yBitmap;
+    COLORREF rgbBk;
+    COLORREF rgbFg;
+    UINT fStyle;
+    DWORD dwRop;
+    DWORD fState;
+    DWORD Frame;
+    COLORREF crEffect;
+  } IMAGELISTDRAWPARAMS,*LPIMAGELISTDRAWPARAMS;
+  __declspec(dllimport) HIMAGELIST __stdcall ImageList_Create(int cx,int cy,UINT flags,int cInitial,int cGrow);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_Destroy(HIMAGELIST himl);
+  __declspec(dllimport) int __stdcall ImageList_GetImageCount(HIMAGELIST himl);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_SetImageCount(HIMAGELIST himl,UINT uNewCount);
+  __declspec(dllimport) int __stdcall ImageList_Add(HIMAGELIST himl,HBITMAP hbmImage,HBITMAP hbmMask);
+  __declspec(dllimport) int __stdcall ImageList_ReplaceIcon(HIMAGELIST himl,int i,HICON hicon);
+  __declspec(dllimport) COLORREF __stdcall ImageList_SetBkColor(HIMAGELIST himl,COLORREF clrBk);
+  __declspec(dllimport) COLORREF __stdcall ImageList_GetBkColor(HIMAGELIST himl);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_SetOverlayImage(HIMAGELIST himl,int iImage,int iOverlay);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_Draw(HIMAGELIST himl,int i,HDC hdcDst,int x,int y,UINT fStyle);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_Replace(HIMAGELIST himl,int i,HBITMAP hbmImage,HBITMAP hbmMask);
+  __declspec(dllimport) int __stdcall ImageList_AddMasked(HIMAGELIST himl,HBITMAP hbmImage,COLORREF crMask);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_DrawEx(HIMAGELIST himl,int i,HDC hdcDst,int x,int y,int dx,int dy,COLORREF rgbBk,COLORREF rgbFg,UINT fStyle);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_DrawIndirect(IMAGELISTDRAWPARAMS *pimldp);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_Remove(HIMAGELIST himl,int i);
+  __declspec(dllimport) HICON __stdcall ImageList_GetIcon(HIMAGELIST himl,int i,UINT flags);
+  __declspec(dllimport) HIMAGELIST __stdcall ImageList_LoadImageA(HINSTANCE hi,LPCSTR lpbmp,int cx,int cGrow,COLORREF crMask,UINT uType,UINT uFlags);
+  __declspec(dllimport) HIMAGELIST __stdcall ImageList_LoadImageW(HINSTANCE hi,LPCWSTR lpbmp,int cx,int cGrow,COLORREF crMask,UINT uType,UINT uFlags);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_Copy(HIMAGELIST himlDst,int iDst,HIMAGELIST himlSrc,int iSrc,UINT uFlags);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_BeginDrag(HIMAGELIST himlTrack,int iTrack,int dxHotspot,int dyHotspot);
+  __declspec(dllimport) void __stdcall ImageList_EndDrag();
+  __declspec(dllimport) WINBOOL __stdcall ImageList_DragEnter(HWND hwndLock,int x,int y);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_DragLeave(HWND hwndLock);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_DragMove(int x,int y);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_SetDragCursorImage(HIMAGELIST himlDrag,int iDrag,int dxHotspot,int dyHotspot);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_DragShowNolock(WINBOOL fShow);
+  __declspec(dllimport) HIMAGELIST __stdcall ImageList_GetDragImage(POINT *ppt,POINT *pptHotspot);
+  __declspec(dllimport) HIMAGELIST __stdcall ImageList_Read(LPSTREAM pstm);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_Write(HIMAGELIST himl,LPSTREAM pstm);
+  __declspec(dllimport) HRESULT __stdcall ImageList_ReadEx(DWORD dwFlags,LPSTREAM pstm,const IID *const riid,PVOID *ppv);
+  __declspec(dllimport) HRESULT __stdcall ImageList_WriteEx(HIMAGELIST himl,DWORD dwFlags,LPSTREAM pstm);
+  typedef struct _IMAGEINFO {
+    HBITMAP hbmImage;
+    HBITMAP hbmMask;
+    int Unused1;
+    int Unused2;
+    RECT rcImage;
+  } IMAGEINFO,*LPIMAGEINFO;
+  __declspec(dllimport) WINBOOL __stdcall ImageList_GetIconSize(HIMAGELIST himl,int *cx,int *cy);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_SetIconSize(HIMAGELIST himl,int cx,int cy);
+  __declspec(dllimport) WINBOOL __stdcall ImageList_GetImageInfo(HIMAGELIST himl,int i,IMAGEINFO *pImageInfo);
+  __declspec(dllimport) HIMAGELIST __stdcall ImageList_Merge(HIMAGELIST himl1,int i1,HIMAGELIST himl2,int i2,int dx,int dy);
+  __declspec(dllimport) HIMAGELIST __stdcall ImageList_Duplicate(HIMAGELIST himl);
+  typedef struct _HD_TEXTFILTERA {
+    LPSTR pszText;
+    INT cchTextMax;
+  } HD_TEXTFILTERA,*LPHD_TEXTFILTERA;
+  typedef struct _HD_TEXTFILTERW {
+    LPWSTR pszText;
+    INT cchTextMax;
+  } HD_TEXTFILTERW,*LPHD_TEXTFILTERW;
+  typedef struct _HD_ITEMA {
+    UINT mask;
+    int cxy;
+    LPSTR pszText;
+    HBITMAP hbm;
+    int cchTextMax;
+    int fmt;
+    LPARAM lParam;
+    int iImage;
+    int iOrder;
+    UINT type;
+    void *pvFilter;
+  } HDITEMA,*LPHDITEMA;
+  typedef struct _HD_ITEMW {
+    UINT mask;
+    int cxy;
+    LPWSTR pszText;
+    HBITMAP hbm;
+    int cchTextMax;
+    int fmt;
+    LPARAM lParam;
+    int iImage;
+    int iOrder;
+    UINT type;
+    void *pvFilter;
+  } HDITEMW,*LPHDITEMW;
+  typedef struct _HD_LAYOUT {
+    RECT *prc;
+    WINDOWPOS *pwpos;
+  } HDLAYOUT,*LPHDLAYOUT;
+  typedef struct _HD_HITTESTINFO {
+    POINT pt;
+    UINT flags;
+    int iItem;
+  } HDHITTESTINFO,*LPHDHITTESTINFO;
+  typedef struct tagNMHEADERA {
+    NMHDR hdr;
+    int iItem;
+    int iButton;
+    HDITEMA *pitem;
+  } NMHEADERA,*LPNMHEADERA;
+  typedef struct tagNMHEADERW {
+    NMHDR hdr;
+    int iItem;
+    int iButton;
+    HDITEMW *pitem;
+  } NMHEADERW,*LPNMHEADERW;
+  typedef struct tagNMHDDISPINFOW {
+    NMHDR hdr;
+    int iItem;
+    UINT mask;
+    LPWSTR pszText;
+    int cchTextMax;
+    int iImage;
+    LPARAM lParam;
+  } NMHDDISPINFOW,*LPNMHDDISPINFOW;
+  typedef struct tagNMHDDISPINFOA {
+    NMHDR hdr;
+    int iItem;
+    UINT mask;
+    LPSTR pszText;
+    int cchTextMax;
+    int iImage;
+    LPARAM lParam;
+  } NMHDDISPINFOA,*LPNMHDDISPINFOA;
+  typedef struct tagNMHDFILTERBTNCLICK {
+    NMHDR hdr;
+    INT iItem;
+    RECT rc;
+  } NMHDFILTERBTNCLICK,*LPNMHDFILTERBTNCLICK;
+  typedef struct _TBBUTTON {
+    int iBitmap;
+    int idCommand;
+    BYTE fsState;
+    BYTE fsStyle;
+    BYTE bReserved[2];
+    DWORD_PTR dwData;
+    INT_PTR iString;
+  } TBBUTTON, *PTBBUTTON,*LPTBBUTTON;
+  typedef const TBBUTTON *LPCTBBUTTON;
+  typedef struct _COLORMAP {
+    COLORREF from;
+    COLORREF to;
+  } COLORMAP,*LPCOLORMAP;
+  __declspec(dllimport) HWND __stdcall CreateToolbarEx(HWND hwnd,DWORD ws,UINT wID,int nBitmaps,HINSTANCE hBMInst,UINT_PTR wBMID,LPCTBBUTTON lpButtons,int iNumButtons,int dxButton,int dyButton,int dxBitmap,int dyBitmap,UINT uStructSize);
+  __declspec(dllimport) HBITMAP __stdcall CreateMappedBitmap(HINSTANCE hInstance,INT_PTR idBitmap,UINT wFlags,LPCOLORMAP lpColorMap,int iNumMaps);
+  typedef struct _NMTBCUSTOMDRAW {
+    NMCUSTOMDRAW nmcd;
+    HBRUSH hbrMonoDither;
+    HBRUSH hbrLines;
+    HPEN hpenLines;
+    COLORREF clrText;
+    COLORREF clrMark;
+    COLORREF clrTextHighlight;
+    COLORREF clrBtnFace;
+    COLORREF clrBtnHighlight;
+    COLORREF clrHighlightHotTrack;
+    RECT rcText;
+    int nStringBkMode;
+    int nHLStringBkMode;
+    int iListGap;
+  } NMTBCUSTOMDRAW,*LPNMTBCUSTOMDRAW;
+  typedef struct tagTBADDBITMAP {
+    HINSTANCE hInst;
+    UINT_PTR nID;
+  } TBADDBITMAP,*LPTBADDBITMAP;
+  typedef struct tagTBSAVEPARAMSA {
+    HKEY hkr;
+    LPCSTR pszSubKey;
+    LPCSTR pszValueName;
+  } TBSAVEPARAMSA,*LPTBSAVEPARAMSA;
+  typedef struct tagTBSAVEPARAMSW {
+    HKEY hkr;
+    LPCWSTR pszSubKey;
+    LPCWSTR pszValueName;
+  } TBSAVEPARAMSW,*LPTBSAVEPARAMW;
+  typedef struct {
+    int iButton;
+    DWORD dwFlags;
+  } TBINSERTMARK,*LPTBINSERTMARK;
+  typedef struct {
+    HINSTANCE hInstOld;
+    UINT_PTR nIDOld;
+    HINSTANCE hInstNew;
+    UINT_PTR nIDNew;
+    int nButtons;
+  } TBREPLACEBITMAP,*LPTBREPLACEBITMAP;
+  typedef struct {
+    UINT cbSize;
+    DWORD dwMask;
+    int idCommand;
+    int iImage;
+    BYTE fsState;
+    BYTE fsStyle;
+    WORD cx;
+    DWORD_PTR lParam;
+    LPSTR pszText;
+    int cchText;
+  } TBBUTTONINFOA,*LPTBBUTTONINFOA;
+  typedef struct {
+    UINT cbSize;
+    DWORD dwMask;
+    int idCommand;
+    int iImage;
+    BYTE fsState;
+    BYTE fsStyle;
+    WORD cx;
+    DWORD_PTR lParam;
+    LPWSTR pszText;
+    int cchText;
+  } TBBUTTONINFOW,*LPTBBUTTONINFOW;
+  typedef struct {
+    UINT cbSize;
+    DWORD dwMask;
+    int cxPad;
+    int cyPad;
+    int cxBarPad;
+    int cyBarPad;
+    int cxButtonSpacing;
+    int cyButtonSpacing;
+  } TBMETRICS,*LPTBMETRICS;
+  typedef struct tagNMTBHOTITEM {
+    NMHDR hdr;
+    int idOld;
+    int idNew;
+    DWORD dwFlags;
+  } NMTBHOTITEM,*LPNMTBHOTITEM;
+  typedef struct tagNMTBSAVE {
+    NMHDR hdr;
+    DWORD *pData;
+    DWORD *pCurrent;
+    UINT cbData;
+    int iItem;
+    int cButtons;
+    TBBUTTON tbButton;
+  } NMTBSAVE,*LPNMTBSAVE;
+  typedef struct tagNMTBRESTORE {
+    NMHDR hdr;
+    DWORD *pData;
+    DWORD *pCurrent;
+    UINT cbData;
+    int iItem;
+    int cButtons;
+    int cbBytesPerRecord;
+    TBBUTTON tbButton;
+  } NMTBRESTORE,*LPNMTBRESTORE;
+  typedef struct tagNMTBGETINFOTIPA {
+    NMHDR hdr;
+    LPSTR pszText;
+    int cchTextMax;
+    int iItem;
+    LPARAM lParam;
+  } NMTBGETINFOTIPA,*LPNMTBGETINFOTIPA;
+  typedef struct tagNMTBGETINFOTIPW {
+    NMHDR hdr;
+    LPWSTR pszText;
+    int cchTextMax;
+    int iItem;
+    LPARAM lParam;
+  } NMTBGETINFOTIPW,*LPNMTBGETINFOTIPW;
+  typedef struct {
+    NMHDR hdr;
+    DWORD dwMask;
+    int idCommand;
+    DWORD_PTR lParam;
+    int iImage;
+    LPSTR pszText;
+    int cchText;
+  } NMTBDISPINFOA,*LPNMTBDISPINFOA;
+  typedef struct {
+    NMHDR hdr;
+    DWORD dwMask;
+    int idCommand;
+    DWORD_PTR lParam;
+    int iImage;
+    LPWSTR pszText;
+    int cchText;
+  } NMTBDISPINFOW,*LPNMTBDISPINFOW;
+  typedef struct tagNMTOOLBARA {
+    NMHDR hdr;
+    int iItem;
+    TBBUTTON tbButton;
+    int cchText;
+    LPSTR pszText;
+    RECT rcButton;
+  } NMTOOLBARA,*LPNMTOOLBARA;
+  typedef struct tagNMTOOLBARW {
+    NMHDR hdr;
+    int iItem;
+    TBBUTTON tbButton;
+    int cchText;
+    LPWSTR pszText;
+    RECT rcButton;
+  } NMTOOLBARW,*LPNMTOOLBARW;
+  typedef struct tagREBARINFO {
+    UINT cbSize;
+    UINT fMask;
+    HIMAGELIST himl;
+  } REBARINFO,*LPREBARINFO;
+  typedef struct tagREBARBANDINFOA {
+    UINT cbSize;
+    UINT fMask;
+    UINT fStyle;
+    COLORREF clrFore;
+    COLORREF clrBack;
+    LPSTR lpText;
+    UINT cch;
+    int iImage;
+    HWND hwndChild;
+    UINT cxMinChild;
+    UINT cyMinChild;
+    UINT cx;
+    HBITMAP hbmBack;
+    UINT wID;
+    UINT cyChild;
+    UINT cyMaxChild;
+    UINT cyIntegral;
+    UINT cxIdeal;
+    LPARAM lParam;
+    UINT cxHeader;
+  } REBARBANDINFOA,*LPREBARBANDINFOA;
+  typedef REBARBANDINFOA const *LPCREBARBANDINFOA;
+  typedef struct tagREBARBANDINFOW {
+    UINT cbSize;
+    UINT fMask;
+    UINT fStyle;
+    COLORREF clrFore;
+    COLORREF clrBack;
+    LPWSTR lpText;
+    UINT cch;
+    int iImage;
+    HWND hwndChild;
+    UINT cxMinChild;
+    UINT cyMinChild;
+    UINT cx;
+    HBITMAP hbmBack;
+    UINT wID;
+    UINT cyChild;
+    UINT cyMaxChild;
+    UINT cyIntegral;
+    UINT cxIdeal;
+    LPARAM lParam;
+    UINT cxHeader;
+  } REBARBANDINFOW,*LPREBARBANDINFOW;
+  typedef REBARBANDINFOW const *LPCREBARBANDINFOW;
+  typedef struct tagNMREBARCHILDSIZE {
+    NMHDR hdr;
+    UINT uBand;
+    UINT wID;
+    RECT rcChild;
+    RECT rcBand;
+  } NMREBARCHILDSIZE,*LPNMREBARCHILDSIZE;
+  typedef struct tagNMREBAR {
+    NMHDR hdr;
+    DWORD dwMask;
+    UINT uBand;
+    UINT fStyle;
+    UINT wID;
+    LPARAM lParam;
+  } NMREBAR,*LPNMREBAR;
+  typedef struct tagNMRBAUTOSIZE {
+    NMHDR hdr;
+    WINBOOL fChanged;
+    RECT rcTarget;
+    RECT rcActual;
+  } NMRBAUTOSIZE,*LPNMRBAUTOSIZE;
+  typedef struct tagNMREBARCHEVRON {
+    NMHDR hdr;
+    UINT uBand;
+    UINT wID;
+    LPARAM lParam;
+    RECT rc;
+    LPARAM lParamNM;
+  } NMREBARCHEVRON,*LPNMREBARCHEVRON;
+  typedef struct tagNMREBARAUTOBREAK {
+    NMHDR hdr;
+    UINT uBand;
+    UINT wID;
+    LPARAM lParam;
+    UINT uMsg;
+    UINT fStyleCurrent;
+    WINBOOL fAutoBreak;
+  } NMREBARAUTOBREAK,*LPNMREBARAUTOBREAK;
+  typedef struct _RB_HITTESTINFO {
+    POINT pt;
+    UINT flags;
+    int iBand;
+  } RBHITTESTINFO,*LPRBHITTESTINFO;
+  typedef struct tagTOOLINFOA {
+    UINT cbSize;
+    UINT uFlags;
+    HWND hwnd;
+    UINT_PTR uId;
+    RECT rect;
+    HINSTANCE hinst;
+    LPSTR lpszText;
+    LPARAM lParam;
+    void *lpReserved;
+  } TTTOOLINFOA, *PTOOLINFOA,*LPTTTOOLINFOA;
+  typedef struct tagTOOLINFOW {
+    UINT cbSize;
+    UINT uFlags;
+    HWND hwnd;
+    UINT_PTR uId;
+    RECT rect;
+    HINSTANCE hinst;
+    LPWSTR lpszText;
+    LPARAM lParam;
+    void *lpReserved;
+  } TTTOOLINFOW, *PTOOLINFOW,*LPTTTOOLINFOW;
+  typedef struct _TTGETTITLE {
+    DWORD dwSize;
+    UINT uTitleBitmap;
+    UINT cch;
+    WCHAR *pszTitle;
+  } TTGETTITLE,*PTTGETTITLE;
+  typedef struct _TT_HITTESTINFOA {
+    HWND hwnd;
+    POINT pt;
+    TTTOOLINFOA ti;
+  } TTHITTESTINFOA,*LPTTHITTESTINFOA;
+  typedef struct _TT_HITTESTINFOW {
+    HWND hwnd;
+    POINT pt;
+    TTTOOLINFOW ti;
+  } TTHITTESTINFOW,*LPTTHITTESTINFOW;
+  typedef struct tagNMTTDISPINFOA {
+    NMHDR hdr;
+    LPSTR lpszText;
+    char szText[80];
+    HINSTANCE hinst;
+    UINT uFlags;
+    LPARAM lParam;
+  } NMTTDISPINFOA,*LPNMTTDISPINFOA;
+  typedef struct tagNMTTDISPINFOW {
+    NMHDR hdr;
+    LPWSTR lpszText;
+    WCHAR szText[80];
+    HINSTANCE hinst;
+    UINT uFlags;
+    LPARAM lParam;
+  } NMTTDISPINFOW,*LPNMTTDISPINFOW;
+  __declspec(dllimport) void __stdcall DrawStatusTextA(HDC hDC,LPCRECT lprc,LPCSTR pszText,UINT uFlags);
+  __declspec(dllimport) void __stdcall DrawStatusTextW(HDC hDC,LPCRECT lprc,LPCWSTR pszText,UINT uFlags);
+  __declspec(dllimport) HWND __stdcall CreateStatusWindowA(LONG style,LPCSTR lpszText,HWND hwndParent,UINT wID);
+  __declspec(dllimport) HWND __stdcall CreateStatusWindowW(LONG style,LPCWSTR lpszText,HWND hwndParent,UINT wID);
+  __declspec(dllimport) void __stdcall MenuHelp(UINT uMsg,WPARAM wParam,LPARAM lParam,HMENU hMainMenu,HINSTANCE hInst,HWND hwndStatus,UINT *lpwIDs);
+  __declspec(dllimport) WINBOOL __stdcall ShowHideMenuCtl(HWND hWnd,UINT_PTR uFlags,LPINT lpInfo);
+  __declspec(dllimport) void __stdcall GetEffectiveClientRect(HWND hWnd,LPRECT lprc,const INT *lpInfo);
+  typedef struct tagDRAGLISTINFO {
+    UINT uNotification;
+    HWND hWnd;
+    POINT ptCursor;
+  } DRAGLISTINFO,*LPDRAGLISTINFO;
+  __declspec(dllimport) WINBOOL __stdcall MakeDragList(HWND hLB);
+  __declspec(dllimport) void __stdcall DrawInsert(HWND handParent,HWND hLB,int nItem);
+  __declspec(dllimport) int __stdcall LBItemFromPt(HWND hLB,POINT pt,WINBOOL bAutoScroll);
+  typedef struct _UDACCEL {
+    UINT nSec;
+    UINT nInc;
+  } UDACCEL,*LPUDACCEL;
+  __declspec(dllimport) HWND __stdcall CreateUpDownControl(DWORD dwStyle,int x,int y,int cx,int cy,HWND hParent,int nID,HINSTANCE hInst,HWND hBuddy,int nUpper,int nLower,int nPos);
+  typedef struct _NM_UPDOWN {
+    NMHDR hdr;
+    int iPos;
+    int iDelta;
+  } NMUPDOWN,*LPNMUPDOWN;
+  typedef struct {
+    int iLow;
+    int iHigh;
+  } PBRANGE,*PPBRANGE;
+  typedef struct tagLVITEMA {
+    UINT mask;
+    int iItem;
+    int iSubItem;
+    UINT state;
+    UINT stateMask;
+    LPSTR pszText;
+    int cchTextMax;
+    int iImage;
+    LPARAM lParam;
+    int iIndent;
+    int iGroupId;
+    UINT cColumns;
+    PUINT puColumns;
+  } LVITEMA,*LPLVITEMA;
+  typedef struct tagLVITEMW
+  {
+    UINT mask;
+    int iItem;
+    int iSubItem;
+    UINT state;
+    UINT stateMask;
+    LPWSTR pszText;
+    int cchTextMax;
+    int iImage;
+    LPARAM lParam;
+    int iIndent;
+    int iGroupId;
+    UINT cColumns;
+    PUINT puColumns;
+  } LVITEMW,*LPLVITEMW;
+  typedef struct tagLVFINDINFOA {
+    UINT flags;
+    LPCSTR psz;
+    LPARAM lParam;
+    POINT pt;
+    UINT vkDirection;
+  } LVFINDINFOA,*LPFINDINFOA;
+  typedef struct tagLVFINDINFOW {
+    UINT flags;
+    LPCWSTR psz;
+    LPARAM lParam;
+    POINT pt;
+    UINT vkDirection;
+  } LVFINDINFOW,*LPFINDINFOW;
+  typedef struct tagLVHITTESTINFO {
+    POINT pt;
+    UINT flags;
+    int iItem;
+    int iSubItem;
+  } LVHITTESTINFO,*LPLVHITTESTINFO;
+  typedef struct tagLVCOLUMNA {
+    UINT mask;
+    int fmt;
+    int cx;
+    LPSTR pszText;
+    int cchTextMax;
+    int iSubItem;
+    int iImage;
+    int iOrder;
+  } LVCOLUMNA,*LPLVCOLUMNA;
+  typedef struct tagLVCOLUMNW {
+    UINT mask;
+    int fmt;
+    int cx;
+    LPWSTR pszText;
+    int cchTextMax;
+    int iSubItem;
+    int iImage;
+    int iOrder;
+  } LVCOLUMNW,*LPLVCOLUMNW;
+  typedef int (__stdcall *PFNLVCOMPARE)(LPARAM,LPARAM,LPARAM);
+  typedef struct tagLVBKIMAGEA {
+    ULONG ulFlags;
+    HBITMAP hbm;
+    LPSTR pszImage;
+    UINT cchImageMax;
+    int xOffsetPercent;
+    int yOffsetPercent;
+  } LVBKIMAGEA,*LPLVBKIMAGEA;
+  typedef struct tagLVBKIMAGEW {
+    ULONG ulFlags;
+    HBITMAP hbm;
+    LPWSTR pszImage;
+    UINT cchImageMax;
+    int xOffsetPercent;
+    int yOffsetPercent;
+  } LVBKIMAGEW,*LPLVBKIMAGEW;
+  typedef struct tagLVGROUP {
+    UINT cbSize;
+    UINT mask;
+    LPWSTR pszHeader;
+    int cchHeader;
+    LPWSTR pszFooter;
+    int cchFooter;
+    int iGroupId;
+    UINT stateMask;
+    UINT state;
+    UINT uAlign;
+  } LVGROUP,*PLVGROUP;
+  typedef struct tagLVGROUPMETRICS {
+    UINT cbSize;
+    UINT mask;
+    UINT Left;
+    UINT Top;
+    UINT Right;
+    UINT Bottom;
+    COLORREF crLeft;
+    COLORREF crTop;
+    COLORREF crRight;
+    COLORREF crBottom;
+    COLORREF crHeader;
+    COLORREF crFooter;
+  } LVGROUPMETRICS,*PLVGROUPMETRICS;
+  typedef int (__stdcall *PFNLVGROUPCOMPARE)(int,int,void *);
+  typedef struct tagLVINSERTGROUPSORTED {
+    PFNLVGROUPCOMPARE pfnGroupCompare;
+    void *pvData;
+    LVGROUP lvGroup;
+  } LVINSERTGROUPSORTED,*PLVINSERTGROUPSORTED;
+  typedef struct tagLVTILEVIEWINFO {
+    UINT cbSize;
+    DWORD dwMask;
+    DWORD dwFlags;
+    SIZE sizeTile;
+    int cLines;
+    RECT rcLabelMargin;
+  } LVTILEVIEWINFO,*PLVTILEVIEWINFO;
+  typedef struct tagLVTILEINFO {
+    UINT cbSize;
+    int iItem;
+    UINT cColumns;
+    PUINT puColumns;
+  } LVTILEINFO,*PLVTILEINFO;
+  typedef struct {
+    UINT cbSize;
+    DWORD dwFlags;
+    int iItem;
+    DWORD dwReserved;
+  } LVINSERTMARK,*LPLVINSERTMARK;
+  typedef struct tagLVSETINFOTIP {
+    UINT cbSize;
+    DWORD dwFlags;
+    LPWSTR pszText;
+    int iItem;
+    int iSubItem;
+  } LVSETINFOTIP,*PLVSETINFOTIP;
+  typedef struct tagNMLISTVIEW {
+    NMHDR hdr;
+    int iItem;
+    int iSubItem;
+    UINT uNewState;
+    UINT uOldState;
+    UINT uChanged;
+    POINT ptAction;
+    LPARAM lParam;
+  } NMLISTVIEW,*LPNMLISTVIEW;
+  typedef struct tagNMITEMACTIVATE {
+    NMHDR hdr;
+    int iItem;
+    int iSubItem;
+    UINT uNewState;
+    UINT uOldState;
+    UINT uChanged;
+    POINT ptAction;
+    LPARAM lParam;
+    UINT uKeyFlags;
+  } NMITEMACTIVATE,*LPNMITEMACTIVATE;
+  typedef struct tagNMLVCUSTOMDRAW {
+    NMCUSTOMDRAW nmcd;
+    COLORREF clrText;
+    COLORREF clrTextBk;
+    int iSubItem;
+    DWORD dwItemType;
+    COLORREF clrFace;
+    int iIconEffect;
+    int iIconPhase;
+    int iPartId;
+    int iStateId;
+    RECT rcText;
+    UINT uAlign;
+  } NMLVCUSTOMDRAW,*LPNMLVCUSTOMDRAW;
+  typedef struct tagNMLVCACHEHINT {
+    NMHDR hdr;
+    int iFrom;
+    int iTo;
+  } NMLVCACHEHINT,*LPNMLVCACHEHINT;
+  typedef struct tagNMLVFINDITEMA {
+    NMHDR hdr;
+    int iStart;
+    LVFINDINFOA lvfi;
+  } NMLVFINDITEMA,*LPNMLVFINDITEMA;
+  typedef struct tagNMLVFINDITEMW {
+    NMHDR hdr;
+    int iStart;
+    LVFINDINFOW lvfi;
+  } NMLVFINDITEMW,*LPNMLVFINDITEMW;
+  typedef struct tagNMLVODSTATECHANGE {
+    NMHDR hdr;
+    int iFrom;
+    int iTo;
+    UINT uNewState;
+    UINT uOldState;
+  } NMLVODSTATECHANGE,*LPNMLVODSTATECHANGE;
+  typedef struct tagLVDISPINFO {
+    NMHDR hdr;
+    LVITEMA item;
+  } NMLVDISPINFOA,*LPNMLVDISPINFOA;
+  typedef struct tagLVDISPINFOW {
+    NMHDR hdr;
+    LVITEMW item;
+  } NMLVDISPINFOW,*LPNMLVDISPINFOW;
+#pragma pack(push,1)
+  typedef struct tagLVKEYDOWN {
+    NMHDR hdr;
+    WORD wVKey;
+    UINT flags;
+  } NMLVKEYDOWN,*LPNMLVKEYDOWN;
+#pragma pack(pop)
+  typedef struct tagNMLVGETINFOTIPA {
+    NMHDR hdr;
+    DWORD dwFlags;
+    LPSTR pszText;
+    int cchTextMax;
+    int iItem;
+    int iSubItem;
+    LPARAM lParam;
+  } NMLVGETINFOTIPA,*LPNMLVGETINFOTIPA;
+  typedef struct tagNMLVGETINFOTIPW {
+    NMHDR hdr;
+    DWORD dwFlags;
+    LPWSTR pszText;
+    int cchTextMax;
+    int iItem;
+    int iSubItem;
+    LPARAM lParam;
+  } NMLVGETINFOTIPW,*LPNMLVGETINFOTIPW;
+  typedef struct tagNMLVSCROLL {
+    NMHDR hdr;
+    int dx;
+    int dy;
+  } NMLVSCROLL,*LPNMLVSCROLL;
+  typedef struct _TREEITEM *HTREEITEM;
+  typedef struct tagTVITEMA {
+    UINT mask;
+    HTREEITEM hItem;
+    UINT state;
+    UINT stateMask;
+    LPSTR pszText;
+    int cchTextMax;
+    int iImage;
+    int iSelectedImage;
+    int cChildren;
+    LPARAM lParam;
+  } TVITEMA,*LPTVITEMA;
+  typedef struct tagTVITEMW {
+    UINT mask;
+    HTREEITEM hItem;
+    UINT state;
+    UINT stateMask;
+    LPWSTR pszText;
+    int cchTextMax;
+    int iImage;
+    int iSelectedImage;
+    int cChildren;
+    LPARAM lParam;
+  } TVITEMW,*LPTVITEMW;
+  typedef struct tagTVITEMEXA {
+    UINT mask;
+    HTREEITEM hItem;
+    UINT state;
+    UINT stateMask;
+    LPSTR pszText;
+    int cchTextMax;
+    int iImage;
+    int iSelectedImage;
+    int cChildren;
+    LPARAM lParam;
+    int iIntegral;
+  } TVITEMEXA,*LPTVITEMEXA;
+  typedef struct tagTVITEMEXW {
+    UINT mask;
+    HTREEITEM hItem;
+    UINT state;
+    UINT stateMask;
+    LPWSTR pszText;
+    int cchTextMax;
+    int iImage;
+    int iSelectedImage;
+    int cChildren;
+    LPARAM lParam;
+    int iIntegral;
+  } TVITEMEXW,*LPTVITEMEXW;
+  typedef TVITEMEXA TVITEMEX;
+  typedef LPTVITEMEXA LPTVITEMEX;
+  typedef struct tagTVINSERTSTRUCTA {
+    HTREEITEM hParent;
+    HTREEITEM hInsertAfter;
+    __extension__ union {
+      TVITEMEXA itemex;
+      TVITEMA item;
+    } ;
+  } TVINSERTSTRUCTA,*LPTVINSERTSTRUCTA;
+  typedef struct tagTVINSERTSTRUCTW {
+    HTREEITEM hParent;
+    HTREEITEM hInsertAfter;
+    __extension__ union {
+      TVITEMEXW itemex;
+      TVITEMW item;
+    } ;
+  } TVINSERTSTRUCTW,*LPTVINSERTSTRUCTW;
+  typedef struct tagTVHITTESTINFO {
+    POINT pt;
+    UINT flags;
+    HTREEITEM hItem;
+  } TVHITTESTINFO,*LPTVHITTESTINFO;
+  typedef int (__stdcall *PFNTVCOMPARE)(LPARAM lParam1,LPARAM lParam2,LPARAM lParamSort);
+  typedef struct tagTVSORTCB {
+    HTREEITEM hParent;
+    PFNTVCOMPARE lpfnCompare;
+    LPARAM lParam;
+  } TVSORTCB,*LPTVSORTCB;
+  typedef struct tagNMTREEVIEWA {
+    NMHDR hdr;
+    UINT action;
+    TVITEMA itemOld;
+    TVITEMA itemNew;
+    POINT ptDrag;
+  } NMTREEVIEWA,*LPNMTREEVIEWA;
+  typedef struct tagNMTREEVIEWW {
+    NMHDR hdr;
+    UINT action;
+    TVITEMW itemOld;
+    TVITEMW itemNew;
+    POINT ptDrag;
+  } NMTREEVIEWW,*LPNMTREEVIEWW;
+  typedef struct tagTVDISPINFOA {
+    NMHDR hdr;
+    TVITEMA item;
+  } NMTVDISPINFOA,*LPNMTVDISPINFOA;
+  typedef struct tagTVDISPINFOW {
+    NMHDR hdr;
+    TVITEMW item;
+  } NMTVDISPINFOW,*LPNMTVDISPINFOW;
+typedef struct tagTVDISPINFOEXA {
+    NMHDR hdr;
+    TVITEMEXA item;
+} NMTVDISPINFOEXA, *LPNMTVDISPINFOEXA;
+typedef struct tagTVDISPINFOEXW {
+    NMHDR hdr;
+    TVITEMEXW item;
+} NMTVDISPINFOEXW, *LPNMTVDISPINFOEXW;
+#pragma pack(push,1)
+  typedef struct tagTVKEYDOWN {
+    NMHDR hdr;
+    WORD wVKey;
+    UINT flags;
+  } NMTVKEYDOWN,*LPNMTVKEYDOWN;
+#pragma pack(pop)
+  typedef struct tagNMTVCUSTOMDRAW {
+    NMCUSTOMDRAW nmcd;
+    COLORREF clrText;
+    COLORREF clrTextBk;
+    int iLevel;
+  } NMTVCUSTOMDRAW,*LPNMTVCUSTOMDRAW;
+  typedef struct tagNMTVGETINFOTIPA {
+    NMHDR hdr;
+    LPSTR pszText;
+    int cchTextMax;
+    HTREEITEM hItem;
+    LPARAM lParam;
+  } NMTVGETINFOTIPA,*LPNMTVGETINFOTIPA;
+  typedef struct tagNMTVGETINFOTIPW {
+    NMHDR hdr;
+    LPWSTR pszText;
+    int cchTextMax;
+    HTREEITEM hItem;
+    LPARAM lParam;
+  } NMTVGETINFOTIPW,*LPNMTVGETINFOTIPW;
+  typedef struct tagCOMBOBOXEXITEMA {
+    UINT mask;
+    INT_PTR iItem;
+    LPSTR pszText;
+    int cchTextMax;
+    int iImage;
+    int iSelectedImage;
+    int iOverlay;
+    int iIndent;
+    LPARAM lParam;
+  } COMBOBOXEXITEMA,*PCOMBOBOXEXITEMA;
+  typedef COMBOBOXEXITEMA const *PCCOMBOEXITEMA;
+  typedef struct tagCOMBOBOXEXITEMW
+  {
+    UINT mask;
+    INT_PTR iItem;
+    LPWSTR pszText;
+    int cchTextMax;
+    int iImage;
+    int iSelectedImage;
+    int iOverlay;
+    int iIndent;
+    LPARAM lParam;
+  } COMBOBOXEXITEMW,*PCOMBOBOXEXITEMW;
+  typedef COMBOBOXEXITEMW const *PCCOMBOEXITEMW;
+  typedef struct {
+    NMHDR hdr;
+    COMBOBOXEXITEMA ceItem;
+  } NMCOMBOBOXEXA,*PNMCOMBOBOXEXA;
+  typedef struct {
+    NMHDR hdr;
+    COMBOBOXEXITEMW ceItem;
+  } NMCOMBOBOXEXW,*PNMCOMBOBOXEXW;
+  typedef struct {
+    NMHDR hdr;
+    int iItemid;
+    WCHAR szText[260];
+  }NMCBEDRAGBEGINW,*LPNMCBEDRAGBEGINW,*PNMCBEDRAGBEGINW;
+  typedef struct {
+    NMHDR hdr;
+    int iItemid;
+    char szText[260];
+  }NMCBEDRAGBEGINA,*LPNMCBEDRAGBEGINA,*PNMCBEDRAGBEGINA;
+  typedef struct {
+    NMHDR hdr;
+    WINBOOL fChanged;
+    int iNewSelection;
+    WCHAR szText[260];
+    int iWhy;
+  } NMCBEENDEDITW,*LPNMCBEENDEDITW,*PNMCBEENDEDITW;
+  typedef struct {
+    NMHDR hdr;
+    WINBOOL fChanged;
+    int iNewSelection;
+    char szText[260];
+    int iWhy;
+  } NMCBEENDEDITA,*LPNMCBEENDEDITA,*PNMCBEENDEDITA;
+  typedef struct tagTCITEMHEADERA {
+    UINT mask;
+    UINT lpReserved1;
+    UINT lpReserved2;
+    LPSTR pszText;
+    int cchTextMax;
+    int iImage;
+  } TCITEMHEADERA,*LPTCITEMHEADERA;
+  typedef struct tagTCITEMHEADERW {
+    UINT mask;
+    UINT lpReserved1;
+    UINT lpReserved2;
+    LPWSTR pszText;
+    int cchTextMax;
+    int iImage;
+  } TCITEMHEADERW,*LPTCITEMHEADERW;
+  typedef struct tagTCITEMA {
+    UINT mask;
+    DWORD dwState;
+    DWORD dwStateMask;
+    LPSTR pszText;
+    int cchTextMax;
+    int iImage;
+    LPARAM lParam;
+  } TCITEMA,*LPTCITEMA;
+  typedef struct tagTCITEMW {
+    UINT mask;
+    DWORD dwState;
+    DWORD dwStateMask;
+    LPWSTR pszText;
+    int cchTextMax;
+    int iImage;
+    LPARAM lParam;
+  } TCITEMW,*LPTCITEMW;
+  typedef struct tagTCHITTESTINFO {
+    POINT pt;
+    UINT flags;
+  } TCHITTESTINFO,*LPTCHITTESTINFO;
+#pragma pack(push,1)
+  typedef struct tagTCKEYDOWN {
+    NMHDR hdr;
+    WORD wVKey;
+    UINT flags;
+  } NMTCKEYDOWN;
+#pragma pack(pop)
+  typedef DWORD MONTHDAYSTATE,*LPMONTHDAYSTATE;
+  typedef struct {
+    UINT cbSize;
+    POINT pt;
+    UINT uHit;
+    SYSTEMTIME st;
+  } MCHITTESTINFO,*PMCHITTESTINFO;
+  typedef struct tagNMSELCHANGE {
+    NMHDR nmhdr;
+    SYSTEMTIME stSelStart;
+    SYSTEMTIME stSelEnd;
+  } NMSELCHANGE,*LPNMSELCHANGE;
+  typedef struct tagNMDAYSTATE {
+    NMHDR nmhdr;
+    SYSTEMTIME stStart;
+    int cDayState;
+    LPMONTHDAYSTATE prgDayState;
+  } NMDAYSTATE,*LPNMDAYSTATE;
+  typedef NMSELCHANGE NMSELECT,*LPNMSELECT;
+  typedef struct tagNMDATETIMECHANGE {
+    NMHDR nmhdr;
+    DWORD dwFlags;
+    SYSTEMTIME st;
+  } NMDATETIMECHANGE,*LPNMDATETIMECHANGE;
+  typedef struct tagNMDATETIMESTRINGA {
+    NMHDR nmhdr;
+    LPCSTR pszUserString;
+    SYSTEMTIME st;
+    DWORD dwFlags;
+  } NMDATETIMESTRINGA,*LPNMDATETIMESTRINGA;
+  typedef struct tagNMDATETIMESTRINGW {
+    NMHDR nmhdr;
+    LPCWSTR pszUserString;
+    SYSTEMTIME st;
+    DWORD dwFlags;
+  } NMDATETIMESTRINGW,*LPNMDATETIMESTRINGW;
+  typedef struct tagNMDATETIMEWMKEYDOWNA {
+    NMHDR nmhdr;
+    int nVirtKey;
+    LPCSTR pszFormat;
+    SYSTEMTIME st;
+  } NMDATETIMEWMKEYDOWNA,*LPNMDATETIMEWMKEYDOWNA;
+  typedef struct tagNMDATETIMEWMKEYDOWNW {
+    NMHDR nmhdr;
+    int nVirtKey;
+    LPCWSTR pszFormat;
+    SYSTEMTIME st;
+  } NMDATETIMEWMKEYDOWNW,*LPNMDATETIMEWMKEYDOWNW;
+  typedef struct tagNMDATETIMEFORMATA {
+    NMHDR nmhdr;
+    LPCSTR pszFormat;
+    SYSTEMTIME st;
+    LPCSTR pszDisplay;
+    CHAR szDisplay[64];
+  } NMDATETIMEFORMATA,*LPNMDATETIMEFORMATA;
+  typedef struct tagNMDATETIMEFORMATW {
+    NMHDR nmhdr;
+    LPCWSTR pszFormat;
+    SYSTEMTIME st;
+    LPCWSTR pszDisplay;
+    WCHAR szDisplay[64];
+  } NMDATETIMEFORMATW,*LPNMDATETIMEFORMATW;
+  typedef struct tagNMDATETIMEFORMATQUERYA {
+    NMHDR nmhdr;
+    LPCSTR pszFormat;
+    SIZE szMax;
+  } NMDATETIMEFORMATQUERYA,*LPNMDATETIMEFORMATQUERYA;
+  typedef struct tagNMDATETIMEFORMATQUERYW {
+    NMHDR nmhdr;
+    LPCWSTR pszFormat;
+    SIZE szMax;
+  } NMDATETIMEFORMATQUERYW,*LPNMDATETIMEFORMATQUERYW;
+  typedef struct tagNMIPADDRESS {
+    NMHDR hdr;
+    int iField;
+    int iValue;
+  } NMIPADDRESS,*LPNMIPADDRESS;
+#pragma pack(push,1)
+  typedef struct {
+    NMHDR hdr;
+    WORD fwKeys;
+    RECT rcParent;
+    int iDir;
+    int iXpos;
+    int iYpos;
+    int iScroll;
+  }NMPGSCROLL,*LPNMPGSCROLL;
+#pragma pack(pop)
+  typedef struct {
+    NMHDR hdr;
+    DWORD dwFlag;
+    int iWidth;
+    int iHeight;
+  }NMPGCALCSIZE,*LPNMPGCALCSIZE;
+  typedef struct tagNMPGHOTITEM
+  {
+    NMHDR hdr;
+    int idOld;
+    int idNew;
+    DWORD dwFlags;
+  } NMPGHOTITEM,*LPNMPGHOTITEM;
+  typedef struct {
+    HIMAGELIST himl;
+    RECT margin;
+    UINT uAlign;
+  } BUTTON_IMAGELIST,*PBUTTON_IMAGELIST;
+  typedef struct tagNMBCHOTITEM {
+    NMHDR hdr;
+    DWORD dwFlags;
+  } NMBCHOTITEM,*LPNMBCHOTITEM;
+  typedef struct _tagEDITBALLOONTIP {
+    DWORD cbStruct;
+    LPCWSTR pszTitle;
+    LPCWSTR pszText;
+    INT ttiIcon;
+  } EDITBALLOONTIP,*PEDITBALLOONTIP;
+  typedef struct tagLITEM {
+    UINT mask;
+    int iLink;
+    UINT state;
+    UINT stateMask;
+    WCHAR szID[48];
+    WCHAR szUrl[(2048+32+sizeof("://"))];
+  } LITEM,*PLITEM;
+  typedef struct tagLHITTESTINFO {
+    POINT pt;
+    LITEM item;
+  } LHITTESTINFO,*PLHITTESTINFO;
+  typedef struct tagNMLINK {
+    NMHDR hdr;
+    LITEM item;
+  } NMLINK,*PNMLINK;
+  void __stdcall InitMUILanguage(LANGID uiLang);
+  LANGID __stdcall GetMUILanguage(void);
+  typedef struct _DSA *HDSA;
+  typedef int (__stdcall *PFNDPAENUMCALLBACK)(void *p,void *pData);
+  typedef int (__stdcall *PFNDSAENUMCALLBACK)(void *p,void *pData);
+  __declspec(dllimport) HDSA __stdcall DSA_Create(int cbItem,int cItemGrow);
+  __declspec(dllimport) WINBOOL __stdcall DSA_Destroy(HDSA hdsa);
+  __declspec(dllimport) void __stdcall DSA_DestroyCallback(HDSA hdsa,PFNDSAENUMCALLBACK pfnCB,void *pData);
+  __declspec(dllimport) PVOID __stdcall DSA_GetItemPtr(HDSA hdsa,int i);
+  __declspec(dllimport) int __stdcall DSA_InsertItem(HDSA hdsa,int i,void *pitem);
+  typedef struct _DPA *HDPA;
+  __declspec(dllimport) HDPA __stdcall DPA_Create(int cItemGrow);
+  __declspec(dllimport) WINBOOL __stdcall DPA_Destroy(HDPA hdpa);
+  __declspec(dllimport) PVOID __stdcall DPA_DeletePtr(HDPA hdpa,int i);
+  __declspec(dllimport) WINBOOL __stdcall DPA_DeleteAllPtrs(HDPA hdpa);
+  __declspec(dllimport) void __stdcall DPA_EnumCallback(HDPA hdpa,PFNDPAENUMCALLBACK pfnCB,void *pData);
+  __declspec(dllimport) void __stdcall DPA_DestroyCallback(HDPA hdpa,PFNDPAENUMCALLBACK pfnCB,void *pData);
+  __declspec(dllimport) WINBOOL __stdcall DPA_SetPtr(HDPA hdpa,int i,void *p);
+  __declspec(dllimport) int __stdcall DPA_InsertPtr(HDPA hdpa,int i,void *p);
+  __declspec(dllimport) PVOID __stdcall DPA_GetPtr(HDPA hdpa,INT_PTR i);
+  typedef int (__stdcall *PFNDPACOMPARE)(void *p1,void *p2,LPARAM lParam);
+  __declspec(dllimport) WINBOOL __stdcall DPA_Sort(HDPA hdpa,PFNDPACOMPARE pfnCompare,LPARAM lParam);
+  __declspec(dllimport) int __stdcall DPA_Search(HDPA hdpa,void *pFind,int iStart,PFNDPACOMPARE pfnCompare,LPARAM lParam,UINT options);
+  __declspec(dllimport) WINBOOL __stdcall Str_SetPtrW(LPWSTR *ppsz,LPCWSTR psz);
+typedef struct _DPASTREAMINFO {
+  int iPos;
+  void *pvItem;
+} DPASTREAMINFO;
+struct IStream;
+typedef HRESULT (__stdcall *PFNDPASTREAM)(DPASTREAMINFO*, struct IStream*, void*);
+typedef void* (__stdcall *PFNDPAMERGE)(UINT, void*, void*, LPARAM);
+typedef const void* (__stdcall *PFNDPAMERGECONST)(UINT, const void*, const void*, LPARAM);
+  __declspec(dllimport) HRESULT __stdcall DPA_LoadStream(HDPA * phdpa, PFNDPASTREAM pfn, struct IStream * pstream, void *pvInstData);
+  __declspec(dllimport) HRESULT __stdcall DPA_SaveStream(HDPA hdpa, PFNDPASTREAM pfn, struct IStream * pstream, void *pvInstData);
+  __declspec(dllimport) WINBOOL __stdcall DPA_Grow(HDPA pdpa, int cp);
+  __declspec(dllimport) int __stdcall DPA_InsertPtr(HDPA hdpa, int i, void *p);
+  __declspec(dllimport) PVOID __stdcall DPA_GetPtr(HDPA hdpa, INT_PTR i);
+  __declspec(dllimport) WINBOOL __stdcall DPA_SetPtr(HDPA hdpa, int i, void *p);
+  __declspec(dllimport) int __stdcall DPA_GetPtrIndex(HDPA hdpa, const void *p);
+  __declspec(dllimport) WINBOOL __stdcall _TrackMouseEvent(LPTRACKMOUSEEVENT lpEventTrack);
+  __declspec(dllimport) WINBOOL __stdcall FlatSB_EnableScrollBar(HWND,int,UINT);
+  __declspec(dllimport) WINBOOL __stdcall FlatSB_ShowScrollBar(HWND,int code,WINBOOL);
+  __declspec(dllimport) WINBOOL __stdcall FlatSB_GetScrollRange(HWND,int code,LPINT,LPINT);
+  __declspec(dllimport) WINBOOL __stdcall FlatSB_GetScrollInfo(HWND,int code,LPSCROLLINFO);
+  __declspec(dllimport) int __stdcall FlatSB_GetScrollPos(HWND,int code);
+  __declspec(dllimport) WINBOOL __stdcall FlatSB_GetScrollProp(HWND,int propIndex,LPINT);
+  __declspec(dllimport) int __stdcall FlatSB_SetScrollPos(HWND,int code,int pos,WINBOOL fRedraw);
+  __declspec(dllimport) int __stdcall FlatSB_SetScrollInfo(HWND,int code,LPSCROLLINFO,WINBOOL fRedraw);
+  __declspec(dllimport) int __stdcall FlatSB_SetScrollRange(HWND,int code,int min,int max,WINBOOL fRedraw);
+  __declspec(dllimport) WINBOOL __stdcall FlatSB_SetScrollProp(HWND,UINT index,INT_PTR newValue,WINBOOL);
+  __declspec(dllimport) WINBOOL __stdcall InitializeFlatSB(HWND);
+  __declspec(dllimport) HRESULT __stdcall UninitializeFlatSB(HWND);
+  typedef LRESULT (__stdcall *SUBCLASSPROC)(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam,UINT_PTR uIdSubclass,DWORD_PTR dwRefData);
+  WINBOOL __stdcall SetWindowSubclass(HWND hWnd,SUBCLASSPROC pfnSubclass,UINT_PTR uIdSubclass,DWORD_PTR dwRefData);
+  WINBOOL __stdcall GetWindowSubclass(HWND hWnd,SUBCLASSPROC pfnSubclass,UINT_PTR uIdSubclass,DWORD_PTR *pdwRefData);
+  WINBOOL __stdcall RemoveWindowSubclass(HWND hWnd,SUBCLASSPROC pfnSubclass,UINT_PTR uIdSubclass);
+  LRESULT __stdcall DefSubclassProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
+  int __stdcall DrawShadowText(HDC hdc,LPCWSTR pszText,UINT cch,RECT *prc,DWORD dwFlags,COLORREF crText,COLORREF crShadow,int ixOffset,int iyOffset);

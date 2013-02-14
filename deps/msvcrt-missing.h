@@ -16,3 +16,7 @@ wchar_t*** __p__wenviron(void);
 char*** __p___initenv(void);
 wchar_t*** __p___winitenv(void);
 int* __p__timezone(void);
+
+// Miscellaneous.
+int __cdecl _initterm(_PVFV *,_PVFV *);
+int __cdecl _initterm_e(_PVFV *,_PVFV *);

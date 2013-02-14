@@ -602,7 +602,10 @@ if(process.argv.length < 3)
         .option('-b, --base <ADDRESS>', 'base address', parseInt)
         .option('-e, --entry <ADDRESS>', 'entry point', parseInt);
     let entries = [];
-    program.on('entry', (x)=>entries.push(parseInt(x)));
+    program.on('entry', (x)=>{
+        x = parseInt(x);
+        entries.push({rva: x, offset: x});
+    });
     program.parse(process.argv);
 
     let fileName = program.args[0];
@@ -628,7 +631,7 @@ if(process.argv.length < 3)
             arch: program.arch, bits: program.bits || 32,
             sections: [{name: '.text', rva: 0, offset: 0, size: buffer.length, srwx: 5}],
             imports: [], symbols: [],
-            entries: entries.length ? entries.map((x)=>({rva: x, offset: x})) : [{rva: 0, offset: 0}]
+            entries: entries.length ? entries : [{rva: 0, offset: 0}]
         };
     } else {
         let rbin = bin;
@@ -641,7 +644,7 @@ if(process.argv.length < 3)
             buffer, baseAddress: rbin.get_baddr(),
             arch: binInfo.arch, bits: binInfo.bits,
             sections: rbin.get_sections(), imports: rbin.get_imports(),
-            symbols: rbin.get_symbols(), entries: rbin.get_entries()
+            symbols: rbin.get_symbols(), entries: {forEach(...args) {rbin.get_entries().forEach(...args); entries.forEach(...args);}}
         };
     }
 
@@ -670,9 +673,14 @@ if(process.argv.length < 3)
     analyzer.codeBuffer = bin.buffer.slice(codeSection.offset, codeSection.offset+codeSection.size);
     analyzer.codeBase = analyzer.arch.PCbase = codeSection.addr;
 
+    for(let x of entries) {
+        x.offset = x.rva-codeSection.addr+codeSection.offset;
+        x.rva -= bin.baseAddress;
+    }
+
     let isWin = /\.(dll|exe)$/i.test(fileName), importHeaders = [];
     if(isWin)
-        importHeaders.push(fs.readFileSync('windows.h'));
+        importHeaders.push(fs.readFileSync('windows.h', 'utf8'));
     let imports = [], importsByAddr = [];
     console.group('Imports');
     bin.imports.forEach((x)=>{
@@ -681,13 +689,25 @@ if(process.argv.length < 3)
 
         var fn = x.name;
         if(isWin)
-            fn = fn.replace(/^[a-z]+(32|64|)\.dll_/i, '');
-        var args, fnRE = new RegExp('\\b'+fn+'\\b\\s*\\(([^()]*)\\)');
+            fn = fn.replace(/^[a-z0-9]+\.dll_/i, '');
+        var args, fnRE = new RegExp('(__cdecl\\s+|)\\b'+fn.replace(/[?*+]/g, '\\$&')+'\\b\\s*\\(');
         for(let header of importHeaders)
             if(args = fnRE.exec(header)) {
-                args = args[1].trim();
+                let matchParens = (i)=>{
+                    for(let j = i, c; j < header.length; j++) {
+                        c = header[j];
+                        if(c == ')')
+                            return [i, j];
+                        if(c == '(')
+                            [, j] = matchParens(j+1);
+                    }
+                    let before = header.slice(0, i), line = 1+before.replace(/[^\n]/g, '').length, col = 1+/(\n[^\n]*|)$/.exec(before)[0].trim().length;
+                    throw new SyntaxError('Unmatched paren starting at '+line+':'+col);
+                };
+                let conv = args[1].trim();
+                args = header.slice(...matchParens(args.index+args[0].length)).trim();
                 console.log(`Import ${x.name}(${args})@${analyzer.arch.inspect(x.addr)}`);
-                if(!args || args == 'void')
+                if(!args || args == 'void' || conv == '__cdecl')
                     args = 0;
                 else
                     args = args.split(',').length*4; // HACK Assuming 32bit arguments.

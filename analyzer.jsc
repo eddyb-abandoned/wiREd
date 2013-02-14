@@ -1224,7 +1224,11 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                       program = require('commander').option('-a, --arch <ARCH>').option('-b, --base <ADDRESS>', 'base address', parseInt).option('-e, --entry <ADDRESS>', 'entry point', parseInt);
                                       entries = [];
                                       program.on('entry', (function(x) {
-                                        return entries.push(parseInt(x));
+                                        x = parseInt(x);
+                                        entries.push({
+                                          rva: x,
+                                          offset: x
+                                        });
                                       }));
                                       program.parse(process.argv);
                                       fileName = traceur.runtime.elementGet(program.args, 0);
@@ -1258,12 +1262,7 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                             }],
                                             imports: [],
                                             symbols: [],
-                                            entries: entries.length ? entries.map((function(x) {
-                                              return ({
-                                                rva: x,
-                                                offset: x
-                                              });
-                                            })): [{
+                                            entries: entries.length ? entries: [{
                                               rva: 0,
                                               offset: 0
                                             }]
@@ -1293,7 +1292,12 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                                 sections: rbin.get_sections(),
                                                 imports: rbin.get_imports(),
                                                 symbols: rbin.get_symbols(),
-                                                entries: rbin.get_entries()
+                                                entries: {forEach: function() {
+                                                    var $__11, $__12;
+                                                    for (var args = [], $__6 = 0; $__6 < arguments.length; $__6++) traceur.runtime.elementSet(args, $__6, traceur.runtime.elementGet(arguments, $__6));
+                                                    ($__11 = rbin.get_entries()).forEach.apply($__11, $__toObject(args));
+                                                    ($__12 = entries).forEach.apply($__12, $__toObject(args));
+                                                  }}
                                               };
                                             }
                                           }
@@ -1323,16 +1327,35 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                       analyzer.codeBuffer = bin.buffer.slice(codeSection.offset, codeSection.offset + codeSection.size);
                                       analyzer.codeBase = analyzer.arch.PCbase = codeSection.addr;
                                       {
+                                        var $__1 = traceur.runtime.getIterator(entries);
+                                        try {
+                                          while ($__1.moveNext()) {
+                                            try {
+                                              throw undefined;
+                                            } catch (x) {
+                                              x = $__1.current;
+                                              {
+                                                x.offset = x.rva - codeSection.addr + codeSection.offset;
+                                                x.rva -= bin.baseAddress;
+                                              }
+                                            }
+                                          }
+                                        } finally {
+                                          if ($__1.close) $__1.close();
+                                        }
+                                      }
+                                      {
                                         isWin = /\.(dll|exe)$/i.test(fileName);
                                         importHeaders = [];
                                       }
-                                      if (isWin) importHeaders.push(fs.readFileSync('windows.h'));
+                                      if (isWin) importHeaders.push(fs.readFileSync('windows.h', 'utf8'));
                                       {
                                         imports = [];
                                         importsByAddr = [];
                                       }
                                       console.group('Imports');
                                       bin.imports.forEach((function(x) {
+                                        var $__12;
                                         x = traceur.runtime.elementSet(importsByAddr, bin.baseAddress + x.rva, {
                                           name: x.name,
                                           addr: bin.baseAddress + x.rva,
@@ -1341,95 +1364,142 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                         });
                                         imports.push(x);
                                         var fn = x.name;
-                                        if (isWin) fn = fn.replace(/^[a-z]+(32|64|)\.dll_/i, '');
-                                        var args, fnRE = new RegExp('\\b' + fn + '\\b\\s*\\(([^()]*)\\)');
+                                        if (isWin) fn = fn.replace(/^[a-z0-9]+\.dll_/i, '');
+                                        var args, fnRE = new RegExp('(__cdecl\\s+|)\\b' + fn.replace(/[?*+]/g, '\\$&') + '\\b\\s*\\(');
                                         {
-                                          var $__1 = traceur.runtime.getIterator(importHeaders);
+                                          var $__2 = traceur.runtime.getIterator(importHeaders);
                                           try {
-                                            while ($__1.moveNext()) {
+                                            while ($__2.moveNext()) {
                                               try {
                                                 throw undefined;
                                               } catch (header) {
-                                                header = $__1.current;
+                                                header = $__2.current;
                                                 if (args = fnRE.exec(header)) {
-                                                  args = traceur.runtime.elementGet(args, 1).trim();
-                                                  console.log(("Import " + x.name + "(" + args + ")@" + analyzer.arch.inspect(x.addr)));
-                                                  if (!args || args == 'void') args = 0; else args = args.split(',').length * 4;
-                                                  x.block = new analyzer.Block({
-                                                    returns: true,
-                                                    stackMaxAccess: 4 + args
-                                                  });
-                                                  x.block.emit('returnPoint', x.block);
-                                                  if (bin.arch == 'x86') {
+                                                  try {
+                                                    throw undefined;
+                                                  } catch (conv) {
                                                     try {
                                                       throw undefined;
-                                                    } catch (argVals) {
-                                                      argVals = [];
-                                                      {
-                                                        try {
-                                                          throw undefined;
-                                                        } catch ($i) {
-                                                          $i = 0;
-                                                          for (; $i < args; $i += 4) {
+                                                    } catch (matchParens) {
+                                                      matchParens = (function(i) {
+                                                        var $__7;
+                                                        {
+                                                          try {
+                                                            throw undefined;
+                                                          } catch ($c) {
                                                             try {
                                                               throw undefined;
-                                                            } catch (i) {
-                                                              i = $i;
-                                                              try {
+                                                            } catch ($j) {
+                                                              $j = i;
+                                                              for (; $j < header.length; $j++) {
                                                                 try {
                                                                   throw undefined;
-                                                                } catch (arg) {
-                                                                  arg = analyzer.arch.Mem(analyzer.arch.Add(traceur.runtime.elementGet(x.block.SP0, 0), 4 + i));
-                                                                  arg.bitsof = 32;
-                                                                  argVals.push(arg);
+                                                                } catch (c) {
+                                                                  try {
+                                                                    throw undefined;
+                                                                  } catch (j) {
+                                                                    {
+                                                                      j = $j;
+                                                                      c = $c;
+                                                                    }
+                                                                    try {
+                                                                      c = traceur.runtime.elementGet(header, j);
+                                                                      if (c == ')') return [i, j];
+                                                                      if (c == '(')($__7 = matchParens(j + 1), j = traceur.runtime.elementGet($__7, 1), $__7);
+                                                                    } finally {
+                                                                      $j = j;
+                                                                      $c = c;
+                                                                    }
+                                                                  }
                                                                 }
-                                                              } finally {
-                                                                $i = i;
                                                               }
                                                             }
                                                           }
                                                         }
-                                                      }
-                                                      x.block.R.EAX.value = {
-                                                        args: argVals,
-                                                        inspect: (function() {
-                                                          return x.name;
-                                                        }),
-                                                        get value() {
-                                                          var args = argVals.map((function(a) {
-                                                            return analyzer.arch.valueof(a);
-                                                          }));
-                                                          return {
-                                                            args: args,
+                                                        var before = header.slice(0, i), line = 1 + before.replace(/[^\n]/g, '').length, col = 1 + traceur.runtime.elementGet(/(\n[^\n]*|)$/.exec(before), 0).trim().length;
+                                                        throw new SyntaxError('Unmatched paren starting at ' + line + ':' + col);
+                                                      });
+                                                      conv = traceur.runtime.elementGet(args, 1).trim();
+                                                      args = ($__12 = header).slice.apply($__12, $__toObject(matchParens(args.index + traceur.runtime.elementGet(args, 0).length))).trim();
+                                                      console.log(("Import " + x.name + "(" + args + ")@" + analyzer.arch.inspect(x.addr)));
+                                                      if (!args || args == 'void' || conv == '__cdecl') args = 0; else args = args.split(',').length * 4;
+                                                      x.block = new analyzer.Block({
+                                                        returns: true,
+                                                        stackMaxAccess: 4 + args
+                                                      });
+                                                      x.block.emit('returnPoint', x.block);
+                                                      if (bin.arch == 'x86') {
+                                                        try {
+                                                          throw undefined;
+                                                        } catch (argVals) {
+                                                          argVals = [];
+                                                          {
+                                                            try {
+                                                              throw undefined;
+                                                            } catch ($i) {
+                                                              $i = 0;
+                                                              for (; $i < args; $i += 4) {
+                                                                try {
+                                                                  throw undefined;
+                                                                } catch (i) {
+                                                                  i = $i;
+                                                                  try {
+                                                                    try {
+                                                                      throw undefined;
+                                                                    } catch (arg) {
+                                                                      arg = analyzer.arch.Mem(analyzer.arch.Add(traceur.runtime.elementGet(x.block.SP0, 0), 4 + i));
+                                                                      arg.bitsof = 32;
+                                                                      argVals.push(arg);
+                                                                    }
+                                                                  } finally {
+                                                                    $i = i;
+                                                                  }
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                          x.block.R.EAX.value = {
+                                                            args: argVals,
                                                             inspect: (function() {
-                                                              return x.name + '(' + args.map((function(a) {
-                                                                return analyzer.arch.inspect(a);
-                                                              })).join(', ') + ')';
-                                                            })
+                                                              return x.name;
+                                                            }),
+                                                            get value() {
+                                                              var args = argVals.map((function(a) {
+                                                                return analyzer.arch.valueof(a);
+                                                              }));
+                                                              return {
+                                                                args: args,
+                                                                inspect: (function() {
+                                                                  return x.name + '(' + args.map((function(a) {
+                                                                    return analyzer.arch.inspect(a);
+                                                                  })).join(', ') + ')';
+                                                                })
+                                                              };
+                                                            }
                                                           };
+                                                          x.block.SP.value = analyzer.arch.Add(traceur.runtime.elementGet(x.block.SP0, 0), args + 4);
                                                         }
-                                                      };
-                                                      x.block.SP.value = analyzer.arch.Add(traceur.runtime.elementGet(x.block.SP0, 0), args + 4);
+                                                      }
+                                                      return;
                                                     }
                                                   }
-                                                  return;
                                                 }
                                               }
                                             }
                                           } finally {
-                                            if ($__1.close) $__1.close();
+                                            if ($__2.close) $__2.close();
                                           }
                                         }
                                         console.error('Unknown import ' + x.name);
                                       }));
                                       console.groupEnd();
                                       {
-                                        $__5 = analyzer.arch.Mem;
-                                        read = $__5.read;
-                                        write = $__5.write;
+                                        $__7 = analyzer.arch.Mem;
+                                        read = $__7.read;
+                                        write = $__7.write;
                                       }
                                       analyzer.arch.Mem.read = (function(addr, bits) {
-                                        var $__10;
+                                        var $__13;
                                         if (bits == 32) {
                                           try {
                                             throw undefined;
@@ -1445,21 +1515,21 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                           }
                                         }
                                         {
-                                          var $__1 = traceur.runtime.getIterator(sections);
+                                          var $__2 = traceur.runtime.getIterator(sections);
                                           try {
-                                            while ($__1.moveNext()) {
+                                            while ($__2.moveNext()) {
                                               try {
                                                 throw undefined;
                                               } catch (x) {
-                                                x = $__1.current;
+                                                x = $__2.current;
                                                 if (x.addr <= addr && addr < x.addr + x.size) {
                                                   if (x.srwx & 2) return;
-                                                  return ($__10 = bin.buffer, traceur.runtime.elementGet($__10, 'readUInt' + bits + (bits == 8 ? '': 'LE')).call($__10, addr - x.addr + x.offset));
+                                                  return ($__13 = bin.buffer, traceur.runtime.elementGet($__13, 'readUInt' + bits + (bits == 8 ? '': 'LE')).call($__13, addr - x.addr + x.offset));
                                                 }
                                               }
                                             }
                                           } finally {
-                                            if ($__1.close) $__1.close();
+                                            if ($__2.close) $__2.close();
                                           }
                                         }
                                         return read(addr, bits);
