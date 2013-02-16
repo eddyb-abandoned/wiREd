@@ -234,14 +234,14 @@ let makeAnalyzer = (arch)=>{
                                 targetBlock.R0[i].value = R[i].value;
                                 r.push(inspect(R[i]));
                             }
-                        if(r.length)
-                            console.log('->₀', r.join(', '));
+                        //if(r.length)
+                        //    console.log('->₀', r.join(', '));
                     }
                     for(let i in R)
                         if(this.SPdiffAll(R[i].value)[1] isnt NaN) {
                             changedR0[i] = targetBlock.R0[i].value;
                             targetBlock.R0[i].value = R[i].value;
-                            console.log('->', R[i], '=', R[i].value);
+                            //console.log('->', R[i], '=', R[i].value);
                         }
 
                     // HACK apply SP-relative changes to registers.
@@ -284,7 +284,7 @@ let makeAnalyzer = (arch)=>{
                         if(SP0) {
                             this.op(valueof(Mov(R[i], Add(SP0, SPdiff))));
                             updatedR.push(i);
-                            console.log('<-', R[i], '=', R[i].value, '//', inspect(targetBlock.returnPoints[0].R[i].value));
+                            //console.log('<-', R[i], '=', R[i].value, '//', inspect(targetBlock.returnPoints[0].R[i].value));
                         }
                     }
 

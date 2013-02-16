@@ -455,7 +455,6 @@ var makeAnalyzer = (function(arch) {
                               }
                             }
                           }
-                          if (r.length) console.log('->₀', r.join(', '));
                         }
                       }
                       for (var $i in R) {
@@ -466,7 +465,6 @@ var makeAnalyzer = (function(arch) {
                           if (traceur.runtime.isnt(traceur.runtime.elementGet(this.SPdiffAll(R[i].value), 1), NaN)) {
                             traceur.runtime.elementSet(changedR0, i, traceur.runtime.elementGet(targetBlock.R0, i).value);
                             traceur.runtime.elementGet(targetBlock.R0, i).value = traceur.runtime.elementGet(R, i).value;
-                            console.log('->', traceur.runtime.elementGet(R, i), '=', traceur.runtime.elementGet(R, i).value);
                           }
                         }
                       }
@@ -550,7 +548,6 @@ var makeAnalyzer = (function(arch) {
                               if (SP0) {
                                 this.op(valueof(Mov(traceur.runtime.elementGet(R, i), Add(SP0, SPdiff))));
                                 updatedR.push(i);
-                                console.log('<-', traceur.runtime.elementGet(R, i), '=', traceur.runtime.elementGet(R, i).value, '//', inspect(traceur.runtime.elementGet(targetBlock.returnPoints[0].R, i).value));
                               }
                             }
                           }
