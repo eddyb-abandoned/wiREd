@@ -1388,7 +1388,7 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                         });
                                         imports.push(x);
                                         var fn = x.name;
-                                        if (isWin) fn = fn.replace(/^[a-z0-9]+\.dll_/i, '');
+                                        if (isWin) fn = fn.replace(/^[a-z0-9]+\.(dll|drv)_/i, '');
                                         var args, fnRE = new RegExp('(__cdecl\\s+|)\\b' + fn.replace(/[?*+]/g, '\\$&') + '\\b\\s*\\(');
                                         {
                                           var $__2 = traceur.runtime.getIterator(importHeaders);
@@ -1446,7 +1446,8 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                                       conv = traceur.runtime.elementGet(args, 1).trim();
                                                       args = ($__12 = header).slice.apply($__12, $__toObject(matchParens(args.index + traceur.runtime.elementGet(args, 0).length))).trim();
                                                       console.log(("Import " + x.name + "(" + args + ")@" + analyzer.arch.inspect(x.addr)));
-                                                      if (!args || args == 'void' || conv == '__cdecl') args = 0; else args = args.split(',').length * 4;
+                                                      x.args = args;
+                                                      if (!args || args == 'void') args = 0; else args = args.split(',').length * 4;
                                                       x.block = new analyzer.Block({
                                                         returns: true,
                                                         stackMaxAccess: 4 + args
@@ -1501,6 +1502,7 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                                               };
                                                             }
                                                           };
+                                                          if (conv == '__cdecl') args = 0;
                                                           x.block.SP.value = analyzer.arch.Add(traceur.runtime.elementGet(x.block.SP0, 0), args + 4);
                                                         }
                                                       }
@@ -1533,7 +1535,7 @@ if (process.argv.length < 3) console.error('Usage: analyzer FILE'), process.exit
                                               fn: 'Function',
                                               block: imp.block,
                                               inspect: (function() {
-                                                return imp.name + ' (' + imp.bind + ' ' + imp.type + ')';
+                                                return imp.name + (traceur.runtime.elementHas(imp, 'args') ? '(' + imp.args + ')': '');
                                               })
                                             };
                                           }

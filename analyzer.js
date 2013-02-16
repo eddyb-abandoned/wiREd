@@ -722,7 +722,7 @@ if(process.argv.length < 3)
 
         var fn = x.name;
         if(isWin)
-            fn = fn.replace(/^[a-z0-9]+\.dll_/i, '');
+            fn = fn.replace(/^[a-z0-9]+\.(dll|drv)_/i, '');
         var args, fnRE = new RegExp('(__cdecl\\s+|)\\b'+fn.replace(/[?*+]/g, '\\$&')+'\\b\\s*\\(');
         for(let header of importHeaders)
             if(args = fnRE.exec(header)) {
@@ -740,7 +740,8 @@ if(process.argv.length < 3)
                 let conv = args[1].trim();
                 args = header.slice(...matchParens(args.index+args[0].length)).trim();
                 console.log(`Import ${x.name}(${args})@${analyzer.arch.inspect(x.addr)}`);
-                if(!args || args == 'void' || conv == '__cdecl')
+                x.args = args;
+                if(!args || args == 'void')
                     args = 0;
                 else
                     args = args.split(',').length*4; // HACK Assuming 32bit arguments.
@@ -758,7 +759,9 @@ if(process.argv.length < 3)
                         let args = argVals.map((a)=>analyzer.arch.valueof(a));
                         return {args, inspect: ()=>x.name+'('+args.map((a)=>analyzer.arch.inspect(a)).join(', ')+')'};
                     }};
-                    x.block.SP.value = analyzer.arch.Add(x.block.SP0[0], args+4); // HACK Assuming stdcall (callee cleans the stack).
+                    if(conv == '__cdecl')
+                        args = 0;
+                    x.block.SP.value = analyzer.arch.Add(x.block.SP0[0], args+4); // HACK Assuming stdcall by default (callee cleans the stack).
                 }
                 return;
             }
@@ -771,7 +774,7 @@ if(process.argv.length < 3)
         if(bits == 32) {
             let imp = importsByAddr[addr];
             if(imp)
-                return {fn: 'Function', block: imp.block, inspect: ()=>imp.name+' ('+imp.bind+' '+imp.type+')'};
+                return {fn: 'Function', block: imp.block, inspect: ()=>imp.name+('args' in imp ? '('+imp.args+')' : '')};
         }
         for(let x of sections)
             if(x.addr <= addr && addr < x.addr+x.size) {
