@@ -18,7 +18,7 @@ Object.defineProperties(Number.prototype, {
     }}
 });
 function bitsof(x, fatal) {
-  if (typeof x === 'object' && known(x.bitsof)) return x.bitsof;
+  if (typeof x === 'object' && x.bitsof && x.bitsof.runtimeKnown) return x.bitsof;
   if (fatal) throw new TypeError('Missing bit size for ' + inspect(x)); else console.error('Missing bit size for ' + inspect(x));
 }
 function sizeof(x, fatal) {
@@ -31,11 +31,13 @@ codeGen.runtime = ["var util = require('util');", "var known = exports.known = f
     throw undefined;
   } catch (fn) {
     fn = {};
+    codeGen.runtime.push("var uint = [], int = [];");
     codeGen.int = (function(bits, signed) {
+      if (!known(bits)) return (signed ? 'int': 'uint') + '[' + bits.code + ']';
       var id = (signed ? 'i': 'u') + bits;
       if (!traceur.runtime.elementGet(fn, id)) {
         traceur.runtime.elementSet(fn, id, true);
-        codeGen.runtime.push(("function " + id + "(x) {\n    if(known(x))\n        return " + (signed ? (bits == codeGen.intBits ? '(x&~0)': '((x<<' + (codeGen.intBits - bits) + ')>>' + (codeGen.intBits - bits) + ')'): (bits == codeGen.intBits ? '((x = x&~0), (x = x < 0 ? x+0x100000000 : x))': '(x&0x' + ((1 << bits) - 1).toString(16) + ')')) + ";\n    if(x.bitsof === " + bits + " && x.signed === " + signed + ")\n        return x;\n    if(x.hasOwnProperty('fn') && x.fn == 'Mem')" + (signed ? '': ' {') + "\n        x.bitsof = " + bits + ";" + (signed ? '': ("\n        return Object.create(x, {\n            value: {get: function() {\n                var v = valueof(x);\n                if(v !== x)\n                    return v.fn == 'Mem' ? " + id + "(v) : v;\n            }, set: function(v) {\n                x.value = v;\n            }},\n            lvalue: {get: function() {\n                var v = lvalueof(x);\n                if(v !== x)\n                    return v.fn == 'Mem' ? " + id + "(v) : v;\n            }},\n        });\n    }")) + "\n    return Object.create(x, {\n        bitsof: {value: " + bits + "},\n        signed: {value: " + signed + "},\n        value: {get: function() {\n            var v = valueof(x);\n            if(v !== x)\n                return " + id + "(v);\n        }, set: function(v) {\n            x.value = v;\n        }},\n        lvalue: {get: function() {\n            if(x.fn != 'Mem')\n                return;\n            var v = lvalueof(x);\n            if(v !== x)\n                return " + id + "(v);\n        }},\n        inspect: {value: function(_, p) {\n            var wrap = ('bitsof' in x) && x.bitsof != " + bits + ";\n            var ix = x.inspect ? x.inspect.call(this, _, !wrap && p || 16) : inspect(x, !wrap && p);\n            return wrap ? '" + id + "('+ix+')' : ix;\n        }}\n    });\n}"));
+        codeGen.runtime.push(("var " + id + " = " + (signed ? '': 'u') + "int[" + bits + "] = function " + id + "(x) {\n    if(known(x))\n        return " + (signed ? (bits == codeGen.intBits ? '(x&~0)': '((x<<' + (codeGen.intBits - bits) + ')>>' + (codeGen.intBits - bits) + ')'): (bits == codeGen.intBits ? '((x = x&~0), (x = x < 0 ? x+0x100000000 : x))': '(x&0x' + ((1 << bits) - 1).toString(16) + ')')) + ";\n    if(x.bitsof === " + bits + " && x.signed === " + signed + ")\n        return x;\n    if(x.hasOwnProperty('fn') && x.fn == 'Mem')" + (signed ? '': ' {') + "\n        x.bitsof = " + bits + ";" + (signed ? '': ("\n        return Object.create(x, {\n            value: {get: function() {\n                var v = valueof(x);\n                if(v !== x)\n                    return v.fn == 'Mem' ? " + id + "(v) : v;\n            }, set: function(v) {\n                x.value = v;\n            }},\n            lvalue: {get: function() {\n                var v = lvalueof(x);\n                if(v !== x)\n                    return v.fn == 'Mem' ? " + id + "(v) : v;\n            }},\n        });\n    }")) + "\n    return Object.create(x, {\n        bitsof: {value: " + bits + "},\n        signed: {value: " + signed + "},\n        value: {get: function() {\n            var v = valueof(x);\n            if(v !== x)\n                return " + id + "(v);\n        }, set: function(v) {\n            x.value = v;\n        }},\n        lvalue: {get: function() {\n            if(x.fn != 'Mem')\n                return;\n            var v = lvalueof(x);\n            if(v !== x)\n                return " + id + "(v);\n        }},\n        inspect: {value: function(_, p) {\n            var wrap = ('bitsof' in x) && x.bitsof != " + bits + ";\n            var ix = x.inspect ? x.inspect.call(this, _, !wrap && p || 16) : inspect(x, !wrap && p);\n            return wrap ? '" + id + "('+ix+')' : ix;\n        }}\n    });\n}"));
       }
       return id;
     });
@@ -69,9 +71,9 @@ codeGen.mark = (function(a, props) {
       })}});
 });
 codeGen.normalize = (function(a) {
-  if (typeof a.bitsof !== 'number' || typeof a.signed !== 'boolean') return codeGen.mark(a);
+  if (typeof a.bitsof !== 'number' && !(a.bitsof && a.bitsof.runtimeKnown) || typeof a.signed !== 'boolean') return codeGen.mark(a);
   var bits = bitsof(a, true), props = {};
-  if (a.runtimeKnown) {
+  if (a.runtimeKnown && known(bits)) {
     if (a.signed) {
       if (bits == codeGen.intBits) props.code = {get: (function() {
           return '(' + a.code + '&~0)';
@@ -296,6 +298,7 @@ var binaryOps = {
   Swap: '<->',
   Add: '+',
   Mul: '*',
+  Div: '/',
   And: '&',
   Or: '|',
   Xor: '^',
@@ -425,6 +428,8 @@ function Var(name, pos, len, bigEndian) {
 exports.totals = 0;
 exports.maps = {};
 exports.op = function op(def, fn) {
+  var actualLengthBias = traceur.runtime.elementHas((traceur.runtime.elementGet(arguments, 2) !== (void 0) ? traceur.runtime.elementGet(arguments, 2): {}), "actualLengthBias") ? (traceur.runtime.elementGet(arguments, 2) !== (void 0) ? traceur.runtime.elementGet(arguments, 2): {}).actualLengthBias: 0;
+  if (!actualLengthBias.runtimeKnown) throw new Error('actualLengthBias should be runtimeKnown');
   var ct = [], vars = [], nBits = 0;
   def.forEach((function(x) {
     var n = x.length, bits = x.match(/[A-Z][a-z$]*_*|./g);
@@ -443,14 +448,15 @@ exports.op = function op(def, fn) {
     res = res.filter((function(x) {
       return x;
     }));
+    res.unshift(Add(nBits / 8, actualLengthBias));
     res.forEach((function(x) {
       return x.touch && x.touch();
     }));
-    function niceCT(ct) {
+    var niceCT = (function(ct) {
       var s = '';
       for (var i = nBits - 1; i >= 0; i--) s += typeof traceur.runtime.elementGet(ct, i) === 'number' ? traceur.runtime.elementGet(ct, i): 'x';
       return s;
-    }
+    });
     ct = niceCT(ct);
     var ctMask = ct.replace(/[01]/g, 'K');
     this.totals += 100 / Math.pow(2, ctMask.split('').reduce((function(a, b) {
@@ -542,7 +548,7 @@ exports.out = function out(outFile, fn) {
       console.log('    \'' + j + '\': ', traceur.runtime.elementGet(v, j));
       val = '0x' + (parseInt(j.slice(cstart, ct.length - cend).replace(/[^01]/g, '0'), 2) & mask).toString(16);
       codeGen.runtime.vars = 0;
-      code += '\tcase ' + val + ': return [' + ct.length / 8 + ', ' + traceur.runtime.elementGet(v, j).map((function(x) {
+      code += '\tcase ' + val + ': return [' + traceur.runtime.elementGet(v, j).map((function(x) {
         return x.code;
       })).join(',') + '];\n';
       codeGen.runtime.vars = 0;

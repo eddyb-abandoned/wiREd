@@ -23,7 +23,7 @@ Object.defineProperties(Number.prototype, {
 });
 
 function bitsof(x, fatal) {
-    if(typeof x === 'object' && known(x.bitsof))
+    if(typeof x === 'object' && x.bitsof && x.bitsof.runtimeKnown)
         return x.bitsof;
     if(fatal)
         throw new TypeError('Missing bit size for '+inspect(x));
@@ -87,12 +87,15 @@ codeGen.runtime = [
 
 {
     let fn = {};
+    codeGen.runtime.push(`var uint = [], int = [];`);
     codeGen.int = (bits, signed)=>{
+        if(!known(bits)) // HACK allows for runtime variable bit sizes.
+            return (signed ? 'int' : 'uint')+'['+bits.code+']';
         var id = (signed ? 'i' : 'u')+bits;
         if(!fn[id]) {
             fn[id] = true;
 //BEGIN runtime
-codeGen.runtime.push(`function ${id}(x) {
+codeGen.runtime.push(`var ${id} = ${signed ? '' : 'u'}int[${bits}] = function ${id}(x) {
     if(known(x))
         return ${signed ? (bits == codeGen.intBits ? '(x&~0)' : '((x<<'+(codeGen.intBits-bits)+')>>'+(codeGen.intBits-bits)+')')
                         : (bits == codeGen.intBits ? '((x = x&~0), (x = x < 0 ? x+0x100000000 : x))' : '(x&0x'+((1<<bits)-1).toString(16)+')')};
@@ -179,10 +182,10 @@ codeGen.mark = (a, props)=>{
 };
 
 codeGen.normalize = (a)=>{
-    if(typeof a.bitsof !== 'number' || typeof a.signed !== 'boolean') // FIXME this might skip some normalizations.
+    if(typeof a.bitsof !== 'number' && !(a.bitsof && a.bitsof.runtimeKnown) || typeof a.signed !== 'boolean') // FIXME this might skip some normalizations.
         return codeGen.mark(a);
     var bits = bitsof(a, true), props = {};
-    if(a.runtimeKnown) {
+    if(a.runtimeKnown && known(bits)) {
         if(a.signed) {
             if(bits == codeGen.intBits)
                 props.code = {get: ()=>'('+a.code+'&~0)'};
@@ -428,7 +431,7 @@ codeGen.runtime.push(`function Neg(a) {
 
 var binaryOps = {
     Mov:'=', Swap:'<->',
-    Add:'+', Mul:'*',
+    Add:'+', Mul:'*', Div:'/',
     And:'&', Or:'|', Xor:'^',
     Eq:'==', Lt:'<',
     LSL:'<<', LSR:'>>>', ASR:'>>'
@@ -607,7 +610,9 @@ function Var(name, pos, len, bigEndian) {
 }
 exports.totals = 0;
 exports.maps = {};
-exports.op = function op(def, fn) {
+exports.op = function op(def, fn, {actualLengthBias=0}={}) {
+    if(!actualLengthBias.runtimeKnown)
+        throw new Error('actualLengthBias should be runtimeKnown');
     var ct = [], vars = [], nBits = 0;
     def.forEach((x)=>{
         var n = x.length, bits = x.match(/[A-Z][a-z$]*_*|./g);
@@ -630,13 +635,14 @@ exports.op = function op(def, fn) {
         if(!res)
             return;
         res = res.filter((x)=>x);
+        res.unshift(Add(nBits/8, actualLengthBias));
         res.forEach((x)=>x.touch && x.touch());
-        function niceCT(ct) {
+        let niceCT = (ct)=>{
             var s = '';
             for(var i = nBits-1; i >= 0; i--)
                 s += typeof ct[i] === 'number' ? ct[i] : 'x';
             return s;
-        }
+        };
         ct = niceCT(ct);
         var ctMask = ct.replace(/[01]/g, 'K');
         this.totals += 100/Math.pow(2, ctMask.split('').reduce((a, b)=>a+(b=='K'), 0));
@@ -718,7 +724,7 @@ exports.out = function out(outFile, fn) {
                 console.log('    \''+j+'\': ', v[j]);
                 val = '0x'+(parseInt(j.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'), 2)&mask).toString(16);
                 codeGen.runtime.vars = 0;
-                code += '\tcase '+val+': return ['+ct.length/8+', '+v[j].map((x)=>x.code).join(',')+'];\n';
+                code += '\tcase '+val+': return ['+v[j].map((x)=>x.code).join(',')+'];\n';
                 codeGen.runtime.vars = 0;
             }
         console.log('  }');

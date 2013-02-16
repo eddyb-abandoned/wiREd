@@ -9,12 +9,17 @@ Number.prototype.toBinary = function(n=-1) {
 
 let raw = ({raw: s}, ...args)=>s.map((x, i)=>i?args[i-1]+x:x).join('');
 
-let R = (reg, bits=32, type=''+bits)=>({bitsof: bits, signed: false, inspect: ()=>'r'+inspect(reg)+'/'+bits, get code() {return 'R'+type+'['+reg.code+']';}});
-dis.codeGen.runtime.push(`var R = exports.R = {}, R8 = [], R16 = [], R32 = [], RS = [], RFLAGS = [];`);
+let R = (reg, bits=32, type=bits)=>({bitsof: bits, signed: false, inspect: ()=>'r'+inspect(reg)+'/'+bits, get code() {
+    if(typeof type === 'string')
+        return 'R_.'+type+'['+reg.code+']';
+    return 'R_['+type.code+']['+reg.code+']';
+}});
+dis.codeGen.runtime.push(`var R = exports.R = {}, R_ = [];`);
+dis.codeGen.runtime.push(`R_[8] = []; R_[16] = []; R_[32] = []; R_.S = []; R_.FLAGS = [];`);
 {
-    let r = (name, reg, bits=32, type=''+bits)=>{
+    let r = (name, reg, bits=32, type=bits)=>{
         R[name] = R(reg, bits, type);
-        dis.codeGen.runtime.push(`R.${name} = R${type}[${reg}] = {bitsof: ${bits}, signed: false, inspect: function() {return '${name}';}};`);
+        dis.codeGen.runtime.push(`R.${name} = R_${typeof type === 'string'?'.'+type:'['+type+']'}[${reg}] = {bitsof: ${bits}, signed: false, inspect: function() {return '${name}';}};`);
     };
     'ACDB'.split('').forEach((x,i)=>{
         r(x+'L',    i, 8);
@@ -51,7 +56,7 @@ let Cond = {
 };
 function _op(def, b, fn) {
     b = b.map((x)=>x.toBinary(8));
-    var args = [], hasModRM, ModRM, immIdx, byteLen, imm = [], ctReg = false, reg = 'Reg';
+    var args = [], hasModRM, ModRM, immIdx, immLengthBias = 0, byteLen, imm = [], ctReg = false, reg = 'Reg';
     def = def.replace(/^reg=(\d+):/i, (s, x)=>((ctReg = true, reg = (+x).toBinary(3)), ''));
     var getBits = (s)=>{ // FIXME 16bit 64bit.
         if(s == 'b') return 8;
@@ -74,9 +79,11 @@ function _op(def, b, fn) {
             if(!/^[A-Z][a-z]$/.test(x))
                 throw new TypeError('Unimplemented operand specifier '+x);
             let kind = x[0], bits = getBits(x[1]);
-            if(kind == 'E')
+            if(kind == 'E') {
+                if(x[1] == 'v') // HACK operand size prefix (66).
+                    bits = {code: '(_pfxSizeSpecifier ? 16 : 32)', runtimeKnown: true};
                 hasModRM = 1, args[i] = (...args)=>ModRM(bits, ...args.slice(ctReg?0:1));
-            else if(kind == 'G')
+            } else if(kind == 'G')
                 hasModRM = 1, args[i] = (reg)=>R(reg, bits);
             else if(kind == 'S')
                 hasModRM = 1, args[i] = (reg)=>R(reg, bits, 'S');
@@ -88,7 +95,13 @@ function _op(def, b, fn) {
                 args[i] = ()=>IntSize(Mem(R.EDI), bits);
             else if(kind == 'I') {
                 let j = imm.push(['Imm_____', 'Imm_____________', null, 'Imm_____________________________'][bits/8-1])-1;
-                args[i] = ()=>signed(arguments[immIdx+j]);
+                if(x[1] == 'z') { // HACK operand size prefix (66).
+                    bits = {code: '(_pfxSizeSpecifier ? 16 : 32)', bitsof: 32, runtimeKnown: true};
+                    if(immLengthBias)
+                        throw new Error('Multiple variable-length immediate fields');
+                    immLengthBias = {code: '(_pfxSizeSpecifier ? -2 : 0)', bitsof: 32, runtimeKnown: true};
+                }
+                args[i] = ()=>IntSizeSigned(arguments[immIdx+j], bits, true);
             } else if(kind == 'J') { // FIXME negative offsets.
                 let j = imm.push(['Imm_____', 'Imm_____________', null, 'Imm_____________________________'][bits/8-1])-1;
                 args[i] = ()=>Add(R.EIP, Add(signed(arguments[immIdx+j]), byteLen));
@@ -101,13 +114,13 @@ function _op(def, b, fn) {
     });
     let op = (mid=[], n=0, modRM=null)=>{
         immIdx = n + (!ctReg && hasModRM ? 1 : 0);
-        var bytes = b.concat(mid).concat(imm);
-        byteLen = bytes.join('').length / 8;
+        var bytes = b.concat(mid).concat(imm), actualLengthBias = Add({code: '_pfxLength', bitsof: 32, runtimeKnown: true}, immLengthBias);
+        byteLen = Add(bytes.join('').length / 8, actualLengthBias);
         ModRM = modRM;
         return dis.op(bytes, (...a)=>{
             var res = fn(...args.map((x)=>x(...a)));
             return Array.isArray(res) ? res : [res];
-        });
+        }, {actualLengthBias});
     }
     if(!hasModRM)
         op();
@@ -158,8 +171,8 @@ let NEG = (x, v=Neg(x))=>[Mov(F.C, v.CF), Mov(x, v)/*HACK out-of-order so the up
 let CMP = (a, b, v=Sub(a, b))=>[Mov(F.Z, v.ZF || Eq(v, 0)), Mov(F.C, v.CF || 0)]; // FIXME all teh flags.
 let SUB = (a, b, v=Sub(a, b))=>[Mov(F.Z, v.ZF || Eq(v, 0)), Mov(F.C, v.CF || 0), Mov(a, v)/*HACK out-of-order so the updated value isn't used*/]; // FIXME all teh flags.
 let TEST = (a, b, v=And(a, b))=>[Mov(F.Z, v.ZF || Eq(v, 0)), Mov(F.C, 0), Mov(F.O, 0)]; // FIXME all teh flags.
-let PUSH = (x, bits=bitsof(x, true))=>[Mov(R.ESP, Sub(R.ESP, bits/8)), Mov(IntSize(Mem(R.ESP), bits), x)];
-let POP =  (x, bits=bitsof(x, true))=>[Mov(x, IntSize(Mem(R.ESP), bits)), Mov(R.ESP, Add(R.ESP, bits/8))];
+let PUSH = (x, bits=bitsof(x, true))=>[Mov(R.ESP, Sub(R.ESP, LSR(bits, 3))), Mov(IntSize(Mem(R.ESP), bits), x)];
+let POP =  (x, bits=bitsof(x, true))=>[Mov(x, IntSize(Mem(R.ESP), bits)), Mov(R.ESP, Add(R.ESP, LSR(bits, 3)))];
 let INT = Interrupt;
 let JMPN = (j)=>Mov(R.EIP, j), CALLN = (EIP, j)=>[...PUSH(EIP), Mov(R.EIP, j)];
 let MOVSX = (a, b)=>Mov(a, IntSizeSigned(b, bitsof(a), true));
@@ -200,13 +213,16 @@ _`58:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI`(POP);/*d64*/
 ///\60-6F
 // TODO more opcodes.
 _`68:Iz`(PUSH);/*d64*/
+_`69:Gv Ev Iz`((a, b, c)=>Mov(a, Mul(b, c))); // FIXME IMUL (signed)
 _`6A:Ib`((x)=>PUSH(u32(x)));/*d64*/
+_`6B:Gv Ev Ib`((a, b, c)=>Mov(a, Mul(b, i32(c)))); // FIXME IMUL (signed)
 
 ///\70-7F
 Object.keys(Cond).map((x, i)=>_`Jb`(0x70+i, (j)=>If(Cond[x](), JMPN(j))));
 
 ///\80-8F
-[ADD, OR, ADC, SBB, (a, b)=>AND(a, IntSizeSigned(b, bitsof(a), false)) /* HACK forces proper behavior for u32 &= imm8.*/, SUB, XOR, CMP].map((fn, i)=>_`80:reg=${i}:Eb Ib;Ev Iz;Eb Ib;Ev Ib`(fn));/*82 i64*/
+/* HACK forces proper behavior for u32 op= imm8 for OR and AND.*/
+[ADD, (a, b)=>OR(a, IntSizeSigned(b, bitsof(a), false)), ADC, SBB, (a, b)=>AND(a, IntSizeSigned(b, bitsof(a), false)), SUB, XOR, CMP].map((fn, i)=>_`80:reg=${i}:Eb Ib;Ev Iz;Eb Ib;Ev Ib`(fn));/*82 i64*/
 _`84:Eb Gb;Ev Gv`(TEST); _`86:Eb Gb;Ev Gv`(Swap);
 _`88:Eb Gb;Ev Gv;Gb Eb;Gv Ev`(Mov);
 _`8C:Ev Sw`(Mov); _`8D:Gv M`((a, b)=>Mov(a, b.a)); _`8E:Sw Ew`(Mov);
@@ -215,14 +231,17 @@ _`8F:reg=0:Ev`(POP);
 ///\90-9F
 _`90:`(Nop);
 _`91:rAX rCX;rAX rDX;rAX rBX;rAX rSP;rAX rBP;rAX rSI;rAX rDI`(Swap);
+_`99:rDX rAX`((a, b)=>Mov(a, Neg(IntSizeSigned(Lt(b, 0), bitsof(a), true))));
 _`9C:Fv`(PUSH);
 
 ///\A0-AF
 // TODO more opcodes.
 _`A0:AL Ob;rAX Ov;Ob AL;Ov rAX`(Mov);
+_`A4:Xb Yb;Xv Yv`(Mov); // FIXME MOVS.
 _`A8:AL Ib;rAX Iz`(TEST);
-_`AA:Yb AL;Yv rAX`(Mov);
-_`AC:AL Xb;rAX Xv`(Mov);
+_`AA:Yb AL;Yv rAX`(Mov); // FIXME STOS.
+_`AC:AL Xb;rAX Xv`(Mov); // FIXME LDOS.
+_`AE:AL Yb;rAX Xv`(CMP); // FIXME SCAS.
 
 ///\B0-BF
 _`B0:AL Ib;CL Ib;DL Ib;BL Ib;AH Ib;CH Ib;DH Ib;BH Ib`(Mov);
@@ -256,6 +275,8 @@ _`F6:reg=0:Eb Ib;Ev Iz`(TEST);
 [NOT, NEG, /*MUL IMUL DIV IDIV AL/rAX*/].map((fn, i)=>_`F6:reg=${i+2}:Eb;Ev`(fn));
 _`F6:reg=4:AX AL Eb;EAX EAX Ev`((d, s1, s2)=>Mov(d, Mul(s1, s2))); // FIXME EDX:EAX.
 _`F6:reg=5:AX AL Eb;EAX EAX Ev`((d, s1, s2)=>Mov(d, Mul(s1, s2))); // FIXME EDX:EAX. IMUL (signed)
+_`F6:reg=6:AX AL Eb;EAX EAX Ev`((d, s1, s2)=>Mov(d, Div(s1, s2))); // FIXME EDX:EAX.
+_`F6:reg=7:AX AL Eb;EAX EAX Ev`((d, s1, s2)=>Mov(d, Div(s1, s2))); // FIXME EDX:EAX. IDIV (signed)
 _`F8:`(()=>Mov(F.C, 0)); _`F9:`(()=>Mov(F.C, 1));
 _`FA:`(()=>Mov(F.I, 0)); _`FB:`(()=>Mov(F.I, 1));
 _`FC:`(()=>Mov(F.D, 0)); _`FD:`(()=>Mov(F.D, 1));
@@ -286,15 +307,12 @@ dis.out(__dirname+'/arch-x86.js', (code)=>raw`/** @file arch-x86.js This file wa
 ${dis.codeGen.runtime.join('\n')}
 exports.dis = function x86dis(b, i) {
     // HACK allows skipping prefixes.
-    var pfx = 0;
-    for(; b[i] >= 0x64 && b[i] <= 0x67 || b[i] == 0xF2 || b[i] == 0xF3; i++, pfx++)
-        console.error('[PREFIX] '+b[i].toString(16).toUpperCase());
-    if(pfx) {
-        var r = x86dis(b, i);
-        if(!r || r.length < 1)
-            return r;
-        r[0] += pfx;
-        return r;
+    var _pfxLength = 0, _pfxSizeSpecifier = false;
+    for(; b[i] >= 0x64 && b[i] <= 0x67 || b[i] == 0xF2 || b[i] == 0xF3; i++, _pfxLength++) {
+        if(b[i] == 0x66)
+            _pfxSizeSpecifier = true;
+        else
+            console.error('[PREFIX] '+b[i].toString(16).toUpperCase());
     }
     ${code}
 }
