@@ -293,6 +293,8 @@ Object.keys(Cond).map((x, i)=>_`Eb`([0x0F, 0x90+i], (a)=>Mov(a, Cond[x]())));
 
 ///\0FA0-0FAF
 _`0FA2:`(Nop); // FIXME CPUID
+_`0FA3:Ev Gv`((a, b)=>Mov(F.C, Not(Eq(And(a, LSL(1, b)), 0)))); // HACK Not(Eq(x, 0)) is an ugly hack for bool(x).
+_`0FAB:Ev Gv`((a, b)=>[Mov(F.C, Not(Eq(And(a, LSL(1, b)), 0))), Mov(a, Or(a, LSL(1, b)))]); // HACK Not(Eq(x, 0)) is an ugly hack for bool(x).
 _`0FAC:Ev Gv Ib;Ev Gv CL`(opMov((dest, src, count)=>Or(LSR(dest, count), And(src, LSL(Sub(u32(LSL(1, count)), 1), Sub(32, count))))));
 _`0FAF:Gv Ev`((a, b, sa=signed(a), sb=signed(b))=>Mov(sa, Mul(sa, sb)));
 

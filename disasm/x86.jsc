@@ -12,7 +12,7 @@ var $__toObject = function(value) {
   }
   return rv;
 };
-var $__0 = Object.freeze(Object.defineProperties(["00:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["00:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__1 = Object.freeze(Object.defineProperties(["06:ES"], {raw: {value: Object.freeze(["06:ES"])}})), $__2 = Object.freeze(Object.defineProperties(["07:ES"], {raw: {value: Object.freeze(["07:ES"])}})), $__3 = Object.freeze(Object.defineProperties(["08:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["08:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__4 = Object.freeze(Object.defineProperties(["0E:CS"], {raw: {value: Object.freeze(["0E:CS"])}})), $__5 = Object.freeze(Object.defineProperties(["10:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["10:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__6 = Object.freeze(Object.defineProperties(["16:SS"], {raw: {value: Object.freeze(["16:SS"])}})), $__7 = Object.freeze(Object.defineProperties(["17:SS"], {raw: {value: Object.freeze(["17:SS"])}})), $__8 = Object.freeze(Object.defineProperties(["18:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["18:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__9 = Object.freeze(Object.defineProperties(["1E:DS"], {raw: {value: Object.freeze(["1E:DS"])}})), $__10 = Object.freeze(Object.defineProperties(["1F:DS"], {raw: {value: Object.freeze(["1F:DS"])}})), $__11 = Object.freeze(Object.defineProperties(["20:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["20:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__12 = Object.freeze(Object.defineProperties(["28:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["28:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__13 = Object.freeze(Object.defineProperties(["30:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["30:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__14 = Object.freeze(Object.defineProperties(["38:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["38:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__15 = Object.freeze(Object.defineProperties(["40:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"], {raw: {value: Object.freeze(["40:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"])}})), $__16 = Object.freeze(Object.defineProperties(["48:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"], {raw: {value: Object.freeze(["48:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"])}})), $__17 = Object.freeze(Object.defineProperties(["50:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"], {raw: {value: Object.freeze(["50:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"])}})), $__18 = Object.freeze(Object.defineProperties(["58:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"], {raw: {value: Object.freeze(["58:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"])}})), $__19 = Object.freeze(Object.defineProperties(["68:Iz"], {raw: {value: Object.freeze(["68:Iz"])}})), $__20 = Object.freeze(Object.defineProperties(["69:Gv Ev Iz"], {raw: {value: Object.freeze(["69:Gv Ev Iz"])}})), $__21 = Object.freeze(Object.defineProperties(["6A:Ib"], {raw: {value: Object.freeze(["6A:Ib"])}})), $__22 = Object.freeze(Object.defineProperties(["6B:Gv Ev Ib"], {raw: {value: Object.freeze(["6B:Gv Ev Ib"])}})), $__23 = Object.freeze(Object.defineProperties(["Jb"], {raw: {value: Object.freeze(["Jb"])}})), $__24 = Object.freeze(Object.defineProperties(["80:reg=", ":Eb Ib;Ev Iz;Eb Ib;Ev Ib"], {raw: {value: Object.freeze(["80:reg=", ":Eb Ib;Ev Iz;Eb Ib;Ev Ib"])}})), $__25 = Object.freeze(Object.defineProperties(["84:Eb Gb;Ev Gv"], {raw: {value: Object.freeze(["84:Eb Gb;Ev Gv"])}})), $__26 = Object.freeze(Object.defineProperties(["86:Eb Gb;Ev Gv"], {raw: {value: Object.freeze(["86:Eb Gb;Ev Gv"])}})), $__27 = Object.freeze(Object.defineProperties(["88:Eb Gb;Ev Gv;Gb Eb;Gv Ev"], {raw: {value: Object.freeze(["88:Eb Gb;Ev Gv;Gb Eb;Gv Ev"])}})), $__28 = Object.freeze(Object.defineProperties(["8C:Ev Sw"], {raw: {value: Object.freeze(["8C:Ev Sw"])}})), $__29 = Object.freeze(Object.defineProperties(["8D:Gv M"], {raw: {value: Object.freeze(["8D:Gv M"])}})), $__30 = Object.freeze(Object.defineProperties(["8E:Sw Ew"], {raw: {value: Object.freeze(["8E:Sw Ew"])}})), $__31 = Object.freeze(Object.defineProperties(["8F:reg=0:Ev"], {raw: {value: Object.freeze(["8F:reg=0:Ev"])}})), $__32 = Object.freeze(Object.defineProperties(["90:"], {raw: {value: Object.freeze(["90:"])}})), $__33 = Object.freeze(Object.defineProperties(["91:rAX rCX;rAX rDX;rAX rBX;rAX rSP;rAX rBP;rAX rSI;rAX rDI"], {raw: {value: Object.freeze(["91:rAX rCX;rAX rDX;rAX rBX;rAX rSP;rAX rBP;rAX rSI;rAX rDI"])}})), $__34 = Object.freeze(Object.defineProperties(["99:rDX rAX"], {raw: {value: Object.freeze(["99:rDX rAX"])}})), $__35 = Object.freeze(Object.defineProperties(["9C:Fv"], {raw: {value: Object.freeze(["9C:Fv"])}})), $__36 = Object.freeze(Object.defineProperties(["A0:AL Ob;rAX Ov;Ob AL;Ov rAX"], {raw: {value: Object.freeze(["A0:AL Ob;rAX Ov;Ob AL;Ov rAX"])}})), $__37 = Object.freeze(Object.defineProperties(["A4:Xb Yb;Xv Yv"], {raw: {value: Object.freeze(["A4:Xb Yb;Xv Yv"])}})), $__38 = Object.freeze(Object.defineProperties(["A8:AL Ib;rAX Iz"], {raw: {value: Object.freeze(["A8:AL Ib;rAX Iz"])}})), $__39 = Object.freeze(Object.defineProperties(["AA:Yb AL;Yv rAX"], {raw: {value: Object.freeze(["AA:Yb AL;Yv rAX"])}})), $__40 = Object.freeze(Object.defineProperties(["AC:AL Xb;rAX Xv"], {raw: {value: Object.freeze(["AC:AL Xb;rAX Xv"])}})), $__41 = Object.freeze(Object.defineProperties(["AE:AL Yb;rAX Xv"], {raw: {value: Object.freeze(["AE:AL Yb;rAX Xv"])}})), $__42 = Object.freeze(Object.defineProperties(["B0:AL Ib;CL Ib;DL Ib;BL Ib;AH Ib;CH Ib;DH Ib;BH Ib"], {raw: {value: Object.freeze(["B0:AL Ib;CL Ib;DL Ib;BL Ib;AH Ib;CH Ib;DH Ib;BH Ib"])}})), $__43 = Object.freeze(Object.defineProperties(["B8:rAX Iv;rCX Iv;rDX Iv;rBX Iv;rSP Iv;rBP Iv;rSI Iv;rDI Iv"], {raw: {value: Object.freeze(["B8:rAX Iv;rCX Iv;rDX Iv;rBX Iv;rSP Iv;rBP Iv;rSI Iv;rDI Iv"])}})), $__44 = Object.freeze(Object.defineProperties(["C2:Iw"], {raw: {value: Object.freeze(["C2:Iw"])}})), $__45 = Object.freeze(Object.defineProperties(["C3:"], {raw: {value: Object.freeze(["C3:"])}})), $__46 = Object.freeze(Object.defineProperties(["C6:reg=0:Eb Ib;Ev Iz"], {raw: {value: Object.freeze(["C6:reg=0:Eb Ib;Ev Iz"])}})), $__47 = Object.freeze(Object.defineProperties(["C9:"], {raw: {value: Object.freeze(["C9:"])}})), $__48 = Object.freeze(Object.defineProperties(["CC:"], {raw: {value: Object.freeze(["CC:"])}})), $__49 = Object.freeze(Object.defineProperties(["C0:reg=", ":Eb Ib;Ev Ib"], {raw: {value: Object.freeze(["C0:reg=", ":Eb Ib;Ev Ib"])}})), $__50 = Object.freeze(Object.defineProperties(["D0:reg=", ":Eb;Ev"], {raw: {value: Object.freeze(["D0:reg=", ":Eb;Ev"])}})), $__51 = Object.freeze(Object.defineProperties(["D2:reg=", ":Eb CL;Ev CL"], {raw: {value: Object.freeze(["D2:reg=", ":Eb CL;Ev CL"])}})), $__52 = Object.freeze(Object.defineProperties(["E8:J Jz"], {raw: {value: Object.freeze(["E8:J Jz"])}})), $__53 = Object.freeze(Object.defineProperties(["E9:Jz"], {raw: {value: Object.freeze(["E9:Jz"])}})), $__54 = Object.freeze(Object.defineProperties(["EB:Jb"], {raw: {value: Object.freeze(["EB:Jb"])}})), $__55 = Object.freeze(Object.defineProperties(["F6:reg=0:Eb Ib;Ev Iz"], {raw: {value: Object.freeze(["F6:reg=0:Eb Ib;Ev Iz"])}})), $__56 = Object.freeze(Object.defineProperties(["F6:reg=", ":Eb;Ev"], {raw: {value: Object.freeze(["F6:reg=", ":Eb;Ev"])}})), $__57 = Object.freeze(Object.defineProperties(["F6:reg=4:AX AL Eb;EAX EAX Ev"], {raw: {value: Object.freeze(["F6:reg=4:AX AL Eb;EAX EAX Ev"])}})), $__58 = Object.freeze(Object.defineProperties(["F6:reg=5:AX AL Eb;EAX EAX Ev"], {raw: {value: Object.freeze(["F6:reg=5:AX AL Eb;EAX EAX Ev"])}})), $__59 = Object.freeze(Object.defineProperties(["F6:reg=6:AX AL Eb;EAX EAX Ev"], {raw: {value: Object.freeze(["F6:reg=6:AX AL Eb;EAX EAX Ev"])}})), $__60 = Object.freeze(Object.defineProperties(["F6:reg=7:AX AL Eb;EAX EAX Ev"], {raw: {value: Object.freeze(["F6:reg=7:AX AL Eb;EAX EAX Ev"])}})), $__61 = Object.freeze(Object.defineProperties(["F8:"], {raw: {value: Object.freeze(["F8:"])}})), $__62 = Object.freeze(Object.defineProperties(["F9:"], {raw: {value: Object.freeze(["F9:"])}})), $__63 = Object.freeze(Object.defineProperties(["FA:"], {raw: {value: Object.freeze(["FA:"])}})), $__64 = Object.freeze(Object.defineProperties(["FB:"], {raw: {value: Object.freeze(["FB:"])}})), $__65 = Object.freeze(Object.defineProperties(["FC:"], {raw: {value: Object.freeze(["FC:"])}})), $__66 = Object.freeze(Object.defineProperties(["FD:"], {raw: {value: Object.freeze(["FD:"])}})), $__67 = Object.freeze(Object.defineProperties(["FE:reg=", ":Eb;Ev"], {raw: {value: Object.freeze(["FE:reg=", ":Eb;Ev"])}})), $__68 = Object.freeze(Object.defineProperties(["FF:reg=", ":J Ev"], {raw: {value: Object.freeze(["FF:reg=", ":J Ev"])}})), $__69 = Object.freeze(Object.defineProperties(["FF:reg=6:Ev"], {raw: {value: Object.freeze(["FF:reg=6:Ev"])}})), $__70 = Object.freeze(Object.defineProperties(["Jz"], {raw: {value: Object.freeze(["Jz"])}})), $__71 = Object.freeze(Object.defineProperties(["Eb"], {raw: {value: Object.freeze(["Eb"])}})), $__72 = Object.freeze(Object.defineProperties(["0FA2:"], {raw: {value: Object.freeze(["0FA2:"])}})), $__73 = Object.freeze(Object.defineProperties(["0FAC:Ev Gv Ib;Ev Gv CL"], {raw: {value: Object.freeze(["0FAC:Ev Gv Ib;Ev Gv CL"])}})), $__74 = Object.freeze(Object.defineProperties(["0FAF:Gv Ev"], {raw: {value: Object.freeze(["0FAF:Gv Ev"])}})), $__75 = Object.freeze(Object.defineProperties(["0FB6:Gv Eb;Gv Ew"], {raw: {value: Object.freeze(["0FB6:Gv Eb;Gv Ew"])}})), $__76 = Object.freeze(Object.defineProperties(["0FBE:Gv Eb;Gv Ew"], {raw: {value: Object.freeze(["0FBE:Gv Eb;Gv Ew"])}})), $__77 = Object.freeze(Object.defineProperties(["0FC8:rAX;rCX;rDX;rBX;rSP;rBP;rSI;rDI"], {raw: {value: Object.freeze(["0FC8:rAX;rCX;rDX;rBX;rSP;rBP;rSI;rDI"])}})), $__78 = Object.freeze(Object.defineProperties(["/** @file arch-x86.js This file was auto-generated */\n", "\nexports.dis = function x86dis(b, i) {\n    // HACK allows skipping prefixes.\n    var _pfxLength = 0, _pfxSizeSpecifier = false;\n    for(; b[i] >= 0x64 && b[i] <= 0x67 || b[i] == 0xF2 || b[i] == 0xF3; i++, _pfxLength++) {\n        if(b[i] == 0x66)\n            _pfxSizeSpecifier = true;\n        else\n            console.error('[PREFIX] '+b[i].toString(16).toUpperCase());\n    }\n    ", "\n}\nexports.PC = R.EIP;\nexports.SP = R.ESP;\nexports.FP = R.EBP;\n"], {raw: {value: Object.freeze(["/** @file arch-x86.js This file was auto-generated */\n", "\nexports.dis = function x86dis(b, i) {\n    // HACK allows skipping prefixes.\n    var _pfxLength = 0, _pfxSizeSpecifier = false;\n    for(; b[i] >= 0x64 && b[i] <= 0x67 || b[i] == 0xF2 || b[i] == 0xF3; i++, _pfxLength++) {\n        if(b[i] == 0x66)\n            _pfxSizeSpecifier = true;\n        else\n            console.error('[PREFIX] '+b[i].toString(16).toUpperCase());\n    }\n    ", "\n}\nexports.PC = R.EIP;\nexports.SP = R.ESP;\nexports.FP = R.EBP;\n"])}}));
+var $__0 = Object.freeze(Object.defineProperties(["00:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["00:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__1 = Object.freeze(Object.defineProperties(["06:ES"], {raw: {value: Object.freeze(["06:ES"])}})), $__2 = Object.freeze(Object.defineProperties(["07:ES"], {raw: {value: Object.freeze(["07:ES"])}})), $__3 = Object.freeze(Object.defineProperties(["08:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["08:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__4 = Object.freeze(Object.defineProperties(["0E:CS"], {raw: {value: Object.freeze(["0E:CS"])}})), $__5 = Object.freeze(Object.defineProperties(["10:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["10:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__6 = Object.freeze(Object.defineProperties(["16:SS"], {raw: {value: Object.freeze(["16:SS"])}})), $__7 = Object.freeze(Object.defineProperties(["17:SS"], {raw: {value: Object.freeze(["17:SS"])}})), $__8 = Object.freeze(Object.defineProperties(["18:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["18:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__9 = Object.freeze(Object.defineProperties(["1E:DS"], {raw: {value: Object.freeze(["1E:DS"])}})), $__10 = Object.freeze(Object.defineProperties(["1F:DS"], {raw: {value: Object.freeze(["1F:DS"])}})), $__11 = Object.freeze(Object.defineProperties(["20:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["20:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__12 = Object.freeze(Object.defineProperties(["28:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["28:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__13 = Object.freeze(Object.defineProperties(["30:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["30:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__14 = Object.freeze(Object.defineProperties(["38:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"], {raw: {value: Object.freeze(["38:Eb Gb;Ev Gv;Gb Eb;Gv Ev;AL Ib;rAX Iz"])}})), $__15 = Object.freeze(Object.defineProperties(["40:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"], {raw: {value: Object.freeze(["40:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"])}})), $__16 = Object.freeze(Object.defineProperties(["48:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"], {raw: {value: Object.freeze(["48:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"])}})), $__17 = Object.freeze(Object.defineProperties(["50:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"], {raw: {value: Object.freeze(["50:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"])}})), $__18 = Object.freeze(Object.defineProperties(["58:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"], {raw: {value: Object.freeze(["58:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI"])}})), $__19 = Object.freeze(Object.defineProperties(["68:Iz"], {raw: {value: Object.freeze(["68:Iz"])}})), $__20 = Object.freeze(Object.defineProperties(["69:Gv Ev Iz"], {raw: {value: Object.freeze(["69:Gv Ev Iz"])}})), $__21 = Object.freeze(Object.defineProperties(["6A:Ib"], {raw: {value: Object.freeze(["6A:Ib"])}})), $__22 = Object.freeze(Object.defineProperties(["6B:Gv Ev Ib"], {raw: {value: Object.freeze(["6B:Gv Ev Ib"])}})), $__23 = Object.freeze(Object.defineProperties(["Jb"], {raw: {value: Object.freeze(["Jb"])}})), $__24 = Object.freeze(Object.defineProperties(["80:reg=", ":Eb Ib;Ev Iz;Eb Ib;Ev Ib"], {raw: {value: Object.freeze(["80:reg=", ":Eb Ib;Ev Iz;Eb Ib;Ev Ib"])}})), $__25 = Object.freeze(Object.defineProperties(["84:Eb Gb;Ev Gv"], {raw: {value: Object.freeze(["84:Eb Gb;Ev Gv"])}})), $__26 = Object.freeze(Object.defineProperties(["86:Eb Gb;Ev Gv"], {raw: {value: Object.freeze(["86:Eb Gb;Ev Gv"])}})), $__27 = Object.freeze(Object.defineProperties(["88:Eb Gb;Ev Gv;Gb Eb;Gv Ev"], {raw: {value: Object.freeze(["88:Eb Gb;Ev Gv;Gb Eb;Gv Ev"])}})), $__28 = Object.freeze(Object.defineProperties(["8C:Ev Sw"], {raw: {value: Object.freeze(["8C:Ev Sw"])}})), $__29 = Object.freeze(Object.defineProperties(["8D:Gv M"], {raw: {value: Object.freeze(["8D:Gv M"])}})), $__30 = Object.freeze(Object.defineProperties(["8E:Sw Ew"], {raw: {value: Object.freeze(["8E:Sw Ew"])}})), $__31 = Object.freeze(Object.defineProperties(["8F:reg=0:Ev"], {raw: {value: Object.freeze(["8F:reg=0:Ev"])}})), $__32 = Object.freeze(Object.defineProperties(["90:"], {raw: {value: Object.freeze(["90:"])}})), $__33 = Object.freeze(Object.defineProperties(["91:rAX rCX;rAX rDX;rAX rBX;rAX rSP;rAX rBP;rAX rSI;rAX rDI"], {raw: {value: Object.freeze(["91:rAX rCX;rAX rDX;rAX rBX;rAX rSP;rAX rBP;rAX rSI;rAX rDI"])}})), $__34 = Object.freeze(Object.defineProperties(["99:rDX rAX"], {raw: {value: Object.freeze(["99:rDX rAX"])}})), $__35 = Object.freeze(Object.defineProperties(["9C:Fv"], {raw: {value: Object.freeze(["9C:Fv"])}})), $__36 = Object.freeze(Object.defineProperties(["A0:AL Ob;rAX Ov;Ob AL;Ov rAX"], {raw: {value: Object.freeze(["A0:AL Ob;rAX Ov;Ob AL;Ov rAX"])}})), $__37 = Object.freeze(Object.defineProperties(["A4:Xb Yb;Xv Yv"], {raw: {value: Object.freeze(["A4:Xb Yb;Xv Yv"])}})), $__38 = Object.freeze(Object.defineProperties(["A8:AL Ib;rAX Iz"], {raw: {value: Object.freeze(["A8:AL Ib;rAX Iz"])}})), $__39 = Object.freeze(Object.defineProperties(["AA:Yb AL;Yv rAX"], {raw: {value: Object.freeze(["AA:Yb AL;Yv rAX"])}})), $__40 = Object.freeze(Object.defineProperties(["AC:AL Xb;rAX Xv"], {raw: {value: Object.freeze(["AC:AL Xb;rAX Xv"])}})), $__41 = Object.freeze(Object.defineProperties(["AE:AL Yb;rAX Xv"], {raw: {value: Object.freeze(["AE:AL Yb;rAX Xv"])}})), $__42 = Object.freeze(Object.defineProperties(["B0:AL Ib;CL Ib;DL Ib;BL Ib;AH Ib;CH Ib;DH Ib;BH Ib"], {raw: {value: Object.freeze(["B0:AL Ib;CL Ib;DL Ib;BL Ib;AH Ib;CH Ib;DH Ib;BH Ib"])}})), $__43 = Object.freeze(Object.defineProperties(["B8:rAX Iv;rCX Iv;rDX Iv;rBX Iv;rSP Iv;rBP Iv;rSI Iv;rDI Iv"], {raw: {value: Object.freeze(["B8:rAX Iv;rCX Iv;rDX Iv;rBX Iv;rSP Iv;rBP Iv;rSI Iv;rDI Iv"])}})), $__44 = Object.freeze(Object.defineProperties(["C2:Iw"], {raw: {value: Object.freeze(["C2:Iw"])}})), $__45 = Object.freeze(Object.defineProperties(["C3:"], {raw: {value: Object.freeze(["C3:"])}})), $__46 = Object.freeze(Object.defineProperties(["C6:reg=0:Eb Ib;Ev Iz"], {raw: {value: Object.freeze(["C6:reg=0:Eb Ib;Ev Iz"])}})), $__47 = Object.freeze(Object.defineProperties(["C9:"], {raw: {value: Object.freeze(["C9:"])}})), $__48 = Object.freeze(Object.defineProperties(["CC:"], {raw: {value: Object.freeze(["CC:"])}})), $__49 = Object.freeze(Object.defineProperties(["C0:reg=", ":Eb Ib;Ev Ib"], {raw: {value: Object.freeze(["C0:reg=", ":Eb Ib;Ev Ib"])}})), $__50 = Object.freeze(Object.defineProperties(["D0:reg=", ":Eb;Ev"], {raw: {value: Object.freeze(["D0:reg=", ":Eb;Ev"])}})), $__51 = Object.freeze(Object.defineProperties(["D2:reg=", ":Eb CL;Ev CL"], {raw: {value: Object.freeze(["D2:reg=", ":Eb CL;Ev CL"])}})), $__52 = Object.freeze(Object.defineProperties(["E8:J Jz"], {raw: {value: Object.freeze(["E8:J Jz"])}})), $__53 = Object.freeze(Object.defineProperties(["E9:Jz"], {raw: {value: Object.freeze(["E9:Jz"])}})), $__54 = Object.freeze(Object.defineProperties(["EB:Jb"], {raw: {value: Object.freeze(["EB:Jb"])}})), $__55 = Object.freeze(Object.defineProperties(["F6:reg=0:Eb Ib;Ev Iz"], {raw: {value: Object.freeze(["F6:reg=0:Eb Ib;Ev Iz"])}})), $__56 = Object.freeze(Object.defineProperties(["F6:reg=", ":Eb;Ev"], {raw: {value: Object.freeze(["F6:reg=", ":Eb;Ev"])}})), $__57 = Object.freeze(Object.defineProperties(["F6:reg=4:AX AL Eb;EAX EAX Ev"], {raw: {value: Object.freeze(["F6:reg=4:AX AL Eb;EAX EAX Ev"])}})), $__58 = Object.freeze(Object.defineProperties(["F6:reg=5:AX AL Eb;EAX EAX Ev"], {raw: {value: Object.freeze(["F6:reg=5:AX AL Eb;EAX EAX Ev"])}})), $__59 = Object.freeze(Object.defineProperties(["F6:reg=6:AX AL Eb;EAX EAX Ev"], {raw: {value: Object.freeze(["F6:reg=6:AX AL Eb;EAX EAX Ev"])}})), $__60 = Object.freeze(Object.defineProperties(["F6:reg=7:AX AL Eb;EAX EAX Ev"], {raw: {value: Object.freeze(["F6:reg=7:AX AL Eb;EAX EAX Ev"])}})), $__61 = Object.freeze(Object.defineProperties(["F8:"], {raw: {value: Object.freeze(["F8:"])}})), $__62 = Object.freeze(Object.defineProperties(["F9:"], {raw: {value: Object.freeze(["F9:"])}})), $__63 = Object.freeze(Object.defineProperties(["FA:"], {raw: {value: Object.freeze(["FA:"])}})), $__64 = Object.freeze(Object.defineProperties(["FB:"], {raw: {value: Object.freeze(["FB:"])}})), $__65 = Object.freeze(Object.defineProperties(["FC:"], {raw: {value: Object.freeze(["FC:"])}})), $__66 = Object.freeze(Object.defineProperties(["FD:"], {raw: {value: Object.freeze(["FD:"])}})), $__67 = Object.freeze(Object.defineProperties(["FE:reg=", ":Eb;Ev"], {raw: {value: Object.freeze(["FE:reg=", ":Eb;Ev"])}})), $__68 = Object.freeze(Object.defineProperties(["FF:reg=", ":J Ev"], {raw: {value: Object.freeze(["FF:reg=", ":J Ev"])}})), $__69 = Object.freeze(Object.defineProperties(["FF:reg=6:Ev"], {raw: {value: Object.freeze(["FF:reg=6:Ev"])}})), $__70 = Object.freeze(Object.defineProperties(["Jz"], {raw: {value: Object.freeze(["Jz"])}})), $__71 = Object.freeze(Object.defineProperties(["Eb"], {raw: {value: Object.freeze(["Eb"])}})), $__72 = Object.freeze(Object.defineProperties(["0FA2:"], {raw: {value: Object.freeze(["0FA2:"])}})), $__73 = Object.freeze(Object.defineProperties(["0FA3:Ev Gv"], {raw: {value: Object.freeze(["0FA3:Ev Gv"])}})), $__74 = Object.freeze(Object.defineProperties(["0FAB:Ev Gv"], {raw: {value: Object.freeze(["0FAB:Ev Gv"])}})), $__75 = Object.freeze(Object.defineProperties(["0FAC:Ev Gv Ib;Ev Gv CL"], {raw: {value: Object.freeze(["0FAC:Ev Gv Ib;Ev Gv CL"])}})), $__76 = Object.freeze(Object.defineProperties(["0FAF:Gv Ev"], {raw: {value: Object.freeze(["0FAF:Gv Ev"])}})), $__77 = Object.freeze(Object.defineProperties(["0FB6:Gv Eb;Gv Ew"], {raw: {value: Object.freeze(["0FB6:Gv Eb;Gv Ew"])}})), $__78 = Object.freeze(Object.defineProperties(["0FBE:Gv Eb;Gv Ew"], {raw: {value: Object.freeze(["0FBE:Gv Eb;Gv Ew"])}})), $__79 = Object.freeze(Object.defineProperties(["0FC8:rAX;rCX;rDX;rBX;rSP;rBP;rSI;rDI"], {raw: {value: Object.freeze(["0FC8:rAX;rCX;rDX;rBX;rSP;rBP;rSI;rDI"])}})), $__80 = Object.freeze(Object.defineProperties(["/** @file arch-x86.js This file was auto-generated */\n", "\nexports.dis = function x86dis(b, i) {\n    // HACK allows skipping prefixes.\n    var _pfxLength = 0, _pfxSizeSpecifier = false;\n    for(; b[i] >= 0x64 && b[i] <= 0x67 || b[i] == 0xF2 || b[i] == 0xF3; i++, _pfxLength++) {\n        if(b[i] == 0x66)\n            _pfxSizeSpecifier = true;\n        else\n            console.error('[PREFIX] '+b[i].toString(16).toUpperCase());\n    }\n    ", "\n}\nexports.PC = R.EIP;\nexports.SP = R.ESP;\nexports.FP = R.EBP;\n"], {raw: {value: Object.freeze(["/** @file arch-x86.js This file was auto-generated */\n", "\nexports.dis = function x86dis(b, i) {\n    // HACK allows skipping prefixes.\n    var _pfxLength = 0, _pfxSizeSpecifier = false;\n    for(; b[i] >= 0x64 && b[i] <= 0x67 || b[i] == 0xF2 || b[i] == 0xF3; i++, _pfxLength++) {\n        if(b[i] == 0x66)\n            _pfxSizeSpecifier = true;\n        else\n            console.error('[PREFIX] '+b[i].toString(16).toUpperCase());\n    }\n    ", "\n}\nexports.PC = R.EIP;\nexports.SP = R.ESP;\nexports.FP = R.EBP;\n"])}}));
 var dis = require('./Disasm.jsc'), util = require('util');
 Number.prototype.toBinary = function() {
   var n = traceur.runtime.elementGet(arguments, 0) !== (void 0) ? traceur.runtime.elementGet(arguments, 0): - 1;
@@ -20,9 +20,9 @@ Number.prototype.toBinary = function() {
   while (s.length < n) s = '0' + s;
   return s;
 };
-var raw = (function($__86) {
-  var s = $__86.raw;
-  for (var args = [], $__79 = 1; $__79 < arguments.length; $__79++) traceur.runtime.elementSet(args, $__79 - 1, traceur.runtime.elementGet(arguments, $__79));
+var raw = (function($__88) {
+  var s = $__88.raw;
+  for (var args = [], $__81 = 1; $__81 < arguments.length; $__81++) traceur.runtime.elementSet(args, $__81 - 1, traceur.runtime.elementGet(arguments, $__81));
   return s.map((function(x, i) {
     return i ? traceur.runtime.elementGet(args, i - 1) + x: x;
   })).join('');
@@ -161,7 +161,7 @@ function _op(def, b, fn) {
     })); else if (x == 'J') traceur.runtime.elementSet(args, i, (function() {
       return Add(R.EIP, byteLen);
     })); else if (x == 'M') hasModRM = 2, traceur.runtime.elementSet(args, i, (function() {
-      for (var args = [], $__80 = 0; $__80 < arguments.length; $__80++) traceur.runtime.elementSet(args, $__80, traceur.runtime.elementGet(arguments, $__80));
+      for (var args = [], $__82 = 0; $__82 < arguments.length; $__82++) traceur.runtime.elementSet(args, $__82, traceur.runtime.elementGet(arguments, $__82));
       return ModRM.apply(null, $__spread([4], args.slice(ctReg ? 0: 1)));
     })); else {
       try {
@@ -181,7 +181,7 @@ function _op(def, b, fn) {
               runtimeKnown: true
             };
             hasModRM = 1, traceur.runtime.elementSet(args, i, (function() {
-              for (var args = [], $__81 = 0; $__81 < arguments.length; $__81++) traceur.runtime.elementSet(args, $__81, traceur.runtime.elementGet(arguments, $__81));
+              for (var args = [], $__83 = 0; $__83 < arguments.length; $__83++) traceur.runtime.elementSet(args, $__83, traceur.runtime.elementGet(arguments, $__83));
               return ModRM.apply(null, $__spread([bits], args.slice(ctReg ? 0: 1)));
             }));
           } else if (kind == 'G') hasModRM = 1, traceur.runtime.elementSet(args, i, (function(reg) {
@@ -252,7 +252,7 @@ function _op(def, b, fn) {
     byteLen = Add(bytes.join('').length / 8, actualLengthBias);
     ModRM = modRM;
     return dis.op(bytes, (function() {
-      for (var a = [], $__81 = 0; $__81 < arguments.length; $__81++) traceur.runtime.elementSet(a, $__81, traceur.runtime.elementGet(arguments, $__81));
+      for (var a = [], $__83 = 0; $__83 < arguments.length; $__83++) traceur.runtime.elementSet(a, $__83, traceur.runtime.elementGet(arguments, $__83));
       var res = fn.apply(null, $__toObject(args.map((function(x) {
         return x.apply(null, $__toObject(a));
       }))));
@@ -271,19 +271,19 @@ function _op(def, b, fn) {
             return x;
           });
           op($__spread([mod + reg + 'Rm_'], extra), 1 + n, (function(bits, RM) {
-            for (var rest = [], $__81 = 2; $__81 < arguments.length; $__81++) traceur.runtime.elementSet(rest, $__81 - 2, traceur.runtime.elementGet(arguments, $__81));
+            for (var rest = [], $__83 = 2; $__83 < arguments.length; $__83++) traceur.runtime.elementSet(rest, $__83 - 2, traceur.runtime.elementGet(arguments, $__83));
             return IntSize(Mem(fn.apply(null, $__spread([R(RM)], rest))), bits);
           }));
           op($__spread([mod + reg + '100', 'SiIdxBas'], extra), 3 + n, (function(bits, scale, idx, base) {
-            for (var rest = [], $__80 = 4; $__80 < arguments.length; $__80++) traceur.runtime.elementSet(rest, $__80 - 4, traceur.runtime.elementGet(arguments, $__80));
+            for (var rest = [], $__82 = 4; $__82 < arguments.length; $__82++) traceur.runtime.elementSet(rest, $__82 - 4, traceur.runtime.elementGet(arguments, $__82));
             return IntSize(Mem(fn.apply(null, $__spread([Add(R(base), LSL(R(idx), scale))], rest))), bits);
           }));
           op($__spread([mod + reg + '100', 'Si100Bas'], extra), 2 + n, (function(bits, scale, base) {
-            for (var rest = [], $__82 = 3; $__82 < arguments.length; $__82++) traceur.runtime.elementSet(rest, $__82 - 3, traceur.runtime.elementGet(arguments, $__82));
+            for (var rest = [], $__84 = 3; $__84 < arguments.length; $__84++) traceur.runtime.elementSet(rest, $__84 - 3, traceur.runtime.elementGet(arguments, $__84));
             return IntSize(Mem(fn.apply(null, $__spread([R(base)], rest))), bits);
           }));
           var newFn = (function() {
-            for (var x = [], $__83 = 0; $__83 < arguments.length; $__83++) traceur.runtime.elementSet(x, $__83, traceur.runtime.elementGet(arguments, $__83));
+            for (var x = [], $__85 = 0; $__85 < arguments.length; $__85++) traceur.runtime.elementSet(x, $__85, traceur.runtime.elementGet(arguments, $__85));
             return Add(R.EBP, signed(fn.apply(null, $__toObject(x))));
           });
           if (mod == '00') {
@@ -294,11 +294,11 @@ function _op(def, b, fn) {
             });
           }
           op($__spread([mod + reg + '100', 'SiIdx101'], extra), 2 + n, (function(bits, scale, idx) {
-            for (var rest = [], $__84 = 3; $__84 < arguments.length; $__84++) traceur.runtime.elementSet(rest, $__84 - 3, traceur.runtime.elementGet(arguments, $__84));
+            for (var rest = [], $__86 = 3; $__86 < arguments.length; $__86++) traceur.runtime.elementSet(rest, $__86 - 3, traceur.runtime.elementGet(arguments, $__86));
             return IntSize(Mem(newFn.apply(null, $__spread([LSL(R(idx), scale)], rest))), bits);
           }));
           op($__spread([mod + reg + '100', 'Si100101'], extra), 1 + n, (function(bits, scale) {
-            for (var rest = [], $__85 = 2; $__85 < arguments.length; $__85++) traceur.runtime.elementSet(rest, $__85 - 2, traceur.runtime.elementGet(arguments, $__85));
+            for (var rest = [], $__87 = 2; $__87 < arguments.length; $__87++) traceur.runtime.elementSet(rest, $__87 - 2, traceur.runtime.elementGet(arguments, $__87));
             return IntSize(Mem(newFn.apply(null, $__spread([0], rest))), bits);
           }));
         });
@@ -325,7 +325,7 @@ var opMov = (function(fn) {
   });
 });
 var _ = (function(s) {
-  for (var args = [], $__85 = 1; $__85 < arguments.length; $__85++) traceur.runtime.elementSet(args, $__85 - 1, traceur.runtime.elementGet(arguments, $__85));
+  for (var args = [], $__87 = 1; $__87 < arguments.length; $__87++) traceur.runtime.elementSet(args, $__87 - 1, traceur.runtime.elementGet(arguments, $__87));
   return (function(base) {
     var fn = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): base;
     s = s.map((function(x, i) {
@@ -349,7 +349,7 @@ var _ = (function(s) {
     }));
   });
 });
-var $__87 = [Add, (function(a, b) {
+var $__89 = [Add, (function(a, b) {
   return Or(unsigned(a), unsigned(b));
 }), (function(a, b) {
   return Add(a, Add(b, IntSize(F.C, bitsof(a))));
@@ -361,7 +361,7 @@ var $__87 = [Add, (function(a, b) {
   return Add(x, 1);
 }), (function(x) {
   return Sub(x, 1);
-}), Not].map(opMov), ADD = traceur.runtime.elementGet($__87, 0), OR = traceur.runtime.elementGet($__87, 1), ADC = traceur.runtime.elementGet($__87, 2), SBB = traceur.runtime.elementGet($__87, 3), AND = traceur.runtime.elementGet($__87, 4), XOR = traceur.runtime.elementGet($__87, 5), INC = traceur.runtime.elementGet($__87, 6), DEC = traceur.runtime.elementGet($__87, 7), NOT = traceur.runtime.elementGet($__87, 8);
+}), Not].map(opMov), ADD = traceur.runtime.elementGet($__89, 0), OR = traceur.runtime.elementGet($__89, 1), ADC = traceur.runtime.elementGet($__89, 2), SBB = traceur.runtime.elementGet($__89, 3), AND = traceur.runtime.elementGet($__89, 4), XOR = traceur.runtime.elementGet($__89, 5), INC = traceur.runtime.elementGet($__89, 6), DEC = traceur.runtime.elementGet($__89, 7), NOT = traceur.runtime.elementGet($__89, 8);
 var NEG = (function(x) {
   var v = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): Neg(x);
   return [Mov(F.C, v.CF), Mov(x, v)];
@@ -426,8 +426,8 @@ _($__22)((function(a, b, c) {
 }));
 Object.keys(Cond).map((function(x, i) {
   return _($__23)(0x70 + i, (function(j) {
-    var $__88;
-    return If(($__88 = Cond, traceur.runtime.elementGet($__88, x).call($__88)), JMPN(j));
+    var $__90;
+    return If(($__90 = Cond, traceur.runtime.elementGet($__90, x).call($__90)), JMPN(j));
   }));
 }));
 [ADD, (function(a, b) {
@@ -528,30 +528,36 @@ _($__66)((function() {
 _($__69)(PUSH);
 Object.keys(Cond).map((function(x, i) {
   return _($__70)([0x0F, 0x80 + i], (function(j) {
-    var $__88;
-    return If(($__88 = Cond, traceur.runtime.elementGet($__88, x).call($__88)), Mov(R.EIP, j));
+    var $__90;
+    return If(($__90 = Cond, traceur.runtime.elementGet($__90, x).call($__90)), Mov(R.EIP, j));
   }));
 }));
 Object.keys(Cond).map((function(x, i) {
   return _($__71)([0x0F, 0x90 + i], (function(a) {
-    var $__88;
-    return Mov(a, ($__88 = Cond, traceur.runtime.elementGet($__88, x).call($__88)));
+    var $__90;
+    return Mov(a, ($__90 = Cond, traceur.runtime.elementGet($__90, x).call($__90)));
   }));
 }));
 _($__72)(Nop);
-_($__73)(opMov((function(dest, src, count) {
+_($__73)((function(a, b) {
+  return Mov(F.C, Not(Eq(And(a, LSL(1, b)), 0)));
+}));
+_($__74)((function(a, b) {
+  return [Mov(F.C, Not(Eq(And(a, LSL(1, b)), 0))), Mov(a, Or(a, LSL(1, b)))];
+}));
+_($__75)(opMov((function(dest, src, count) {
   return Or(LSR(dest, count), And(src, LSL(Sub(u32(LSL(1, count)), 1), Sub(32, count))));
 })));
-_($__74)((function(a, b) {
+_($__76)((function(a, b) {
   var sa = traceur.runtime.elementGet(arguments, 2) !== (void 0) ? traceur.runtime.elementGet(arguments, 2): signed(a);
   var sb = traceur.runtime.elementGet(arguments, 3) !== (void 0) ? traceur.runtime.elementGet(arguments, 3): signed(b);
   return Mov(sa, Mul(sa, sb));
 }));
-_($__75)(Mov);
-_($__76)(MOVSX);
-_($__77)(Nop);
+_($__77)(Mov);
+_($__78)(MOVSX);
+_($__79)(Nop);
 dis.out(__dirname + '/arch-x86.js', (function(code) {
-  return raw($__78, dis.codeGen.runtime.join('\n'), code);
+  return raw($__80, dis.codeGen.runtime.join('\n'), code);
 }));
 
 //@ sourceMappingURL=x86.map
