@@ -25642,6 +25642,107 @@ int __cdecl __mingw_str_utf8_wide (const char *const mbptr, wchar_t ** wptr, siz
 void __cdecl __mingw_str_free(void *ptr);
 #pragma pack(pop)
 #pragma pack(push,_CRT_PACKING)
+  typedef long clock_t;
+  struct tm {
+    int tm_sec;
+    int tm_min;
+    int tm_hour;
+    int tm_mday;
+    int tm_mon;
+    int tm_year;
+    int tm_wday;
+    int tm_yday;
+    int tm_isdst;
+  };
+  __MINGW_IMPORT int _daylight;
+  __MINGW_IMPORT long _dstbias;
+  __MINGW_IMPORT long _timezone;
+  __MINGW_IMPORT char * _tzname[2];
+  errno_t __cdecl _get_daylight(int *_Daylight);
+  errno_t __cdecl _get_dstbias(long *_Daylight_savings_bias);
+  errno_t __cdecl _get_timezone(long *_Timezone);
+  errno_t __cdecl _get_tzname(size_t *_ReturnValue,char *_Buffer,size_t _SizeInBytes,int _Index);
+  char *__cdecl asctime(const struct tm *_Tm) ;
+  char *__cdecl _ctime32(const __time32_t *_Time) ;
+  clock_t __cdecl clock(void);
+  double __cdecl _difftime32(__time32_t _Time1,__time32_t _Time2);
+  struct tm *__cdecl _gmtime32(const __time32_t *_Time) ;
+  struct tm *__cdecl _localtime32(const __time32_t *_Time) ;
+  size_t __cdecl strftime(char * __restrict__ _Buf,size_t _SizeInBytes,const char * __restrict__ _Format,const struct tm * __restrict__ _Tm);
+  size_t __cdecl _strftime_l(char * __restrict__ _Buf,size_t _Max_size,const char * __restrict__ _Format,const struct tm * __restrict__ _Tm,_locale_t _Locale);
+  char *__cdecl _strdate(char *_Buffer) ;
+  char *__cdecl _strtime(char *_Buffer) ;
+  __time32_t __cdecl _time32(__time32_t *_Time);
+  __time32_t __cdecl _mktime32(struct tm *_Tm);
+  __time32_t __cdecl _mkgmtime32(struct tm *_Tm);
+  void __cdecl tzset(void) ;
+  void __cdecl _tzset(void);
+  double __cdecl _difftime64(__time64_t _Time1,__time64_t _Time2);
+  char *__cdecl _ctime64(const __time64_t *_Time) ;
+  struct tm *__cdecl _gmtime64(const __time64_t *_Time) ;
+  struct tm *__cdecl _localtime64(const __time64_t *_Time) ;
+  __time64_t __cdecl _mktime64(struct tm *_Tm);
+  __time64_t __cdecl _mkgmtime64(struct tm *_Tm);
+  __time64_t __cdecl _time64(__time64_t *_Time);
+  unsigned __cdecl _getsystime(struct tm *_Tm);
+  unsigned __cdecl _setsystime(struct tm *_Tm,unsigned _MilliSec);
+  wchar_t *__cdecl _wasctime(const struct tm *_Tm);
+  wchar_t *__cdecl _wctime32(const __time32_t *_Time) ;
+  size_t __cdecl wcsftime(wchar_t * __restrict__ _Buf,size_t _SizeInWords,const wchar_t * __restrict__ _Format,const struct tm * __restrict__ _Tm);
+  size_t __cdecl _wcsftime_l(wchar_t * __restrict__ _Buf,size_t _SizeInWords,const wchar_t * __restrict__ _Format,const struct tm * __restrict__ _Tm,_locale_t _Locale);
+  wchar_t *__cdecl _wstrdate(wchar_t *_Buffer) ;
+  wchar_t *__cdecl _wstrtime(wchar_t *_Buffer) ;
+  wchar_t *__cdecl _wctime64(const __time64_t *_Time) ;
+  wchar_t *__cdecl _wctime(const time_t *) ;
+double __cdecl difftime(time_t _Time1,time_t _Time2);
+char *__cdecl ctime(const time_t *_Time) ;
+struct tm *__cdecl gmtime(const time_t *_Time) ;
+struct tm *__cdecl localtime(const time_t *_Time) ;
+time_t __cdecl mktime(struct tm *_Tm);
+time_t __cdecl _mkgmtime(struct tm *_Tm);
+time_t __cdecl time(time_t *_Time);
+  extern int daylight;
+  extern long timezone;
+  extern char *tzname[2];
+  void __cdecl tzset(void) ;
+struct timezone {
+  int tz_minuteswest;
+  int tz_dsttime;
+};
+  extern int __cdecl mingw_gettimeofday (struct timeval *p, struct timezone *z);
+#pragma pack(pop)
+#pragma pack(push,_CRT_PACKING)
+  struct __timeb32 {
+    __time32_t time;
+    unsigned short millitm;
+    short timezone;
+    short dstflag;
+  };
+  struct timeb {
+    time_t time;
+    unsigned short millitm;
+    short timezone;
+    short dstflag;
+  };
+  struct __timeb64 {
+    __time64_t time;
+    unsigned short millitm;
+    short timezone;
+    short dstflag;
+  };
+  void __cdecl _ftime64(struct __timeb64 *_Time);
+  void __cdecl _ftime(struct __timeb32 *);
+struct timespec {
+  time_t tv_sec;
+  long tv_nsec;
+};
+struct itimerspec {
+  struct timespec it_interval;
+  struct timespec it_value;
+};
+  void __cdecl ftime (struct timeb *);
+#pragma pack(pop)
+#pragma pack(push,_CRT_PACKING)
  char* __cdecl _getcwd (char*, int);
   typedef unsigned long _fsize_t;
   struct _finddata32_t {
@@ -25801,14 +25902,6 @@ typedef _pid_t pid_t;
 typedef unsigned short _mode_t;
 typedef _mode_t mode_t;
 typedef unsigned int useconds_t;
-struct timespec {
-  time_t tv_sec;
-  long tv_nsec;
-};
-struct itimerspec {
-  struct timespec it_interval;
-  struct timespec it_value;
-};
 typedef unsigned long _sigset_t;
   uintptr_t __cdecl _beginthread(void (__cdecl *_StartAddress) (void *),unsigned _StackSize,void *_ArgList);
   void __cdecl _endthread(void) __attribute__ ((__noreturn__));
@@ -25885,25 +25978,6 @@ int ftruncate(int, off32_t);
 int ftruncate64(int, off64_t);
 int truncate(const char *, off32_t);
 int truncate64(const char *, off64_t);
-int* __p___argc(void);
-unsigned int* __p__commode(void);
-char** __p__pgmptr(void);
-unsigned int* __p__fmode(void);
-unsigned int* __p__osver(void);
-unsigned int* __p__winmajor(void);
-unsigned int* __p__winminor(void);
-unsigned int* __p__winver(void);
-char** __p__acmdln(void);
-wchar_t** __p__wcmdln(void);
-char*** __p___argv(void);
-wchar_t*** __p___wargv(void);
-char*** __p__environ(void);
-wchar_t*** __p__wenviron(void);
-char*** __p___initenv(void);
-wchar_t*** __p___winitenv(void);
-int* __p__timezone(void);
-int __cdecl _initterm(_PVFV *,_PVFV *);
-int __cdecl _initterm_e(_PVFV *,_PVFV *);
   __declspec(dllimport) void __stdcall InitCommonControls(void);
   typedef struct tagINITCOMMONCONTROLSEX {
     DWORD dwSize;
@@ -27114,3 +27188,22 @@ typedef const void* (__stdcall *PFNDPAMERGECONST)(UINT, const void*, const void*
   WINBOOL __stdcall RemoveWindowSubclass(HWND hWnd,SUBCLASSPROC pfnSubclass,UINT_PTR uIdSubclass);
   LRESULT __stdcall DefSubclassProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
   int __stdcall DrawShadowText(HDC hdc,LPCWSTR pszText,UINT cch,RECT *prc,DWORD dwFlags,COLORREF crText,COLORREF crShadow,int ixOffset,int iyOffset);
+int* __p___argc(void);
+unsigned int* __p__commode(void);
+char** __p__pgmptr(void);
+unsigned int* __p__fmode(void);
+unsigned int* __p__osver(void);
+unsigned int* __p__winmajor(void);
+unsigned int* __p__winminor(void);
+unsigned int* __p__winver(void);
+char** __p__acmdln(void);
+wchar_t** __p__wcmdln(void);
+char*** __p___argv(void);
+wchar_t*** __p___wargv(void);
+char*** __p__environ(void);
+wchar_t*** __p__wenviron(void);
+char*** __p___initenv(void);
+wchar_t*** __p___winitenv(void);
+int* __p__timezone(void);
+int __cdecl _initterm(_PVFV *,_PVFV *);
+int __cdecl _initterm_e(_PVFV *,_PVFV *);
