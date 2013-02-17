@@ -1,0 +1,364 @@
+!global.traceur && (0,eval)(require('fs').readFileSync(__dirname+'/../deps/traceur-compiler/bin/traceur.js', 'utf8'));
+var $__toObject = function(value) {
+  if (value == null) throw TypeError();
+  return Object(value);
+}, $__spread = function() {
+  var rv = [], k = 0;
+  for (var i = 0; i < arguments.length; i++) {
+    var value = $__toObject(traceur.runtime.elementGet(arguments, i));
+    for (var j = 0; j < value.length; j++) {
+      traceur.runtime.elementSet(rv, k++, traceur.runtime.elementGet(value, j));
+    }
+  }
+  return rv;
+};
+var $__0 = Object.freeze(Object.defineProperties(["/** @file arch-8051.js This file was auto-generated */\n", "\nexports.dis = function _8051dis(b, i) {\n    ", "\n}\nexports.SP = R.SP;\nexports.PC = R.PC;\n"], {raw: {value: Object.freeze(["/** @file arch-8051.js This file was auto-generated */\n", "\nexports.dis = function _8051dis(b, i) {\n    ", "\n}\nexports.SP = R.SP;\nexports.PC = R.PC;\n"])}}));
+var dis = require('./Disasm.jsc'), util = require('util');
+dis.bigEndian = true;
+Number.prototype.toBinary = function() {
+  var n = traceur.runtime.elementGet(arguments, 0) !== (void 0) ? traceur.runtime.elementGet(arguments, 0): - 1;
+  var s = this.toString(2);
+  while (s.length < n) s = '0' + s;
+  return s;
+};
+var raw = (function($__13) {
+  var s = $__13.raw;
+  for (var args = [], $__1 = 1; $__1 < arguments.length; $__1++) traceur.runtime.elementSet(args, $__1 - 1, traceur.runtime.elementGet(arguments, $__1));
+  return s.map((function(x, i) {
+    return i ? traceur.runtime.elementGet(args, i - 1) + x: x;
+  })).join('');
+});
+dis.codeGen.runtime.push("var R = exports.R = {}, SFR8 = [], SFR16 = [];");
+var R = (function(reg) {
+  var bits = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): 8;
+  var code = traceur.runtime.elementGet(arguments, 2) !== (void 0) ? traceur.runtime.elementGet(arguments, 2): '';
+  return ({
+    bitsof: bits,
+    signed: false,
+    inspect: (function() {
+      return 'r' + inspect(reg) + '/' + bits;
+    }),
+    get code() {
+      return code || 'SFR' + bits + '[' + reg.code + ']';
+    }
+  });
+});
+dis.codeGen.runtime.push("var PC = R.PC = {bitsof: 32, signed: false, inspect: function() {return 'PC';}};");
+R.PC = R('PC', 32, 'PC');
+{
+  try {
+    throw undefined;
+  } catch (sfr) {
+    try {
+      throw undefined;
+    } catch (sfr8) {
+      {
+        sfr8 = [];
+        sfr = (function(name, reg) {
+          var bits = traceur.runtime.elementGet(arguments, 2) !== (void 0) ? traceur.runtime.elementGet(arguments, 2): 8;
+          traceur.runtime.elementSet(R, name, R(reg, bits));
+          if (bits == 8) traceur.runtime.elementSet(sfr8, reg, true);
+          dis.codeGen.runtime.push(("R." + name + " = SFR" + bits + "[" + reg + "] = {bitsof: " + bits + ", signed: false, inspect: function() {return '" + name + "';}};"));
+        });
+      }
+      sfr('SP', 1);
+      sfr('DPTR', 2, 16);
+      sfr('DPL', 2);
+      sfr('DPH', 3);
+      sfr('A', 0x60);
+      sfr('B', 0x70);
+      {
+        try {
+          throw undefined;
+        } catch ($i) {
+          $i = 0;
+          for (; $i < 0x80; $i++) {
+            try {
+              throw undefined;
+            } catch (i) {
+              i = $i;
+              try {
+                if (!traceur.runtime.elementGet(sfr8, i)) sfr('SFR_' + (i < 16 ? '0': '') + i.toString(16), i);
+              } finally {
+                $i = i;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+var F = (function(f) {
+  var name = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): 'f' + util.inspect(f);
+  return ({
+    bitsof: 1,
+    signed: false,
+    inspect: (function() {
+      return name;
+    }),
+    get code() {
+      return 'F[' + f.code + ']';
+    }
+  });
+});
+dis.codeGen.runtime.push("var F = [];");
+'C'.split('').forEach((function(x, i) {
+  traceur.runtime.elementSet(F, x, F(i, x));
+  dis.codeGen.runtime.push(("R." + x + " = F[" + i + "] = {bitsof: 1, signed: false, inspect: function() {return '" + x + "';}};"));
+}));
+R.RAM = (function(n) {
+  return u8(Mem(n));
+});
+dis.filters.Direct = function(next, ct, k, vals) {
+  this.slice('Sfr', 7).filter((function(sfr) {
+    var ct2 = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): ct;
+    this.slice('Addr', 0, 7).filter((function(addr) {
+      var ct3 = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): ct2;
+      return next(sfr ? R(addr): u8(Mem(addr)), ct3);
+    }), ct, 0, vals);
+  }).bind(this), ct, 0, vals);
+};
+dis.filters.Bitad = function(next, ct, k, vals) {
+  this.slice('Sfr', 4).filter((function(sfr) {
+    var ct2 = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): ct;
+    this.slice('Addr', 0, 4).filter((function(addr) {
+      var ct3 = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): ct2;
+      return next(sfr ? R(LSL(addr, 4)): u8(Mem(Add(0x20, addr))), ct3);
+    }), ct, 0, vals);
+  }).bind(this), ct, 0, vals);
+};
+var PCbase = {
+  runtimeKnown: true,
+  bitsof: 32,
+  signed: false,
+  code: 'exports.PCbase'
+}, ROM = (function(x) {
+  return Add(PCbase, x);
+});
+var XRAM = (function(x) {
+  return Add(0xe0000, u32(x));
+});
+var array = (function(x) {
+  return Array.isArray(x) ? x: [x];
+});
+var hex = (function(x) {
+  return typeof x === 'number' ? x: parseInt(x, 16);
+});
+var PCoffset;
+var _ = (function(x) {
+  for (var args = [], $__2 = 1; $__2 < arguments.length; $__2++) traceur.runtime.elementSet(args, $__2 - 1, traceur.runtime.elementGet(arguments, $__2));
+  if (!(x.length > 2)) x = hex(x).toBinary(8);
+  var fn = args.pop(), bytes = args.map((function(x) {
+    return x.length / 8;
+  })).reduce((function(a, b) {
+    return a + b;
+  }), 1);
+  dis.op($__spread([x], args), (function() {
+    for (var args = [], $__3 = 0; $__3 < arguments.length; $__3++) traceur.runtime.elementSet(args, $__3, traceur.runtime.elementGet(arguments, $__3));
+    PCoffset = (function() {
+      var x = traceur.runtime.elementGet(arguments, 0) !== (void 0) ? traceur.runtime.elementGet(arguments, 0): 0;
+      return Add(R.PC, x ? Add(bytes, signed(x)): bytes);
+    });
+    return array(fn.apply(null, $__toObject(args)));
+  }));
+});
+var _$R = (function(x) {
+  for (var args = [], $__4 = 1; $__4 < arguments.length; $__4++) traceur.runtime.elementSet(args, $__4 - 1, traceur.runtime.elementGet(arguments, $__4));
+  var fn = args.pop();
+  _.apply(null, $__spread([(hex(x) >> 1).toBinary(7) + 'R'], args, [(function(r) {
+    for (var args = [], $__5 = 1; $__5 < arguments.length; $__5++) traceur.runtime.elementSet(args, $__5 - 1, traceur.runtime.elementGet(arguments, $__5));
+    return fn.apply(null, $__spread([u8(Mem(R.RAM(r)))], args));
+  })]));
+});
+var _R = (function(x) {
+  for (var args = [], $__6 = 1; $__6 < arguments.length; $__6++) traceur.runtime.elementSet(args, $__6 - 1, traceur.runtime.elementGet(arguments, $__6));
+  var fn = args.pop();
+  _.apply(null, $__spread([(hex(x) >> 3).toBinary(5) + 'Reg'], args, [(function(r) {
+    for (var args = [], $__7 = 1; $__7 < arguments.length; $__7++) traceur.runtime.elementSet(args, $__7 - 1, traceur.runtime.elementGet(arguments, $__7));
+    return fn.apply(null, $__spread([R.RAM(r)], args));
+  })]));
+});
+var _$R_R = (function(x) {
+  for (var args = [], $__8 = 1; $__8 < arguments.length; $__8++) traceur.runtime.elementSet(args, $__8 - 1, traceur.runtime.elementGet(arguments, $__8));
+  _$R.apply(null, $__spread([x], args));
+  _R.apply(null, $__spread([hex(x) + 2], args));
+});
+var _d_$R_R = (function(x) {
+  for (var args = [], $__9 = 1; $__9 < arguments.length; $__9++) traceur.runtime.elementSet(args, $__9 - 1, traceur.runtime.elementGet(arguments, $__9));
+  _.apply(null, $__spread([x, 'Direct__'], args));
+  _$R_R.apply(null, $__spread([hex(x) + 2], args));
+});
+var _i_d_$R_R = (function(x) {
+  for (var args = [], $__10 = 1; $__10 < arguments.length; $__10++) traceur.runtime.elementSet(args, $__10 - 1, traceur.runtime.elementGet(arguments, $__10));
+  _.apply(null, $__spread([x, 'Immed___'], args));
+  _d_$R_R.apply(null, $__spread([hex(x) + 1], args));
+});
+var _A_d_$R_R = (function(x) {
+  for (var args = [], $__11 = 1; $__11 < arguments.length; $__11++) traceur.runtime.elementSet(args, $__11 - 1, traceur.runtime.elementGet(arguments, $__11));
+  var fn = args.pop();
+  _.apply(null, $__spread([x], args, [(function() {
+    for (var args = [], $__12 = 0; $__12 < arguments.length; $__12++) traceur.runtime.elementSet(args, $__12, traceur.runtime.elementGet(arguments, $__12));
+    return fn.apply(null, $__spread([R.A], args));
+  })]));
+  _d_$R_R.apply(null, $__spread([hex(x) + 1], args, [fn]));
+});
+var addr16 = 'Addr____________', immed = 'Immed___', immed16 = 'Immed___________';
+var direct = 'Direct__', bit = 'BitadBit', offset = 'Offset__';
+var ADC = (function(a, b) {
+  return Add(Add(a, b), IntSize(F.C, bitsof(a)));
+}), SBB = (function(a, b) {
+  return Sub(Sub(a, b), IntSize(F.C, bitsof(a)));
+});
+_(0, Nop);
+_(2, addr16, (function(addr) {
+  return Mov(R.PC, ROM(addr));
+}));
+_A_d_$R_R(4, (function(a) {
+  return Mov(a, Add(a, 1));
+}));
+_('12', addr16, (function(a) {
+  return [Mov(R.SP, Add(R.SP, 4)), Mov(u32(Mem(R.SP)), PCoffset(0)), Mov(R.PC, ROM(a))];
+}));
+_('13', (function() {
+  return Mov(R.A, Or(LSR(R.A, 1), LSL(u8(F.C), 7)));
+}));
+_A_d_$R_R('14', (function(a) {
+  return Mov(a, Sub(a, 1));
+}));
+_('20', bit, offset, (function(byte, bit, offset) {
+  return If(Not(Eq(And(byte, u8(LSL(1, bit))), 0)), Mov(R.PC, PCoffset(offset)));
+}));
+_('22', (function() {
+  return [Mov(R.PC, u32(Mem(R.SP))), Mov(R.SP, Sub(R.SP, 4))];
+}));
+_i_d_$R_R('24', (function(a) {
+  return Mov(R.A, Add(R.A, a));
+}));
+_('30', bit, offset, (function(byte, bit, offset) {
+  return If(Eq(And(byte, u8(LSL(1, bit))), 0), Mov(R.PC, PCoffset(offset)));
+}));
+_('32', (function() {
+  return [Mov(R.PC, u32(Mem(R.SP))), Mov(R.SP, Sub(R.SP, 4))];
+}));
+_('33', (function() {
+  return Mov(R.A, Or(LSL(R.A, 1), u8(F.C)));
+}));
+_i_d_$R_R('34', (function(a) {
+  return Mov(R.A, ADC(R.A, a));
+}));
+_('40', offset, (function(offset) {
+  return If(F.C, Mov(R.PC, PCoffset(offset)));
+}));
+_i_d_$R_R('44', (function(a) {
+  return Mov(R.A, Or(R.A, a));
+}));
+_('50', offset, (function(offset) {
+  return If(Not(F.C), Mov(R.PC, PCoffset(offset)));
+}));
+_('52', direct, (function(a) {
+  return Mov(a, And(a, R.A));
+}));
+_i_d_$R_R('54', (function(a) {
+  return Mov(R.A, And(R.A, a));
+}));
+_('60', offset, (function(offset) {
+  return If(Eq(R.A, 0), Mov(R.PC, PCoffset(offset)));
+}));
+_i_d_$R_R('64', (function(a) {
+  return Mov(R.A, Xor(R.A, a));
+}));
+_('70', offset, (function(offset) {
+  return If(Not(Eq(R.A, 0)), Mov(R.PC, PCoffset(offset)));
+}));
+_('73', (function() {
+  return Mov(R.PC, ROM(Add(R.DPTR, R.A)));
+}));
+_A_d_$R_R('74', immed, (function(a, b) {
+  return Mov(a, b);
+}));
+_('80', offset, (function(offset) {
+  return Mov(R.PC, PCoffset(signed(offset)));
+}));
+_d_$R_R('85', direct, (function(a, b) {
+  return Mov(b, a);
+}));
+_('90', immed16, (function(a) {
+  return Mov(R.DPTR, a);
+}));
+_('93', (function() {
+  return Mov(R.A, u8(Mem(ROM(Add(R.DPTR, R.A)))));
+}));
+_i_d_$R_R('94', (function(a) {
+  var v = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): SBB(R.A, a);
+  return [Mov(F.C, v.CF || 0), Mov(R.A, v)];
+}));
+_('A3', (function() {
+  return Mov(R.DPTR, Add(R.DPTR, 1));
+}));
+_('A4', (function() {
+  var v = traceur.runtime.elementGet(arguments, 0) !== (void 0) ? traceur.runtime.elementGet(arguments, 0): Mul(R.A, R.B);
+  return [Mov(R.A, v), Mov(R.B, LSR(v, 8))];
+}));
+_$R_R('A6', direct, (function(a, b) {
+  return Mov(a, b);
+}));
+var CJNE = (function(a, b, offset) {
+  return If(Eq(a, b), Mov(R.PC, PCoffset(offset)));
+});
+_('B4', immed, offset, (function(a, offset) {
+  return CJNE(R.A, a, offset);
+}));
+_('B5', direct, offset, (function(a, offset) {
+  return CJNE(R.A, a, offset);
+}));
+_$R_R('B6', immed, offset, (function(a, b, offset) {
+  return CJNE(a, b, offset);
+}));
+_('C0', direct, (function(a) {
+  return [Mov(R.SP, Add(R.SP, 1)), Mov(u8(Mem(R.SP)), a)];
+}));
+_('C2', bit, (function(byte, bit) {
+  return Mov(byte, And(byte, Not(u8(LSL(1, bit)))));
+}));
+_('C3', (function() {
+  return Mov(F.C, 0);
+}));
+_('C4', (function() {
+  return Mov(R.A, Or(LSL(R.A, 4), LSR(R.A, 4)));
+}));
+_('D0', direct, (function(a) {
+  return [Mov(R.SP, Sub(R.SP, 1)), Mov(a, u8(Mem(R.SP)))];
+}));
+_('D2', bit, (function(byte, bit) {
+  return Mov(byte, Or(byte, u8(LSL(1, bit))));
+}));
+_('D3', (function() {
+  return Mov(F.C, 1);
+}));
+_R('D8', offset, (function(a, offset) {
+  return [Mov(a, Sub(a, 1)), If(Not(Eq(a, 0)), Mov(R.PC, PCoffset(offset)))];
+}));
+_('E0', (function() {
+  return Mov(R.A, u8(Mem(XRAM(R.DPTR))));
+}));
+_('E4', (function() {
+  return Mov(R.A, 0);
+}));
+_d_$R_R('E5', (function(a) {
+  return Mov(R.A, a);
+}));
+_('F0', (function() {
+  return Mov(u8(Mem(XRAM(R.DPTR))), R.A);
+}));
+_('F4', (function() {
+  return Mov(R.A, Not(R.A));
+}));
+_d_$R_R('F5', (function(a) {
+  return Mov(a, R.A);
+}));
+dis.out(__dirname + '/arch-8051.js', (function(code) {
+  return raw($__0, dis.codeGen.runtime.join('\n'), code);
+}));
+
+//@ sourceMappingURL=8051.map

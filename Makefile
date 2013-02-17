@@ -1,7 +1,7 @@
 
 all: analyzer.jsc
 
-analyzer.jsc: disasm/arch-x86.js | node_modules
+analyzer.jsc: disasm/arch-x86.js disasm/arch-8051.js | node_modules
 
 test: all Password.dll.analyzed
 
