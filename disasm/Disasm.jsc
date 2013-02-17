@@ -490,34 +490,35 @@ exports.op = function op(def, fn) {
 exports.out = function out(outFile, fn) {
   console.error('Totals:', Math.round(this.totals * 100) / 100 + '%');
   console.log('{');
-  var self = this;
-  var mapKeys = Object.keys(self.maps).map((function(x) {
-    return [traceur.runtime.elementGet(self.maps, x), traceur.runtime.elementGet(self.maps, x).$ct.split('').map((function(x) {
+  var mapKeys = Object.keys(this.maps).map((function(x) {
+    return [traceur.runtime.elementGet(this.maps, x), traceur.runtime.elementGet(this.maps, x).$ct.split('').map((function(x) {
       return traceur.runtime.elementGet(({
         '0': 0,
         '1': 1,
         K: 2
       }), x);
     }))];
-  }));
-  mapKeys.sort((function(_a, _b) {
-    var a = traceur.runtime.elementGet(_a, 1), b = traceur.runtime.elementGet(_b, 1);
+  }).bind(this));
+  mapKeys.sort((function($__12, $__13) {
+    var a$ct = traceur.runtime.elementGet($__12, 0).$ct, a = traceur.runtime.elementGet($__12, 1);
+    var b$ct = traceur.runtime.elementGet($__13, 0).$ct, b = traceur.runtime.elementGet($__13, 1);
     if (a.length != b.length) return b.length - a.length;
-    var len = Math.max(a.length, b.length), extraA = 0, extraB = 0;
+    var len = a.length, extraA = 0, extraB = 0;
     for (var i = 0; i < len; i++) {
-      if (traceur.runtime.elementGet(a, i) < 2 && traceur.runtime.elementGet(b, i) < 2 && traceur.runtime.elementGet(a, i) != traceur.runtime.elementGet(b, i)) return traceur.runtime.elementGet(a, i) - traceur.runtime.elementGet(b, i);
-      var ak = traceur.runtime.elementGet(a, i) <= 2, bk = traceur.runtime.elementGet(b, i) <= 2;
+      var ak = traceur.runtime.elementGet(a, i) < 2, bk = traceur.runtime.elementGet(b, i) < 2;
+      if (ak && bk && traceur.runtime.elementGet(a, i) != traceur.runtime.elementGet(b, i)) return traceur.runtime.elementGet(a, i) - traceur.runtime.elementGet(b, i);
       if (ak && !bk) extraA++;
       if (!ak && bk) extraB++;
     }
     if (extraA && !extraB) return - 1;
     if (!extraA && extraB) return 1;
-    if (extraA && extraB) console.error('Can\'t sort ' + traceur.runtime.elementGet(_a, 0).$ct + ' ' + traceur.runtime.elementGet(_b, 0).$ct);
-    return traceur.runtime.elementGet(_a, 0).$ct - traceur.runtime.elementGet(_b, 0).$ct;
+    if (extraA && extraB) console.error('Can\'t sort ' + a$ct + ' ' + b$ct);
+    return a$ct > b$ct ? 1: - 1;
   }));
   var code = '';
-  mapKeys.forEach((function(k) {
-    var v = traceur.runtime.elementGet(k, 0), ct = v.$ct, cond = '';
+  mapKeys.forEach((function($__14) {
+    var v = traceur.runtime.elementGet($__14, 0);
+    var ct = v.$ct, cond = '';
     var cstart = 0, cend = 0;
     var cmask = ct.replace(/^[^01]+/, (function(s) {
       cstart += s.length;

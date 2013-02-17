@@ -674,17 +674,15 @@ exports.op = function op(def, fn, {actualLengthBias=0}={}) {
 exports.out = function out(outFile, fn) {
     console.error('Totals:', Math.round(this.totals*100)/100+'%'/*, '0x'+this.totals.toString(16), Math.round(this.totals/(1<<28)*1000)/10+'%'*/);
     console.log('{');
-    var self = this;
-    var mapKeys = Object.keys(self.maps).map((x)=>[self.maps[x], self.maps[x].$ct.split('').map((x)=>({'0':0, '1':1, K:2})[x])]);
-    mapKeys.sort((_a, _b)=>{
-        var a = _a[1], b = _b[1];
+    var mapKeys = Object.keys(this.maps).map((x)=>[this.maps[x], this.maps[x].$ct.split('').map((x)=>({'0':0, '1':1, K:2})[x])]);
+    mapKeys.sort(([{$ct: a$ct}, a], [{$ct: b$ct}, b])=>{
         if(a.length != b.length) // HACK make longer opcodes more important.
             return b.length - a.length;
-        var len = Math.max(a.length, b.length), extraA = 0, extraB = 0;
+        var len = a.length, extraA = 0, extraB = 0;
         for(var i = 0; i < len; i++) {
-            if(a[i] < 2 && b[i] < 2 && a[i] != b[i])
+            var ak = a[i] < 2, bk = b[i] < 2;
+            if(ak && bk && a[i] != b[i])
                 return a[i]-b[i];
-            var ak = a[i] <= 2, bk = b[i] <= 2;
             if(ak && !bk)
                 extraA++;
             if(!ak && bk)
@@ -695,12 +693,12 @@ exports.out = function out(outFile, fn) {
         if(!extraA && extraB)
             return 1;
         if(extraA && extraB)
-            console.error('Can\'t sort '+_a[0].$ct+' '+_b[0].$ct);
-        return _a[0].$ct-_b[0].$ct;
+            console.error('Can\'t sort '+a$ct+' '+b$ct);
+        return a$ct > b$ct ? 1 : -1;
     });
     var code = '';
-    mapKeys.forEach((k)=>{
-        var v = k[0], ct = v.$ct, cond = '';
+    mapKeys.forEach(([v])=>{
+        var ct = v.$ct, cond = '';
         var cstart = 0, cend = 0;
         var cmask = ct.replace(/^[^01]+/, (s)=>{cstart += s.length; return '';}).replace(/[^01]+$/, (s)=>{cend += s.length; return '';});
         if(cmask.length) {
