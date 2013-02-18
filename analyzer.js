@@ -292,29 +292,29 @@ let makeAnalyzer = (arch)=>{
                     if(targetBlock.returnPoints.length == 1) {
                         //console.log('Callee:');
                         let {SP0: [{value: SP0}], stack: [stack]} = targetBlock.returnPoints[0];
-                        let [j, diff] = this.SPdiffAll(SP0);
-                        /*console.log*/([stack].map((x, i)=>{
-                            let r = '';
-                            x.up.forEach((x, i)=>{
+                        if(SP0) {
+                            let [j, diff] = this.SPdiffAll(SP0);
+                            //let r = '';
+                            stack.up.forEach((x, i)=>{
                                 if(x && !x.invalid) {
-                                    let saved = false;
+                                    //let saved = false;
                                     if(i && diff isnt NaN) { // HACK Save values written over the caller's stack (used in SEH's alloca).
                                         this.writeStack(diff+i, x.bitsof, valueof(x.value), this.stack[j]);
-                                        saved = true;
+                                        //saved = true;
                                     }
-                                    r = ',\n  '+i+': '+inspect(x.value)+(saved?' // Saved':'')+r;
+                                    //r = ',\n  '+i+': '+inspect(x.value)+(saved?' // Saved':'')+r;
                                 }
                             });
-                            r = '[:'+inspect(targetBlock.returnPoints[0].SP0[i])+r;
-                            x.down.forEach((x, i)=>{
+                            /*r = '[:'+inspect(targetBlock.returnPoints[0].SP0[i])+r;
+                            stack.down.forEach((x, i)=>{
                                 if(x && !x.invalid)
                                     r += ',\n  '+~i+': '+inspect(x.value);
                             });
-                            return r+']';
-                        }).join(',\n'));
+                            console.log(r+']');*/
+                        }
                     }
                     //console.log('Caller:');
-                    /*console.log*/(this.stack.map((x, i)=>{
+                    /*console.log(this.stack.map((x, i)=>{
                         let r = '';
                         x.up.forEach((x, i)=>{
                             if(x && !x.invalid)
@@ -326,7 +326,7 @@ let makeAnalyzer = (arch)=>{
                                 r += ',\n  '+~i+': '+inspect(x.value);
                         });
                         return r+']';
-                    }).join(',\n'));
+                    }).join(',\n'));*/
 
                     for(let i in R)
                         if(R[i] != PC && updatedR.indexOf(i) is -1 && targetBlock.returnPoints.some((x)=>x.R[i].value != x.R0[i])) {

@@ -556,68 +556,48 @@ var makeAnalyzer = (function(arch) {
                       if (targetBlock.returnPoints.length == 1) {
                         try {
                           throw undefined;
-                        } catch (diff) {
+                        } catch (stack) {
                           try {
                             throw undefined;
-                          } catch (j) {
+                          } catch (SP0) {
                             try {
                               throw undefined;
-                            } catch (stack) {
-                              try {
-                                throw undefined;
-                              } catch (SP0) {
+                            } catch ($__7) {
+                              {
+                                $__7 = traceur.runtime.elementGet(targetBlock.returnPoints, 0);
+                                SP0 = traceur.runtime.elementGet($__7.SP0, 0).value;
+                                stack = traceur.runtime.elementGet($__7.stack, 0);
+                              }
+                              if (SP0) {
                                 try {
                                   throw undefined;
-                                } catch ($__7) {
-                                  {
-                                    $__7 = traceur.runtime.elementGet(targetBlock.returnPoints, 0);
-                                    SP0 = traceur.runtime.elementGet($__7.SP0, 0).value;
-                                    stack = traceur.runtime.elementGet($__7.stack, 0);
-                                  }
-                                  {
-                                    $__7 = this.SPdiffAll(SP0);
-                                    j = traceur.runtime.elementGet($__7, 0);
-                                    diff = traceur.runtime.elementGet($__7, 1);
-                                  }
-                                  ([stack].map((function(x, i) {
-                                    var r = '';
-                                    x.up.forEach((function(x, i) {
-                                      if (x && !x.invalid) {
-                                        try {
-                                          throw undefined;
-                                        } catch (saved) {
-                                          saved = false;
+                                } catch (diff) {
+                                  try {
+                                    throw undefined;
+                                  } catch (j) {
+                                    try {
+                                      throw undefined;
+                                    } catch ($__7) {
+                                      {
+                                        $__7 = this.SPdiffAll(SP0);
+                                        j = traceur.runtime.elementGet($__7, 0);
+                                        diff = traceur.runtime.elementGet($__7, 1);
+                                      }
+                                      stack.up.forEach((function(x, i) {
+                                        if (x && !x.invalid) {
                                           if (i && traceur.runtime.isnt(diff, NaN)) {
                                             this.writeStack(diff + i, x.bitsof, valueof(x.value), traceur.runtime.elementGet(this.stack, j));
-                                            saved = true;
                                           }
-                                          r = ',\n  ' + i + ': ' + inspect(x.value) + (saved ? ' // Saved': '') + r;
                                         }
-                                      }
-                                    }).bind(this));
-                                    r = '[:' + inspect(traceur.runtime.elementGet(targetBlock.returnPoints[0].SP0, i)) + r;
-                                    x.down.forEach((function(x, i) {
-                                      if (x && !x.invalid) r += ',\n  ' + ~i + ': ' + inspect(x.value);
-                                    }));
-                                    return r + ']';
-                                  }).bind(this)).join(',\n'));
+                                      }).bind(this));
+                                    }
+                                  }
                                 }
                               }
                             }
                           }
                         }
                       }
-                      (this.stack.map((function(x, i) {
-                        var r = '';
-                        x.up.forEach((function(x, i) {
-                          if (x && !x.invalid) r = ',\n  ' + i + ': ' + inspect(x.value) + r;
-                        }));
-                        r = '[:' + inspect(traceur.runtime.elementGet(this.SP0, i)) + r;
-                        x.down.forEach((function(x, i) {
-                          if (x && !x.invalid) r += ',\n  ' + ~i + ': ' + inspect(x.value);
-                        }));
-                        return r + ']';
-                      }).bind(this)).join(',\n'));
                       for (var $i in R) {
                         try {
                           throw undefined;
