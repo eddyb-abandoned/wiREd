@@ -24,6 +24,12 @@ node_modules: package.json
 %.analyzed: % analyzer.jsc | windows.h
 	@node --stack_trace_limit=64 analyzer.jsc ${ANALYSIS_ARGS} "$<" > "$@" 2>&1
 
+%.analyzed.html: %.analyzed deps/highlight.html
+	@echo "<pre lang=js>" > "$@"
+	@cat "$<" >> "$@"
+	@echo "</pre>" >> "$@"
+	@cat deps/highlight.html >> "$@"
+
 windows.h: deps/windows.h
 	@gcc -Ideps/mingw-w64/mingw-w64-{crt/include,headers/{crt,include}} -m32 -E -P "$<" > "$@"
 
