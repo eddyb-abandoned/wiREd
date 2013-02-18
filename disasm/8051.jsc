@@ -232,6 +232,9 @@ _('20', bit, offset, (function(byte, bit, offset) {
 _('22', (function() {
   return [Mov(R.PC, u32(Mem(R.SP))), Mov(R.SP, Sub(R.SP, 4))];
 }));
+_('23', (function() {
+  return Mov(R.A, Or(LSL(R.A, 1), LSR(R.A, 7)));
+}));
 _i_d_$R_R('24', (function(a) {
   return Mov(R.A, Add(R.A, a));
 }));
@@ -250,6 +253,9 @@ _i_d_$R_R('34', (function(a) {
 _('40', offset, (function(offset) {
   return If(F.C, Mov(R.PC, PCoffset(offset)));
 }));
+_('43', direct, immed, (function(a, b) {
+  return Mov(a, Or(a, b));
+}));
 _i_d_$R_R('44', (function(a) {
   return Mov(R.A, Or(R.A, a));
 }));
@@ -258,6 +264,9 @@ _('50', offset, (function(offset) {
 }));
 _('52', direct, (function(a) {
   return Mov(a, And(a, R.A));
+}));
+_('53', direct, immed, (function(a, b) {
+  return Mov(a, And(a, b));
 }));
 _i_d_$R_R('54', (function(a) {
   return Mov(R.A, And(R.A, a));
@@ -280,11 +289,17 @@ _A_d_$R_R('74', immed, (function(a, b) {
 _('80', offset, (function(offset) {
   return Mov(R.PC, PCoffset(signed(offset)));
 }));
+_('84', (function() {
+  return [Mov(R.A, Div(R.A, R.B))];
+}));
 _d_$R_R('85', direct, (function(a, b) {
   return Mov(b, a);
 }));
 _('90', immed16, (function(a) {
   return Mov(R.DPTR, a);
+}));
+_('92', bit, (function(byte, bit) {
+  return Mov(byte, Or(byte, LSL(u8(F.C), bit)));
 }));
 _('93', (function() {
   return Mov(R.A, u8(Mem(ROM(Add(R.DPTR, R.A)))));
@@ -292,6 +307,9 @@ _('93', (function() {
 _i_d_$R_R('94', (function(a) {
   var v = traceur.runtime.elementGet(arguments, 1) !== (void 0) ? traceur.runtime.elementGet(arguments, 1): SBB(R.A, a);
   return [Mov(F.C, v.CF || 0), Mov(R.A, v)];
+}));
+_('A2', bit, (function(byte, bit) {
+  return Mov(F.C, Not(Eq(And(byte, LSL(1, bit)), 0)));
 }));
 _('A3', (function() {
   return Mov(R.DPTR, Add(R.DPTR, 1));
@@ -327,14 +345,20 @@ _('C3', (function() {
 _('C4', (function() {
   return Mov(R.A, Or(LSL(R.A, 4), LSR(R.A, 4)));
 }));
+_d_$R_R('C5', (function(a) {
+  return Swap(R.A, a);
+}));
 _('D0', direct, (function(a) {
   return [Mov(R.SP, Sub(R.SP, 1)), Mov(a, u8(Mem(R.SP)))];
 }));
 _('D2', bit, (function(byte, bit) {
-  return Mov(byte, Or(byte, u8(LSL(1, bit))));
+  return Mov(byte, Or(byte, LSL(1, bit)));
 }));
 _('D3', (function() {
   return Mov(F.C, 1);
+}));
+_('D5', direct, offset, (function(a, offset) {
+  return [Mov(a, Sub(a, 1)), If(Not(Eq(a, 0)), Mov(R.PC, PCoffset(offset)))];
 }));
 _R('D8', offset, (function(a, offset) {
   return [Mov(a, Sub(a, 1)), If(Not(Eq(a, 0)), Mov(R.PC, PCoffset(offset)))];

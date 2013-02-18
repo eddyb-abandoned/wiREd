@@ -111,6 +111,7 @@ _A_d_$R_R('14', (a)=>Mov(a, Sub(a, 1)));
 _('20', bit, offset, (byte, bit, offset)=>If(Not(Eq(And(byte, u8(LSL(1, bit))), 0)), Mov(R.PC, PCoffset(offset))));
 // HACK stack may not work as expected, because 8051 does it strangely.
 _('22', ()=>[Mov(R.PC, u32(Mem(R.SP))), Mov(R.SP, Sub(R.SP, 4))]);
+_('23', ()=>Mov(R.A, Or(LSL(R.A, 1), LSR(R.A, 7))));
 _i_d_$R_R('24', (a)=>Mov(R.A, Add(R.A, a)));
 
 ///\30-3F
@@ -123,11 +124,13 @@ _i_d_$R_R('34', (a)=>Mov(R.A, ADC(R.A, a)));
 
 ///\40-4F
 _('40', offset, (offset)=>If(F.C, Mov(R.PC, PCoffset(offset))));
+_('43', direct, immed, (a, b)=>Mov(a, Or(a, b)));
 _i_d_$R_R('44', (a)=>Mov(R.A, Or(R.A, a)));
 
 ///\50-5F
 _('50', offset, (offset)=>If(Not(F.C), Mov(R.PC, PCoffset(offset))));
 _('52', direct, (a)=>Mov(a, And(a, R.A)));
+_('53', direct, immed, (a, b)=>Mov(a, And(a, b)));
 _i_d_$R_R('54', (a)=>Mov(R.A, And(R.A, a)));
 
 ///\60-6F
@@ -141,14 +144,17 @@ _A_d_$R_R('74', immed, (a, b)=>Mov(a, b));
 
 ///\80-8F
 _('80', offset, (offset)=>Mov(R.PC, PCoffset(signed(offset))));
+_('84', ()=>[Mov(R.A, Div(R.A, R.B))]); // TODO Mov(R.B, Mod(R.A, R.B)).
 _d_$R_R('85', direct, (a, b)=>Mov(b, a));
 
 ///\90-9F
 _('90', immed16, (a)=>Mov(R.DPTR, a));
+_('92', bit, (byte, bit)=>Mov(byte, Or(byte, LSL(u8(F.C), bit))));
 _('93', ()=>Mov(R.A, u8(Mem(ROM(Add(R.DPTR, R.A))))));
 _i_d_$R_R('94', (a, v=SBB(R.A, a))=>[Mov(F.C, v.CF || 0), Mov(R.A, v)]);
 
 ///\A0-AF
+_('A2', bit, (byte, bit)=>Mov(F.C, Not(Eq(And(byte, LSL(1, bit)), 0)))); // HACK Not(Eq(x, 0)) is an ugly hack for bool(x).
 _('A3', ()=>Mov(R.DPTR, Add(R.DPTR, 1)));
 _('A4', (v=Mul(R.A, R.B))=>[Mov(R.A, v), Mov(R.B, LSR(v, 8))]); // FIXME B gets the wrong value because it's not saved before changing A.
 _$R_R('A6', direct, (a, b)=>Mov(a, b));
@@ -164,11 +170,13 @@ _('C0', direct, (a)=>[Mov(R.SP, Add(R.SP, 1)), Mov(u8(Mem(R.SP)), a)]);
 _('C2', bit, (byte, bit)=>Mov(byte, And(byte, Not(u8(LSL(1, bit))))));
 _('C3', ()=>Mov(F.C, 0));
 _('C4', ()=>Mov(R.A, Or(LSL(R.A, 4), LSR(R.A, 4))));
+_d_$R_R('C5', (a)=>Swap(R.A, a));
 
 ///\D0-DF
 _('D0', direct, (a)=>[Mov(R.SP, Sub(R.SP, 1)), Mov(a, u8(Mem(R.SP)))]);
-_('D2', bit, (byte, bit)=>Mov(byte, Or(byte, u8(LSL(1, bit)))));
+_('D2', bit, (byte, bit)=>Mov(byte, Or(byte, LSL(1, bit))));
 _('D3', ()=>Mov(F.C, 1));
+_('D5', direct, offset, (a, offset)=>[Mov(a, Sub(a, 1)), If(Not(Eq(a, 0)), Mov(R.PC, PCoffset(offset)))]);
 _R('D8', offset, (a, offset)=>[Mov(a, Sub(a, 1)), If(Not(Eq(a, 0)), Mov(R.PC, PCoffset(offset)))]);
 
 ///\E0-EF
