@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "dependencies": {
     "radare2.js": "*",
-    "commander": "~1.1.1"
+    "commander": "~1.1.1",
+    "traceur": "0.0.2"
   }
 }
