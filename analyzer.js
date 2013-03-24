@@ -260,7 +260,7 @@ let makeAnalyzer = (arch)=>{
                                         SP0 = v;
                                         SPdiff = 0;
                                         continue;
-                                    } else(v != SP0 || SPdiff)
+                                    } else if(v != SP0 || SPdiff)
                                         throw new Error(inspect(R[i])+' differs '+inspect(v)+' vs '+inspect(SP0)+' + '+SPdiff);
                                 } else if(R[i] == SP) {
                                     if(targetBlock.returnPoints.length == 1) {
