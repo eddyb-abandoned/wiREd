@@ -231,8 +231,10 @@ _`8F:reg=0:Ev`(POP);
 ///\90-9F
 _`90:`(Nop);
 _`91:rAX rCX;rAX rDX;rAX rBX;rAX rSP;rAX rBP;rAX rSI;rAX rDI`(Swap);
+_`98:rAX AX`((a, b)=>Mov(a, IntSizeSigned(b, bitsof(a), true)));
 _`99:rDX rAX`((a, b)=>Mov(a, Neg(IntSizeSigned(Lt(b, 0), bitsof(a), true))));
 _`9C:Fv`(PUSH);
+_`9D:Fv`(POP);
 
 ///\A0-AF
 // TODO more opcodes.
@@ -310,7 +312,7 @@ ${dis.codeGen.runtime.join('\n')}
 exports.dis = function x86dis(b, i) {
     // HACK allows skipping prefixes.
     var _pfxLength = 0, _pfxSizeSpecifier = false;
-    for(; b[i] >= 0x64 && b[i] <= 0x67 || b[i] == 0xF2 || b[i] == 0xF3; i++, _pfxLength++) {
+    for(; b[i] >= 0x64 && b[i] <= 0x67 || b[i] == 0xF2 || b[i] == 0xF3 || b[i] == 0x26 || b[i] == 0x2E || b[i] == 0x36 || b[i] == 0x3E; i++, _pfxLength++) {
         if(b[i] == 0x66)
             _pfxSizeSpecifier = true;
         else
