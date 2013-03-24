@@ -23,7 +23,7 @@ node_modules: package.json
 	@cat deps/highlight.html >> "$@"
 
 windows.h: deps/windows.h
-	@gcc -Ideps/mingw-w64/mingw-w64-{crt/include,headers/{crt,include}} -m32 -E -P "$<" > "$@"
+	@gcc -I/usr/include/wine/windows -Ideps/mingw-w64/mingw-w64-{crt/include,headers/{crt,include}} -m32 -E -P "$<" | sed 's/\s*#pragma.*//' > "$@"
 
 Password.dll:
 	@wget -O "$@" http://eu.depot.battle.net:1119/8f52906a2c85b416a595702251570f96d3522f39237603115f2f1ab24962043c.auth

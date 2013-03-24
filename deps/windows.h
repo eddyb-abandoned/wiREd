@@ -1,11 +1,12 @@
-#undef __GNUC_MINOR__ // Required to remove MINGW_NOTHROW attribute specifiers.
-
 #define _WIN32
 #define _X86_
+#define __MINGW32__
+#define __extension__
 
 // MSVCR*.
 #include <internal.h>
 
+#include <conio.h>
 #include <float.h>
 #include <math.h>
 #include <stdio.h>
