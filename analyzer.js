@@ -623,10 +623,8 @@ let makeAnalyzer = arch => {
             yield;
         }
     });
-}
+};
 
-if(process.argv.length < 3)
-    console.error('Usage: analyzer FILE'), process.exit(1);
 {
     let r2 = require('radare2.js'), fs = require('fs'), path = require('path');
     let bin = new r2.RBin();
