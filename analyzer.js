@@ -32,7 +32,7 @@ Number.prototype.toSupString = function toSupString(...args) {
         return oldFormat.apply(this, args).replace(/(?:^|\n)/g, '$&'+indent);
     };
 
-    console.group = (name)=>{
+    console.group = name => {
         console.log(name, '{');
         indent += '    ';
     };
@@ -45,7 +45,7 @@ Number.prototype.toSupString = function toSupString(...args) {
     };
 }
 
-let makeAnalyzer = (arch)=>{
+let makeAnalyzer = arch => {
     let EventEmitter = require('events').EventEmitter;
     let {R, PC, SP, FP, Add, Mov, Mem, known, valueof, lvalueof, sizeof, inspect} = arch, analyzer;
 
@@ -64,8 +64,8 @@ let makeAnalyzer = (arch)=>{
             this.stack = [{down: [], up: []}];
             this.stackMaxAccess = -Infinity;
             this.returnPoints = [];
-            this.on('returnPoint', (x)=>{
-                if(this.returnPoints.indexOf(x) is -1)
+            this.on('returnPoint', x => {
+                if(this.returnPoints.indexOf(x) === -1)
                     this.returnPoints.push(x);
             });
             this.R = {};
@@ -100,16 +100,16 @@ let makeAnalyzer = (arch)=>{
                 return 0;
             if(SP.op == '+' && SP.a == SP0 && known(SP.b))
                 return SP.b;
-            return NaN;
+            return null;
         }
 
         SPdiffAll(SP) {
             for(let i = this.SP0.length-1; i >= 0; i--) {
                 let diff = this.SPdiff(SP, this.SP0[i]);
-                if(diff isnt NaN)
+                if(diff !== null)
                     return [i, diff];
             }
-            return [-1, NaN];
+            return [-1, null];
         }
 
         readStack(pos, bits, stack=this.stack[this.stack.length-1], bytes=bits/8) {
@@ -157,14 +157,14 @@ let makeAnalyzer = (arch)=>{
 
             analyzer.memRead = (addr, bits)=>{
                 let [i, diff] = this.SPdiffAll(addr);
-                if(diff isnt NaN) // HACK
+                if(diff !== null) // HACK
                     return this.readStack(diff, bits, this.stack[i]);
             };
 
             analyzer.memWrite = (addr, bits, v)=>{
                 let [i, diff] = this.SPdiffAll(addr);
-                if(diff isnt NaN) // HACK
-                    return this.writeStack(diff, bits, v, this.stack[i]) isnt false;
+                if(diff !== null) // HACK
+                    return this.writeStack(diff, bits, v, this.stack[i]) !== false;
             };
         }
 
@@ -183,7 +183,7 @@ let makeAnalyzer = (arch)=>{
                     if(known(x.b))
                         return console.error('Ignoring known SP = '+inspect(x.b));
                     let [i, diff] = this.SPdiffAll(x.b);
-                    if(diff is NaN) {
+                    if(diff === null) {
                         if(x.b.op == '+' && known(x.b.b))
                             this.SP0.push(x.b.a);
                         else
@@ -194,7 +194,7 @@ let makeAnalyzer = (arch)=>{
                         this.stack.splice(i+1);
                     }
                 }
-                let needsFreeze = (x, d=0)=>d >= 8 || x.fn == 'Mem' || x.a && needsFreeze(x.a, d+1) || x.b && needsFreeze(x.b, d+1) || x.args && x.args.some((x)=>needsFreeze(x, d+1));
+                let needsFreeze = (x, d=0)=>d >= 8 || x.fn == 'Mem' || x.a && needsFreeze(x.a, d+1) || x.b && needsFreeze(x.b, d+1) || x.args && x.args.some(x => needsFreeze(x, d+1));
                 if(x.a.freeze && needsFreeze(x.b))
                     x.a.freeze(x.b);
                 else
@@ -238,7 +238,7 @@ let makeAnalyzer = (arch)=>{
                         //    console.log('->₀', r.join(', '));
                     }
                     for(let i in R)
-                        if(this.SPdiffAll(R[i].value)[1] isnt NaN) {
+                        if(this.SPdiffAll(R[i].value)[1] !== null) {
                             changedR0[i] = targetBlock.R0[i].value;
                             targetBlock.R0[i].value = R[i].value;
                             //console.log('->', R[i], '=', R[i].value);
@@ -254,7 +254,7 @@ let makeAnalyzer = (arch)=>{
                                 v = v.frozenValue;
                             v = valueof(v);
                             let [j, diff] = this.SPdiffAll(v);
-                            if(diff is NaN) {
+                            if(diff === null) {
                                 if(R[i] != SP && v == this.R0[i] && R[i].value != this.R0[i]) { // HACK allows the callee to restore caller's saved registers (used in SEH's alloca).
                                     if(!SP0) {
                                         SP0 = v;
@@ -298,7 +298,7 @@ let makeAnalyzer = (arch)=>{
                             stack.up.forEach((x, i)=>{
                                 if(x && !x.invalid) {
                                     //let saved = false;
-                                    if(i && diff isnt NaN) { // HACK Save values written over the caller's stack (used in SEH's alloca).
+                                    if(i && diff !== null) { // HACK Save values written over the caller's stack (used in SEH's alloca).
                                         this.writeStack(diff+i, x.bitsof, valueof(x.value), this.stack[j]);
                                         //saved = true;
                                     }
@@ -329,8 +329,8 @@ let makeAnalyzer = (arch)=>{
                     }).join(',\n'));*/
 
                     for(let i in R)
-                        if(R[i] != PC && updatedR.indexOf(i) is -1 && targetBlock.returnPoints.some((x)=>x.R[i].value != x.R0[i])) {
-                            console.log(`Changes ${inspect(R[i])} <- {${targetBlock.returnPoints.map((x)=>inspect(valueof(x.R[i].value))).join(', ')}}`);
+                        if(R[i] != PC && updatedR.indexOf(i) === -1 && targetBlock.returnPoints.some(x => x.R[i].value != x.R0[i])) {
+                            console.log(`Changes ${inspect(R[i])} <- {${targetBlock.returnPoints.map(x => inspect(valueof(x.R[i].value))).join(', ')}}`);
                             let lvalue = lvalueof(R[i]);
                             if(lvalue.freeze)
                                 lvalue.freeze();
@@ -403,7 +403,7 @@ let makeAnalyzer = (arch)=>{
                         return target;
                     }
 
-                    this.once('preOp', (x)=>{
+                    this.once('preOp', x => {
                         for(let op of x) { // HACK detect whether the caller cleans the stack or not.
                             if(op.op == '=' && op.b.fn == 'Mem' && op.b.a == SP && (op.a == PC || op.a == SP || op.a == FP))
                                 break; // HACK Ignore pop PC/SP/FP, they tend to not remove arguments from the stack.
@@ -437,16 +437,16 @@ let makeAnalyzer = (arch)=>{
             this.saveContext();
             if(savesPC)
                 console.group('0x'+newPC.toString(16).padLeft(8, '0'));
-            let target = new Block({start: newPC}), returnPoint = (x)=>this.emit('returnPoint', x);
+            let target = new Block({start: newPC}), returnPoint = x => this.emit('returnPoint', x);
             if(savesPC)
                 target.writeStack(0, PC.bitsof, target.retPC);
             else {
                 target.on('returnPoint', returnPoint);
                 target.retPC = this.retPC;
                 target.SP0 = this.SP0.slice();
-                target.stack = this.stack.map((x)=>({down: x.down.slice(), up: x.up.slice()}));
+                target.stack = this.stack.map(x => ({down: x.down.slice(), up: x.up.slice()}));
                 for(let i in R) { // HACK forward the registers with a SP0-relative value (or things like function pointers).
-                    if(this.SPdiffAll(this.R[i].value)[1] isnt NaN || R[i] != SP && this.R[i].value == this.R0[i] || this.R[i].value.fn == 'Function')
+                    if(this.SPdiffAll(this.R[i].value)[1] !== null || R[i] != SP && this.R[i].value == this.R0[i] || this.R[i].value.fn == 'Function')
                         ({value: target.R[i].value, nthValue: target.R[i].nthValue}) = this.R[i];
                     if(R[i] != SP)
                         target.R0[i] = this.R0[i];
@@ -635,7 +635,7 @@ if(process.argv.length < 3)
         .option('-b, --base <ADDRESS>', 'base address', parseInt)
         .option('-e, --entry <ADDRESS>', 'entry point', parseInt);
     let entries = [];
-    program.on('entry', (x)=>{
+    program.on('entry', x => {
         x = parseInt(x);
         entries.push({rva: x, offset: x});
     });
@@ -691,7 +691,7 @@ if(process.argv.length < 3)
         };
 
     let sections = [], codeSection;
-    bin.sections.forEach((x)=>{
+    bin.sections.forEach(x => {
         x = {name: x.name, addr: bin.baseAddress+x.rva, offset: x.offset, size: x.size, srwx: x.srwx};
         sections.push(x);
         if(x.srwx & 1) {
@@ -716,7 +716,7 @@ if(process.argv.length < 3)
         importHeaders.push(fs.readFileSync('windows.h', 'utf8'));
     let imports = [], importsByAddr = [];
     console.group('Imports');
-    bin.imports.forEach((x)=>{
+    bin.imports.forEach(x => {
         x = importsByAddr[bin.baseAddress+x.rva] = {name: x.name, addr: bin.baseAddress+x.rva, bind: x.bind, type: x.type};
         imports.push(x);
 
@@ -726,7 +726,7 @@ if(process.argv.length < 3)
         var args, fnRE = new RegExp('(__cdecl\\s+|)\\b'+fn.replace(/[?*+]/g, '\\$&')+'\\b\\s*\\(');
         for(let header of importHeaders)
             if(args = fnRE.exec(header)) {
-                let matchParens = (i)=>{
+                let matchParens = i => {
                     for(let j = i, c; j < header.length; j++) {
                         c = header[j];
                         if(c == ')')
@@ -786,21 +786,21 @@ if(process.argv.length < 3)
     };
 
     var symbols = [];
-    bin.symbols.forEach((x)=>{
+    bin.symbols.forEach(x => {
         console.log('Symbol %s: fw=%s bind=%s type=%s addr=%s offset=%s size=%d ordinal=%d',
             x.name, x.forwarder, x.bind, x.type, (bin.baseAddress+x.rva).toString(16),
             x.offset.toString(16), x.size, x.ordinal);
         if(x.type == 'FUNC')
             symbols.push({name: x.name, addr: bin.baseAddress+x.rva});
     });
-    bin.entries.forEach((x)=>{
+    bin.entries.forEach(x => {
         console.log('Entry: addr=%s offset=%s', (bin.baseAddress+x.rva).toString(16), x.offset.toString(16));
         symbols.push({name: 'entry', addr: bin.baseAddress+x.rva});
     });
     if(!symbols.length)
         console.error('No usable symbols'), process.exit(1);
     var t = process.hrtime(), decodedInstructions = 0, decodedBytes = 0;
-    analyzer.on('Block.postOp', (block)=>{
+    analyzer.on('Block.postOp', block => {
         decodedInstructions++;
         decodedBytes += block.PCnext - block.PC;
     });
@@ -809,17 +809,17 @@ if(process.argv.length < 3)
         console.log(`Decoded ${decodedInstructions} instructions (${Math.round(decodedBytes/1024*100)/100}KB) in ${t[0]+t[1]/1e9}s`);
     });
     process.on('SIGINT', ()=>process.exit());
-    symbols.forEach((symbol)=>{
+    symbols.forEach(symbol => {
         let mainBlock = new analyzer.Block({start: symbol.addr});
         console.log('Analyzing '+symbol.name+'@'+symbol.addr.toString(16).padLeft(8, '0'));
         mainBlock.writeStack(0, analyzer.arch.PC.bitsof, mainBlock.retPC); // HACK
         try {
             analyzer.getBlock(mainBlock);
         } catch(e) {
-            if(typeof e is 'object')
+            if(typeof e === 'object')
                 e = e.stack;
             console.error(e);
-            while(console.groupEnd() isnt false);
+            while(console.groupEnd() !== false);
         }
     });
 }
