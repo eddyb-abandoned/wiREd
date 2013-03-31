@@ -4,6 +4,6 @@
   "dependencies": {
     "radare2.js": "*",
     "commander": "~1.1.1",
-    "traceur": "0.0.2"
+    "traceur": "*"
   }
 }

@@ -2,11 +2,11 @@ TRACEUR:=node --stack_trace_limit=64 `npm bin`/traceur --experimental --trap-mem
 
 all: analyzer.js
 
-analyzer.js: disasm/arch-x86.js disasm/arch-8051.js | node_modules
+analyzer.js: disasm/arch-x86.js #disasm/arch-8051.js | node_modules
 
 test: all Password.dll.analyzed
 
-disasm/arch-%.js: disasm/%.js disasm/Disasm.js
+disasm/arch-%.js: disasm/%.js disasm/Disasm.js disasm/codegen-js.js disasm/codegen-js-base.js
 	@${TRACEUR} "$<" > /dev/null
 
 node_modules: package.json

@@ -47,7 +47,9 @@ Number.prototype.toSupString = function toSupString(...args) {
 
 let makeAnalyzer = arch => {
     let EventEmitter = require('events').EventEmitter;
-    let {R, PC, SP, FP, Add, Mov, Mem, known, valueof, lvalueof, sizeof, inspect} = arch, analyzer;
+    let {R, PC, SP, FP, uint, int, u8, Mov, Mem, Unknown, known, valueof, lvalueof, sizeof, inspect} = arch, analyzer;
+
+    let eq = (a, b)=>a && a.known && a.bitsof <= 32 && typeof b === 'number' ? a._A === b : a === b; // HACK
 
     class AnalysisPauseError extends Error {
         constructor(reason='') {
@@ -71,7 +73,8 @@ let makeAnalyzer = arch => {
             this.R = {};
             this.R0 = {};
             for(let i in R) {
-                this.R0[i] = {bitsof: R[i].bitsof, signed: R[i].signed, inspect: ()=>inspect(R[i])+'₀'/*+(this.start||0).toSupString(16)*/};
+                this.R0[i] = new Unknown(R[i].bitsof);
+                this.R0[i].inspect = ()=>inspect(R[i])+'₀'/*+(this.start||0).toSupString(16)*/;
                 this.R[i] = {nthValue: 1, value: this.R0[i]};
 
                 if(R[i] == SP) {
@@ -79,7 +82,8 @@ let makeAnalyzer = arch => {
                     this.SP = this.R[i];
                 }
             }
-            this.retPC = {inspect: ()=>'ret'+inspect(PC)}; // HACK
+            this.retPC = new Unknown(PC.bitsof);
+            this.retPC.inspect = ()=>'ret'+inspect(PC);
 
             for(let i in options)
                 this[i] = options[i];
@@ -98,8 +102,8 @@ let makeAnalyzer = arch => {
         SPdiff(SP, SP0=this.SP0[this.SP0.length-1]) {
             if(SP == SP0)
                 return 0;
-            if(SP.op == '+' && SP.a == SP0 && known(SP.b))
-                return SP.b;
+            if(SP.op == '+' && SP.a == SP0 && SP.b.known && SP.b.bitsof <= 32) // HACK
+                return SP.b._A;
             return null;
         }
 
@@ -170,7 +174,7 @@ let makeAnalyzer = arch => {
 
         preOp(x) {
             this.emit('preOp', x);
-            PC.value = this.PC;
+            PC.value = uint[PC.bitsof](this.PC); // HACK
             this.PCwritten = false;
         }
 
@@ -180,11 +184,11 @@ let makeAnalyzer = arch => {
                 if(x.a == PC.lvalue) // HACK
                     this.PCwritten = true;
                 else if(x.a == SP.lvalue) {
-                    if(known(x.b))
+                    if(x.b.known)
                         return console.error('Ignoring known SP = '+inspect(x.b));
                     let [i, diff] = this.SPdiffAll(x.b);
                     if(diff === null) {
-                        if(x.b.op == '+' && known(x.b.b))
+                        if(x.b.op == '+' && x.b.b.known)
                             this.SP0.push(x.b.a);
                         else
                             this.SP0.push(x.b);
@@ -199,20 +203,15 @@ let makeAnalyzer = arch => {
                     x.a.freeze(x.b);
                 else
                     x.a.value = x.b;
-            } else if(x.op == '<->') {
-                // HACK hopefully nothing goes wrong.
-                let a = valueof(x.a), b = valueof(x.b);
-                this.op(Mov(x.a, b));
-                this.op(Mov(x.b, a));
             }
         }
 
         postOp() {
             this.emit('postOp');
-            if(this.PCwritten && PC.value != this.PCnext) {
+            if(this.PCwritten && !eq(PC.value, this.PCnext)) {
                 console.log('-->', inspect(PC.value));
                 let targetBlock = this.getJumpTarget(PC.value);
-                let savesPC = analyzer.memRead(valueof(SP), PC.bitsof) == this.PCnext;
+                let savesPC = eq(analyzer.memRead(valueof(SP), PC.bitsof), this.PCnext);
                 if(savesPC) {
                     if(!targetBlock.returnPoints.length)
                         throw new Error('Not returning from a function call'/*+inspect(targetBlock)*/);
@@ -282,7 +281,7 @@ let makeAnalyzer = arch => {
                                 throw new Error(inspect(R[i])+' differs '+inspect(x.SP0[j])+' + '+diff+' ('+inspect(x.start)+') vs '+inspect(SP0)+' + '+SPdiff+', from '+inspect(this.start)+' for '+inspect(targetBlock.start));
                         }
                         if(SP0) {
-                            this.op(valueof(Mov(R[i], Add(SP0, SPdiff))));
+                            this.op(valueof(Mov(R[i], SP0.add(SP.type(SPdiff)))));
                             updatedR.push(i);
                             //console.log('<-', R[i], '=', R[i].value, '//', inspect(targetBlock.returnPoints[0].R[i].value));
                         }
@@ -327,15 +326,16 @@ let makeAnalyzer = arch => {
                         });
                         return r+']';
                     }).join(',\n'));*/
-
+                    let changes = [];
                     for(let i in R)
                         if(R[i] != PC && updatedR.indexOf(i) === -1 && targetBlock.returnPoints.some(x => x.R[i].value != x.R0[i])) {
-                            console.log(`Changes ${inspect(R[i])} <- {${targetBlock.returnPoints.map(x => inspect(valueof(x.R[i].value))).join(', ')}}`);
+                            changes.push(`${inspect(R[i])} <- {${targetBlock.returnPoints.map(x => inspect(valueof(x.R[i].value))).join(', ')}}`);
                             let lvalue = lvalueof(R[i]);
                             if(lvalue.freeze)
                                 lvalue.freeze();
                         }
-
+                    if(changes.length)
+                        console.log('Changes', changes.join(', '));
                     for(let i in changedR0)
                         targetBlock.R0[i].value = changedR0[i];
                 } else if(targetBlock == this.retPC)
@@ -346,8 +346,9 @@ let makeAnalyzer = arch => {
         }
 
         getJumpTarget(newPC) {
-            let savesPC = analyzer.memRead(valueof(SP), PC.bitsof) == this.PCnext;
-            if(!known(newPC)) {
+            let savesPC = eq(analyzer.memRead(valueof(SP), PC.bitsof), this.PCnext);
+
+            if(!newPC.known) {
                 let isTailJump = !savesPC && this.SP0.length == 1 && this.SPdiff(valueof(SP)) == 0;
                 if(newPC == this.retPC) {
                     this.emit('returnPoint', this);
@@ -371,7 +372,7 @@ let makeAnalyzer = arch => {
                 } else if(savesPC || isTailJump) {
                     console.error('Unknown '+(savesPC?'call':'tail-jump')+', assuming arguments');
                     let target = new Block({returns: true});
-                    target.SP.value = Add(target.SP0[0], sizeof(PC));
+                    target.SP.value = target.SP0[0].add(u8(sizeof(PC)));
                     target.returnPoints.push(target);
 
                     let stack = this.stack[this.stack.length-1].down, i = this.SPdiff(valueof(SP)) + sizeof(PC), j = i, k = 0, pc = this.PC;
@@ -382,10 +383,10 @@ let makeAnalyzer = arch => {
                         if(pc > v.PCnext)
                             k += pc - v.PCnext;
                         if(k > 12) {// HACK
-                            console.error(`!!stack[-${inspect(-j)}]${v.bitsof} (${k}) =`, inspect(v.value));
+                            console.error(`!!stack[${j}]${v.bitsof} (${k}) =`, inspect(v.value));
                             break;
                         }
-                        console.error(`stack[-${inspect(-j)}]${v.bitsof} (${k}) =`, inspect(v.value));
+                        console.error(`stack[${j}]${v.bitsof} (${k}) =`, inspect(v.value));
                         j += v.bitsof/8;
                         pc = v.PC;
                     }
@@ -393,7 +394,7 @@ let makeAnalyzer = arch => {
 
                     if(isTailJump) { // FIXME duplicated code.
                         console.error('Assuming callee cleans the stack ('+(j-i)+')');
-                        target.SP.value = Add(target.SP.value, j-i);
+                        target.SP.value = target.SP.value.add(SP.type(j-i));
 
                         // HACK this fakes a return following the current instruction.
                         this.returns = true;
@@ -411,7 +412,7 @@ let makeAnalyzer = arch => {
                                 return;
                         }
                         console.error('Assuming callee cleans the stack ('+(j-i)+')');
-                        this.op(valueof(Mov(SP, Add(SP, j-i))));
+                        this.op(valueof(Mov(SP, SP.add(SP.type(j-i)))));
                     });
 
                     return target;
@@ -434,6 +435,7 @@ let makeAnalyzer = arch => {
                 }
             }
 
+            newPC = newPC._A; // HACK
             this.saveContext();
             if(savesPC)
                 console.group('0x'+newPC.toString(16).padLeft(8, '0'));
@@ -483,21 +485,6 @@ let makeAnalyzer = arch => {
             this.arch = arch;
             this.Block = Block;
 
-            for(let i in R)
-                R[i].lvalue = {
-                    inspect: ()=>inspect(R[i])+R[i].nthValue.toSubString(),
-                    freeze(v) {
-                        let name = inspect(R[i])+(R[i].nthValue++).toSubString();
-                        R[i].value = {frozenValue: v, inspect: ()=>name};
-                    },
-                    get value() {
-                        return R[i].value;
-                    },
-                    set value(v) {
-                        R[i].value = v;
-                    }
-                };
-
             let {read, write} = Mem;
             Mem.read = (addr, bits)=>{
                 if(this.memRead) {
@@ -519,7 +506,7 @@ let makeAnalyzer = arch => {
 
         getBlock(block) {
             let {start} = block;
-            if(!known(start) || start < this.codeBase || start >= this.codeBase+this.codeBuffer.length)
+            if(typeof start !== 'number' || start < this.codeBase || start >= this.codeBase+this.codeBuffer.length)
                 throw new Error('Block starting outside of codeBuffer bounds');
 
             start -= this.codeBase;
@@ -532,7 +519,7 @@ let makeAnalyzer = arch => {
             block.inProgress = true;
 
             block.decoderGenerator = this.decodeBlock(block);
-            block.decoder = block.decoderGenerator.moveNext.bind(block.decoderGenerator);
+            block.decoder = block.decoderGenerator.next.bind(block.decoderGenerator);
             try {
                 block.decoder();
             } catch(e) {
@@ -564,7 +551,7 @@ let makeAnalyzer = arch => {
                 if(!r) yield;
 
                 var bytes = r[0], slice = this.codeBuffer.slice(i, i+bytes), asm = '';
-                if(arch.legacyDisasm)
+                if(arch.legacyDisasm && process.env.DEBUG_ASM)
                     asm = ' // '+arch.legacyDisasm(this.codeBase+i, slice).trim();
                 r = r.slice(1);
                 block.PCnext = block.PC+bytes;
@@ -574,6 +561,8 @@ let makeAnalyzer = arch => {
                     s = inspect(v)+' // '+s;
                     if(!j)
                         s += asm;
+                    if(process.env.DEBUG_OP)
+                        console.log(s);
                     if(v.fn == 'If') {
                         if(j != r.length-1 || v.then.op != '=' || v.then.a != PC)
                             throw new Error('Cannot handle conditional '+inspect(v));
@@ -583,7 +572,7 @@ let makeAnalyzer = arch => {
                         block.linkIf = block.getJumpTarget(targetPC);
                         console.groupEnd();
                         console.group('else');
-                        block.link = block.getJumpTarget(block.PCnext);
+                        block.link = block.getJumpTarget(PC.type(block.PCnext));
                         console.groupEnd();
                         this.decoder = this.decoderGenerator = null;
                         block.saveContext();
@@ -693,9 +682,9 @@ let makeAnalyzer = arch => {
         x = {name: x.name, addr: bin.baseAddress+x.rva, offset: x.offset, size: x.size, srwx: x.srwx};
         sections.push(x);
         if(x.srwx & 1) {
-            if(codeSection || !x.size)
-                console.error('Ignoring code section '+x.name);
-            else
+            //if(codeSection || !x.size)
+            //    console.error('Ignoring code section '+x.name);
+            //else
                 codeSection = x;
         }
     });
@@ -737,7 +726,7 @@ let makeAnalyzer = arch => {
                 };
                 let conv = args[1].trim();
                 args = header.slice(...matchParens(args.index+args[0].length)).trim();
-                console.log(`Import ${x.name}(${args})@${analyzer.arch.inspect(x.addr)}`);
+                console.log(`Import ${x.name}(${args})@${analyzer.arch.inspect(analyzer.arch.u32(x.addr))}`);
                 x.args = args;
                 if(!args || args == 'void')
                     args = 0;
@@ -748,18 +737,17 @@ let makeAnalyzer = arch => {
                 if(bin.arch == 'x86') {
                     let argVals = [];
                     for(let i = 0; i < args; i += 4) { // HACK Assuming 32bit arguments.
-                        let arg = analyzer.arch.Mem(analyzer.arch.Add(x.block.SP0[0], 4+i));
-                        arg.bitsof = 32;
+                        let arg = analyzer.arch.Mem32(x.block.SP0[0].add(x.block.SP0[0].type(4+i)));
                         argVals.push(arg);
                     }
                     // HACK Assuming stdcall (return in EAX).
                     x.block.R.EAX.value = {args: argVals, inspect: ()=>x.name, get value() {
-                        let args = argVals.map((a)=>analyzer.arch.valueof(a));
-                        return {args, inspect: ()=>x.name+'('+args.map((a)=>analyzer.arch.inspect(a)).join(', ')+')'};
+                        let args = argVals.map(a => analyzer.arch.valueof(a));
+                        return {args, inspect: ()=>x.name+'('+args.map(a => analyzer.arch.inspect(a)).join(', ')+')'};
                     }};
                     if(conv == '__cdecl')
                         args = 0;
-                    x.block.SP.value = analyzer.arch.Add(x.block.SP0[0], args+4); // HACK Assuming stdcall by default (callee cleans the stack).
+                    x.block.SP.value = x.block.SP0[0].add(x.block.SP0[0].type(args+4)); // HACK Assuming stdcall by default (callee cleans the stack).
                 }
                 return;
             }
@@ -768,19 +756,22 @@ let makeAnalyzer = arch => {
     console.groupEnd();
 
     let {read, write} = analyzer.arch.Mem;
-    analyzer.arch.Mem.read = (addr, bits)=>{
-        if(bits == 32) {
-            let imp = importsByAddr[addr];
-            if(imp)
-                return {fn: 'Function', block: imp.block, inspect: ()=>imp.name+('args' in imp ? '('+imp.args+')' : '')};
-        }
-        for(let x of sections)
-            if(x.addr <= addr && addr < x.addr+x.size) {
-                if(x.srwx & 2) // Writable, not good.
-                    return;
-                return bin.buffer['readUInt'+bits+(bits==8?'':'LE')](addr-x.addr+x.offset);
+    analyzer.arch.Mem.read = (_addr, bits)=>{
+        if(_addr.known && _addr.bitsof <= 32) { // HACK
+            let addr = _addr._A;
+            if(bits == 32) {
+                let imp = importsByAddr[addr];
+                if(imp)
+                    return {fn: 'Function', block: imp.block, inspect: ()=>imp.name+('args' in imp ? '('+imp.args+')' : '')};
             }
-        return read(addr, bits);
+            for(let x of sections)
+                if(x.addr <= addr && addr < x.addr+x.size) {
+                    if(x.srwx & 2) // Writable, not good.
+                        return;
+                    return analyzer.arch.int[bits](bin.buffer['readInt'+bits+(bits==8?'':'LE')](addr-x.addr+x.offset));
+                }
+        }
+        return read(_addr, bits);
     };
 
     var symbols = [];
