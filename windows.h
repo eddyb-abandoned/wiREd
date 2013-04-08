@@ -15,8 +15,8 @@ typedef int errno_t;
 typedef long __time32_t;
  typedef long long __time64_t;
 typedef __time32_t time_t;
-void __cdecl __debugbreak(void);
-extern __inline__ __attribute__((__always_inline__,__gnu_inline__)) void __cdecl __debugbreak(void)
+void __attribute__((__cdecl__)) __debugbreak(void);
+extern __inline__ __attribute__((__always_inline__,__gnu_inline__)) void __attribute__((__cdecl__)) __debugbreak(void)
 {
   __asm__ __volatile__("int $3");
 }
