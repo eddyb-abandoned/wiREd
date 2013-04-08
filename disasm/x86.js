@@ -8,7 +8,7 @@ Number.prototype.toBinary = function(n=-1) {
 };
 
 import {Disasm, codegen} from 'Disasm.js';
-const {Mov, Register, Mem, If, FnCall, Nop, Interrupt, int, uint, signed, unsigned, i32, u1, u8, u32} = codegen.$;
+const {Mov, Register, Mem, If, FnCall, Nop, Interrupt, int, uint, signed, unsigned, i8, i32, u1, u8, u32} = codegen.$;
 
 const x86 = new Disasm;
 
@@ -105,8 +105,8 @@ function _op(def, b, fn) {
     });
     let op = (mid=[], n=0, modRM=null)=>{
         immIdx = n + (!ctReg && hasModRM ? 1 : 0);
-        var bytes = b.concat(mid).concat(imm), actualLengthBias = u8({code: ()=>'_pfxLength', bitsof: 8, signed: false, runtimeKnown: true});
-        byteLen = u8(bytes.join('').length / 8).add(actualLengthBias);
+        var bytes = b.concat(mid).concat(imm), actualLengthBias = i8({code: ()=>'_pfxLength', bitsof: 8, signed: true, runtimeKnown: true});
+        byteLen = i8(bytes.join('').length / 8).add(actualLengthBias);
         ModRM = modRM;
         return x86.op(bytes, (...a)=>{
             var res = fn(...args.map(x => x(...a)));
