@@ -330,7 +330,7 @@ ${id}.prototype.${fnLower} = function ${fnLower}(that) { // assumes that is of a
         return new ${fn}(this, that);
     if(!that.known)
         return ${op == '<' ? `/*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not())` : `that.${fnLower}(this)`};
-    return ${logic ? 'u1' : id}(this._A ${op} ${signed ? `that._A` : `(that._A ${conv})`});
+    return ${logic ? 'u1(' : id}(this._A ${op} ${signed ? `that._A` : `(that._A ${conv})`}${logic ? ') & 1' : ''});
 };`;
         }
 
