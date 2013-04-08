@@ -433,7 +433,7 @@ var If = exports.If = function If(cond, then) {
     if(!(this instanceof If))
         return new If(cond, then);
     if(cond.known && cond.bitsof <= 32) // HACK doesn't work > 32bits.
-        return cond._A ? then : null;
+        return cond._A ? then : Nop(); // HACK Nop was null.
     this.cond = cond;
     this.then = then;
 };
@@ -442,8 +442,8 @@ If.prototype = {
     get value() {
         var cond = valueof(this.cond);
         if(cond !== this.cond) {
-            if(cond.bitsof <= 32) // HACK doesn't work > 32bits.
-                return cond._A ? valueof(this.then) : null;
+            if(cond.known && cond.bitsof <= 32) // HACK doesn't work > 32bits.
+                return cond._A ? valueof(this.then) : Nop(); // HACK Nop was null.
             return new If(cond, this.then);
         }
     },
