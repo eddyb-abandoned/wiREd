@@ -2455,8 +2455,8 @@ Mem256.prototype.inspect = function() {
 var If = exports.If = function If(cond, then) {
     if(!(this instanceof If))
         return new If(cond, then);
-    if(cond.known && cond.bitsof <= 32) // HACK doesn't work > 32bits.
-        return cond._A ? then : Nop(); // HACK Nop was null.
+    //if(cond.known && cond.bitsof <= 32) // HACK doesn't work > 32bits.
+    //    return cond._A ? then : Nop(); // HACK Nop was null.
     this.cond = cond;
     this.then = then;
 };
@@ -2464,11 +2464,8 @@ If.prototype = {
     constructor: If, fn: 'If',
     get value() {
         var cond = valueof(this.cond);
-        if(cond !== this.cond) {
-            if(cond.known && cond.bitsof <= 32) // HACK doesn't work > 32bits.
-                return cond._A ? valueof(this.then) : Nop(); // HACK Nop was null.
+        if(cond !== this.cond)
             return new If(cond, this.then);
-        }
     },
     inspect: function() {
         return 'if('+inspect(this.cond)+') '+inspect(this.then)+';';
