@@ -2,7 +2,9 @@
 #define _X86_
 #define __MINGW32__
 #define __extension__
+#define __declspec(x) __attribute__((x))
 #define __cdecl __attribute__((__cdecl__))
+#define __inline __inline__
 
 // MSVCR*.
 #include <internal.h>
