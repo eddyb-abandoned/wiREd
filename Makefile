@@ -37,6 +37,10 @@ clean:
 %.y.js: %.l %.y deps/codeaze/codeaze.js cparse/yacc2codeaze.js
 	@${TRACEUR} cparse/yacc2codeaze.js "$*.l" "$*.y" > "$@"
 
+%.h.js: %.h cparse/cparse.js cparse/c11.y.js
+	@${TRACEUR} cparse/cparse.js "$<" > "$@"
+.PRECIOUS: %.h.js
+
 # Platform.
 platform/windows.h: platform/windows.h.in
 	@${CC} -I/usr/include/wine/windows -Ideps/mingw-w64/mingw-w64-{crt/include,headers/{crt,include}} -m32 -E -P "$<" | sed 's/\s*#pragma.*//' > "$@"
