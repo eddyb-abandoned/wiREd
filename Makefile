@@ -35,3 +35,8 @@ clean:
 .PRECIOUS: node_modules disasm/arch-%.js %.analyzed
 
 .PHONY: all test clean
+
+# CParse.
+%.y.js: %.l %.y deps/codeaze/codeaze.js cparse/yacc2codeaze.js
+	@${TRACEUR} cparse/yacc2codeaze.js "$*.l" "$*.y" > "$@"
+
