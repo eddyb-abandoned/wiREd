@@ -81,7 +81,7 @@ for(let fn in unaryOps) {
         this.a.touch && this.a.touch();
     }, code(bareRK=false) {
         if(this.a.runtimeKnown)
-            return this.type.wrap('~'+this.a.code(true), bareRK);
+            return this.type.wrap(op+this.a.code(true), bareRK);
         return this.a.code()+'.'+fn.toLowerCase()+'()';
     }});
 }
