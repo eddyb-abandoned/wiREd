@@ -2,7 +2,8 @@ TRACEUR:=node --stack_trace_limit=64 `npm bin`/traceur --experimental --trap-mem
 
 all: analyzer.js
 
-analyzer.js: disasm/arch-x86.js #disasm/arch-8051.js | node_modules
+analyzer.js: disasm/arch-x86.js | node_modules #disasm/arch-8051.js | node_modules
+	@touch analyzer.js
 
 test: all Password.dll.analyzed
 
