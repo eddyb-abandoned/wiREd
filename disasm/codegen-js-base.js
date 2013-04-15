@@ -387,10 +387,12 @@ Register${bits}.prototype.inspect = function inspect() {
 code += `
 var Mem = exports.Mem = {};
 Mem.read = function(address, bits) {
-    console.error('Non-implemented Mem read ['+inspect(address)+']'+bits);
+    if(process.env.DEBUG_MEM)
+        console.error('Non-implemented Mem read ['+inspect(address)+']'+bits);
 };
 Mem.write = function(address, bits, value) {
-    console.error('Non-implemented Mem write ['+inspect(address)+']'+bits+' = '+inspect(value));
+    if(process.env.DEBUG_MEM)
+        console.error('Non-implemented Mem write ['+inspect(address)+']'+bits+' = '+inspect(value));
 };`;
 for(let bits of bitSizes) {
     code += `

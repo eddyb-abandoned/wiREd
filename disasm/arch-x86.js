@@ -2237,10 +2237,12 @@ Register256.prototype.inspect = function inspect() {
 };
 var Mem = exports.Mem = {};
 Mem.read = function(address, bits) {
-    console.error('Non-implemented Mem read ['+inspect(address)+']'+bits);
+    if(process.env.DEBUG_MEM)
+        console.error('Non-implemented Mem read ['+inspect(address)+']'+bits);
 };
 Mem.write = function(address, bits, value) {
-    console.error('Non-implemented Mem write ['+inspect(address)+']'+bits+' = '+inspect(value));
+    if(process.env.DEBUG_MEM)
+        console.error('Non-implemented Mem write ['+inspect(address)+']'+bits+' = '+inspect(value));
 };
 var Mem1 = Mem[1] = exports.Mem1 = function Mem1(addr) {
     if(!(this instanceof Mem1))
