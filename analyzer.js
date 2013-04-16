@@ -331,7 +331,10 @@ let makeAnalyzer = arch => {
                         if(R[i] != PC && updatedR.indexOf(i) === -1 && targetBlock.returnPoints.some(x => x.R[i].value != x.R0[i])) {
                             changes.push(`${inspect(R[i])} <- {${targetBlock.returnPoints.map(x => inspect(valueof(x.R[i].value))).join(', ')}}`);
                             let lvalue = lvalueof(R[i]);
-                            if(lvalue.freeze)
+                            // TODO use return values from functions with multiple return points.
+                            if(targetBlock.returnPoints.length === 1)
+                                this.op(Mov(lvalue, valueof(targetBlock.returnPoints[0].R[i].value)));
+                            else if(lvalue.freeze)
                                 lvalue.freeze();
                         }
                     if(changes.length)
