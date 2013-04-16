@@ -558,7 +558,6 @@ let makeAnalyzer = arch => {
                 block.preOp(r);
                 for(var j = 0; j < r.length; j++) {
                     var x = r[j], s = inspect(x), v = valueof(x);
-                    s = inspect(v)+' // '+s;
                     if(!j)
                         s += asm;
                     if(process.env.DEBUG_OP)
@@ -580,6 +579,8 @@ let makeAnalyzer = arch => {
                         yield;
                     }
                     block.op(v);
+
+                    s = inspect(v)+' // '+s;
 
                     if(j)
                         s = (j==r.length-1?'└':'├').padLeft(13+bytes*2).padRight(31, '─')+s;
