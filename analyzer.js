@@ -669,10 +669,11 @@ let makeAnalyzer = arch => {
     }
 
     let analyzer = makeAnalyzer(require('./disasm/arch-'+bin.arch));
+    let {arch} = analyzer;
 
     let asm = new r2.RAsm();
     if(asm.use(bin.arch) && asm.set_bits(bin.bits))
-        analyzer.arch.legacyDisasm = (PC, buffer)=>{
+        arch.legacyDisasm = (PC, buffer)=>{
             asm.set_pc(PC);
             return asm.mdisassemble(buffer, buffer.length).buf_asm;
         };
@@ -691,7 +692,7 @@ let makeAnalyzer = arch => {
     if(!codeSection)
         throw new Error('No code section');
     analyzer.codeBuffer = bin.buffer.slice(codeSection.offset, codeSection.offset+codeSection.size);
-    analyzer.codeBase = analyzer.arch.PCbase = codeSection.addr;
+    analyzer.codeBase = arch.PCbase = codeSection.addr;
 
     for(let x of entries) {
         x.offset = x.rva-codeSection.addr+codeSection.offset;
@@ -755,8 +756,8 @@ let makeAnalyzer = arch => {
     });
     console.groupEnd();
 
-    let {read, write} = analyzer.arch.Mem;
-    analyzer.arch.Mem.read = (_addr, bits)=>{
+    let {read, write} = arch.Mem;
+    arch.Mem.read = (_addr, bits)=>{
         if(_addr.known && _addr.bitsof <= 32) { // HACK
             let addr = _addr._A;
             if(bits == 32) {
@@ -768,7 +769,7 @@ let makeAnalyzer = arch => {
                 if(x.addr <= addr && addr < x.addr+x.size) {
                     if(x.srwx & 2) // Writable, not good.
                         return;
-                    return analyzer.arch.int[bits](bin.buffer['readInt'+bits+(bits==8?'':'LE')](addr-x.addr+x.offset));
+                    return arch.int[bits](bin.buffer['readInt'+bits+(bits==8?'':'LE')](addr-x.addr+x.offset));
                 }
         }
         return read(_addr, bits);
@@ -801,7 +802,7 @@ let makeAnalyzer = arch => {
     symbols.forEach(symbol => {
         let mainBlock = new analyzer.Block({start: symbol.addr});
         console.log('Analyzing '+symbol.name+'@'+symbol.addr.toString(16).padLeft(8, '0'));
-        mainBlock.writeStack(0, analyzer.arch.PC.bitsof, mainBlock.retPC); // HACK
+        mainBlock.writeStack(0, arch.PC.bitsof, mainBlock.retPC); // HACK
         try {
             analyzer.getBlock(mainBlock);
         } catch(e) {
