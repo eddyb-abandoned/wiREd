@@ -662,7 +662,7 @@ let makeAnalyzer = arch => {
         buffer = buffer.ref().deref();
         bin = {
             buffer, baseAddress: rbin.get_baddr(),
-            arch: binInfo.arch, bits: binInfo.bits,
+            arch: binInfo.arch, bits: binInfo.bits, os: binInfo.os,
             sections: rbin.get_sections(), imports: rbin.get_imports(),
             symbols: rbin.get_symbols(), entries: {forEach(...args) {rbin.get_entries().forEach(...args); entries.forEach(...args);}}
         };
