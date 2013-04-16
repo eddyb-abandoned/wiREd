@@ -228,7 +228,7 @@ ${fn}.prototype.inspect = function(_, p) {
 
 // Integers.
 code += `
-function Integer() {}
+var Integer = exports.Integer = function Integer() {}
 Integer.prototype = {
     constructor: Integer, known: true,
     get value() {

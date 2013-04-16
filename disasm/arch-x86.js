@@ -452,7 +452,7 @@ Shr.prototype.inspect = function(_, p) {
     var expr = inspect(a, 5)+' >> '+inspect(b, 5);
     return 5 <= p ? expr : '('+expr+')';
 };
-function Integer() {}
+var Integer = exports.Integer = function Integer() {}
 Integer.prototype = {
     constructor: Integer, known: true,
     get value() {
