@@ -2020,7 +2020,7 @@ i256.prototype.ror = function ror(that) {
 var Register = exports.Register = [];
 var Register1 = Register[1] = exports.Register1 = function Register1(name) {
     if(!(this instanceof Register1))
-        return new Register1(addr);
+        return new Register1(name);
     var self = this;
     if(name !== undefined)
         this.name = name;
@@ -2051,7 +2051,7 @@ Register1.prototype.inspect = function inspect() {
 };
 var Register8 = Register[8] = exports.Register8 = function Register8(name) {
     if(!(this instanceof Register8))
-        return new Register8(addr);
+        return new Register8(name);
     var self = this;
     if(name !== undefined)
         this.name = name;
@@ -2082,7 +2082,7 @@ Register8.prototype.inspect = function inspect() {
 };
 var Register16 = Register[16] = exports.Register16 = function Register16(name) {
     if(!(this instanceof Register16))
-        return new Register16(addr);
+        return new Register16(name);
     var self = this;
     if(name !== undefined)
         this.name = name;
@@ -2113,7 +2113,7 @@ Register16.prototype.inspect = function inspect() {
 };
 var Register32 = Register[32] = exports.Register32 = function Register32(name) {
     if(!(this instanceof Register32))
-        return new Register32(addr);
+        return new Register32(name);
     var self = this;
     if(name !== undefined)
         this.name = name;
@@ -2144,7 +2144,7 @@ Register32.prototype.inspect = function inspect() {
 };
 var Register64 = Register[64] = exports.Register64 = function Register64(name) {
     if(!(this instanceof Register64))
-        return new Register64(addr);
+        return new Register64(name);
     var self = this;
     if(name !== undefined)
         this.name = name;
@@ -2175,7 +2175,7 @@ Register64.prototype.inspect = function inspect() {
 };
 var Register128 = Register[128] = exports.Register128 = function Register128(name) {
     if(!(this instanceof Register128))
-        return new Register128(addr);
+        return new Register128(name);
     var self = this;
     if(name !== undefined)
         this.name = name;
@@ -2206,7 +2206,7 @@ Register128.prototype.inspect = function inspect() {
 };
 var Register256 = Register[256] = exports.Register256 = function Register256(name) {
     if(!(this instanceof Register256))
-        return new Register256(addr);
+        return new Register256(name);
     var self = this;
     if(name !== undefined)
         this.name = name;
@@ -2483,9 +2483,9 @@ var FnCall = exports.FnCall = function FnCall(name) {
 FnCall.prototype = {
     constructor: FnCall, fn: 'FnCall',
     get value() {
-        var changes = false, args = [null];
+        var changes = false, args = [null, this.name];
         for(var i = 0; i < this.args.length; i++)
-            if((args[i+1] = valueof(this.args[i])) !== this.args[i])
+            if((args[i+2] = valueof(this.args[i])) !== this.args[i])
                 changes = true;
         if(changes)
             return new (FnCall.bind.apply(FnCall, args));

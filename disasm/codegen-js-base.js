@@ -352,7 +352,7 @@ for(let bits of bitSizes) {
     code += `
 var Register${bits} = Register[${bits}] = exports.Register${bits} = function Register${bits}(name) {
     if(!(this instanceof Register${bits}))
-        return new Register${bits}(addr);
+        return new Register${bits}(name);
     var self = this;
     if(name !== undefined)
         this.name = name;
@@ -460,9 +460,9 @@ var FnCall = exports.FnCall = function FnCall(name) {
 FnCall.prototype = {
     constructor: FnCall, fn: 'FnCall',
     get value() {
-        var changes = false, args = [null];
+        var changes = false, args = [null, this.name];
         for(var i = 0; i < this.args.length; i++)
-            if((args[i+1] = valueof(this.args[i])) !== this.args[i])
+            if((args[i+2] = valueof(this.args[i])) !== this.args[i])
                 changes = true;
         if(changes)
             return new (FnCall.bind.apply(FnCall, args));
