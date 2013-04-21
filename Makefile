@@ -10,7 +10,7 @@ node_modules: package.json
 	@touch node_modules
 .PRECIOUS: node_modules
 
-disasm/arch-%.js: disasm/%.js disasm/Disasm.js disasm/codegen-js.js disasm/codegen-js-base.js | node_modules
+disasm/arch-%.js: disasm/%.js disasm/Disasm.js disasm/codegen-js.js disasm/codegen-js-base.js node_modules
 	@${TRACEUR} "$<" > /dev/null
 .PRECIOUS: disasm/arch-%.js
 
