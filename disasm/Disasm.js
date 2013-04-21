@@ -1,5 +1,3 @@
-var fs = require('fs'), util = require('util');
-
 module codegen from 'codegen-js.js';
 export codegen;
 
@@ -130,7 +128,7 @@ export class Disasm {
         console.log();
     }
 
-    out(outFile, fn) {
+    code() {
         console.error('Totals:', Math.round(this.totals*100)/100+'%'/*, '0x'+this.totals.toString(16), Math.round(this.totals/(1<<28)*1000)/10+'%'*/);
         console.log('{');
         var mapKeys = Object.keys(this.maps).map(x => [this.maps[x], this.maps[x].$ct.split('').map(x => ({'0':0, '1':1, K:2})[x])]);
@@ -165,7 +163,7 @@ export class Disasm {
 
                 console.log(ct.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'));
                 var cval = '0x'+parseInt(ct.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'), 2).toString(16);
-                cond = 'if(('+cmask+') == '+cval+')';
+                cond = '\nif(('+cmask+') == '+cval+')';
             }
 
             cstart = cend = 0;
@@ -174,19 +172,19 @@ export class Disasm {
 
             var val = mask ? Var(' ', cend, ct.length-cend-cstart).code(true)+' & 0x'+mask.toString(16) : '0';
 
-            code += '\n\t'+cond+'\n\tswitch('+val+') {\n';
+            code += cond+'\nswitch('+val+') {\n';
             console.log('  \''+ct.replace(/K/g,'#').replace(/x/g,'_')+'\': {');
             for(var j in v)
                 if(j !== '$ct') {
                     console.log('    \''+j+'\': ', v[j]);
                     val = '0x'+(parseInt(j.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'), 2) & mask).toString(16);
-                    code += '\t\tcase '+val+': return '+codegen.makeResult(v[j])+';\n';
+                    code += '\tcase '+val+': return '+codegen.makeResult(v[j])+';\n';
                 }
             console.log('  }');
-            code += '\t}\n';
+            code += '}\n';
         });
         code = codegen.prologue()+code;
         console.log('}\n');
-        fs.writeFileSync(outFile, fn(code));
+        return code;
     }
 };

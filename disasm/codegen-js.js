@@ -34,7 +34,7 @@ export const pushVars = ()=>{
 }, prologue = ()=>{
     if(!maxVarsUsed)
         return '';
-    var s = '\tvar $0';
+    var s = 'var $0';
     for(var i = 1; i < maxVarsUsed; i++)
         s += ', $'+i;
     return s+';\n';

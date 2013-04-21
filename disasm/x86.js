@@ -1,4 +1,4 @@
-var util = require('util');
+var fs = require('fs');
 
 Number.prototype.toBinary = function(n=-1) {
     var s = this.toString(2);
@@ -10,16 +10,16 @@ Number.prototype.toBinary = function(n=-1) {
 import {Disasm, codegen} from 'Disasm.js';
 const {Mov, Register, Mem, If, FnCall, Nop, Interrupt, int, uint, signed, unsigned, i8, i32, u1, u8, u32} = codegen.$;
 
-const x86 = new Disasm;
+const x86 = new Disasm, x86_pfxOperandSize = new Disasm;
 
-let R = (reg, bits=32, type)=>/*uint[bits](*/new Register[bits](type ? u8(R.offsets[type]).add(u8(reg)) : u8(reg));
-let F = f => R(f, 1);
+const R = (reg, bits=32, type)=>new Register[bits](type ? u8(R.offsets[type]).add(u8(reg)) : u8(reg));
+const F = f => R(f, 1);
 R.offsets = {S: 16, FLAGS: 32};
 x86.pushRuntime`var R = exports.R = {}, R1 = [], R8 = [], R16 = [], R32 = [];`;
 {
     let r = (name, reg, bits=32, type)=>{
-        R[name] = R(reg, bits, type);
-        x86.pushRuntime`R.${name} = R${bits}[${type ? R.offsets[type]+reg : reg}] = /*u${bits}(*/new Register${bits}('${name}');`;
+        x86.pushRuntime`R.${name} = R${bits}[${type ? R.offsets[type]+reg : reg}] = new Register${bits}('${name}');`;
+        return R[name] = R(reg, bits, type);
     };
     'ACDB'.split('').forEach((x,i)=>{
         r(x+'L',    i, 8);
@@ -37,8 +37,7 @@ x86.pushRuntime`var R = exports.R = {}, R1 = [], R8 = [], R16 = [], R32 = [];`;
     r('EFLAGS', 0, 32, 'FLAGS');
 
     'OCZSPVDI'.split('').forEach((x,i)=>{
-        F[x] = F(i);
-        r(x+'F', i, 1);
+        F[x] = r(x+'F', i, 1);
     });
 }
 
@@ -53,107 +52,115 @@ const Cond = {
     LE: F.Z.or(F.O.eq(F.S).not()), G: F.Z.not().and(F.O.eq(F.S))
 };
 
-function _op(def, b, fn) {
-    b = b.map(x => x.toBinary(8));
-    var args = [], hasModRM, ModRM, immIdx, immLengthBias = 0, byteLen, imm = [], ctReg = false, reg = 'Reg';
-    def = def.replace(/^reg=(\d+):/i, (s, x)=>((ctReg = true, reg = (+x).toBinary(3)), ''));
-    var getBits = s => { // FIXME 16bit 64bit.
-        if(s == 'b') return 8;
-        if(s == 'c' || s == 'w') return 16;
-        if(s == 'd' || s == 'v' || s == 'z') return 32;
-        throw new TypeError('Unimplemented operand size '+s);
-    };
+const _actualLengthBias = i8({code: ()=>'_pfxLength', bitsof: 8, signed: true, runtimeKnown: true});
+const _op = (b, extra, def, fn, pfxOperandSize=false, archBits=32)=>{
+    var operandSize = pfxOperandSize && archBits >= 32 ? archBits / 2 : archBits;
+    var bitSizes = {
+        b: 8, w: 16, d: 32, q: 64, dq: 128,
 
-    def = def.trim();
-    def && def.split(' ').forEach((x, i)=>{
+        c: pfxOperandSize ? 8 : 16,
+        v: operandSize,
+        z: Math.max(operandSize, 32)
+    };
+    var hasModRM = 0, modRM, immIdx, immLengthBias = 0, byteLen, imm = [], ctReg = false, reg = 'Reg';
+    for(var [name, value] of extra)
+        if(name === 'reg')
+            ctReg = true, reg = (+value).toBinary(3);
+    var args = def.map(x => {
         if(/^[RE]?([ABCD]X|[SBI]P|[SD]I)|[ABCD][HL]|[ECSDFSG]S$/.test(x))
-            args[i] = ()=>R[x]; // FIXME actual regs.
-        else if(/^[re]([ABCD]X|[SBI]P|[SD]I)$/.test(x))
-            args[i] = ()=>R['E'+x.slice(1)]; // FIXME 16bit 64bit.
-        else if(x == 'J') // HACK to have access to the EIP after the current instruction.
-            args[i] = ()=>R.EIP.add(byteLen);
-        else if(x == 'M')
-            hasModRM = 2, args[i] = (...args)=>ModRM(32, ...args.slice(ctReg?0:1)).addr;
-        else {
-            if(!/^[A-Z][a-z]$/.test(x))
-                throw new TypeError('Unimplemented operand specifier '+x);
-            let kind = x[0], bits = getBits(x[1]);
-            if(kind == 'E')
-                hasModRM = 1, args[i] = (...args)=>ModRM(bits, ...args.slice(ctReg?0:1));
-            else if(kind == 'G')
-                hasModRM = 1, args[i] = reg => R(reg, bits);
-            else if(kind == 'S')
-                hasModRM = 1, args[i] = reg => R(reg, bits, 'S');
-            else if(kind == 'F')
-                args[i] = ()=>R(0, bits, 'FLAGS');
-            else if(kind == 'X')
-                args[i] = ()=>Mem[bits](R.ESI);
-            else if(kind == 'Y')
-                args[i] = ()=>Mem[bits](R.EDI);
-            else if(kind == 'I') {
-                let j = imm.push(['Imm_____', 'Imm_____________', null, 'Imm_____________________________'][bits/8-1])-1;
-                args[i] = ()=>int[bits](arguments[immIdx+j]);
-            } else if(kind == 'J') { // FIXME negative offsets.
-                let j = imm.push(['Imm_____', 'Imm_____________', null, 'Imm_____________________________'][bits/8-1])-1;
-                args[i] = ()=>R.EIP.add(int[bits](arguments[immIdx+j]).add(byteLen));
-            } else if(kind == 'O') {
-                let j = imm.push('Offset__________________________')-1;
-                args[i] = ()=>Mem[bits](arguments[immIdx+j]);
-            } else
-                throw new TypeError('Unimplemented operand kind '+kind);
+            return ()=>R[x];
+        if(/^[re]([ABCD]X|[SBI]P|[SD]I)$/.test(x))
+            return ()=>R[(archBits == 32 ? 'E' : (archBits == 64 ? x[0].toUpperCase() : '')) + x.slice(1)];
+        if(x == 'J') // HACK to have access to the EIP after the current instruction.
+            return ()=>R.EIP.add(byteLen);
+        if(x == 'M') {
+            hasModRM = 1;
+            return (...args)=>modRM(archBits, ...args.slice(ctReg?0:1)).addr;
         }
+        if(!/^[A-Z][a-z]$/.test(x))
+            throw new TypeError('Unimplemented operand specifier '+x);
+        let kind = x[0], bits = bitSizes[x[1]];
+        switch(kind) {
+        case 'E':
+            hasModRM = 3;
+            return (...args)=>modRM(bits, ...args.slice(ctReg?0:1));
+        case 'G':
+            hasModRM = 3;
+            return reg => R(reg, bits);
+        case 'S':
+            hasModRM = 3;
+            return reg => R(reg, bits, 'S');
+        case 'F':
+            return ()=>R(0, bits, 'FLAGS');
+        case 'X':
+            return ()=>Mem[bits](R.ESI);
+        case 'Y':
+            return ()=>Mem[bits](R.EDI);
+        case 'I':
+            let j = imm.push(['Imm_____', 'Imm_____________', null, 'Imm_____________________________'][bits/8-1])-1;
+            return ()=>int[bits](arguments[immIdx+j]);
+        case 'J':
+            let j = imm.push(['Imm_____', 'Imm_____________', null, 'Imm_____________________________'][bits/8-1])-1;
+            return ()=>R.EIP.add(int[bits](arguments[immIdx+j]).add(byteLen));
+        case 'O':
+            let j = imm.push('Offset__________________________')-1;
+            return ()=>Mem[bits](arguments[immIdx+j]);
+        }
+        throw new TypeError('Unimplemented operand kind '+kind);
     });
-    let op = (mid=[], n=0, modRM=null)=>{
+    const op = (mid=[], n=0, _modRM)=>{
+        var bytes = b.concat(mid).concat(imm);
         immIdx = n + (!ctReg && hasModRM ? 1 : 0);
-        var bytes = b.concat(mid).concat(imm), actualLengthBias = i8({code: ()=>'_pfxLength', bitsof: 8, signed: true, runtimeKnown: true});
-        byteLen = i8(bytes.join('').length / 8).add(actualLengthBias);
-        ModRM = modRM;
-        return x86.op(bytes, (...a)=>{
+        byteLen = i8(bytes.join('').length / 8).add(_actualLengthBias);
+        modRM = _modRM;
+        var dis = pfxOperandSize ? x86_pfxOperandSize : x86;
+        return dis.op(bytes, (...a)=>{
             var res = fn(...args.map(x => x(...a)));
             return Array.isArray(res) ? res : [res];
-        }, {actualLengthBias});
+        }, {actualLengthBias: _actualLengthBias});
     }
     if(!hasModRM)
         op();
     else {
-        if(hasModRM != 3) {
-            let applySIB = (mod, extra=[], n=0, fn=x => x)=>{ // FIXME 16bit 64bit.
-                op([mod+reg+'Rm_', ...extra], 1+n, (bits, RM, ...rest)=>Mem[bits](fn(R(RM), ...rest)));
-                op([mod+reg+'100', 'SiIdxBas', ...extra], 3+n, (bits, scale, idx, base, ...rest)=>Mem[bits](fn(R(base).add(R(idx).shl(scale)), ...rest)));
-                op([mod+reg+'100', 'Si100Bas', ...extra], 2+n, (bits, scale, base, ...rest)=>Mem[bits](fn(R(base), ...rest)));
-                let newFn = (...x)=>R.EBP.add(signed(fn(...x)));
-                if(mod == '00') {
-                    extra = ['Disp____________________________'];
-                    n = 1;
-                    newFn = (x, disp32)=>x.add(signed(disp32));
-                }
-                op([mod+reg+'100', 'SiIdx101', ...extra], 2+n, (bits, scale, idx, ...rest)=>Mem[bits](newFn(R(idx).shl(scale), ...rest)));
-                op([mod+reg+'100', 'Si100101', ...extra], 1+n, (bits, scale, ...rest)=>Mem[bits](newFn(uint[bits](0), ...rest)));
-            };
-            applySIB('00');
-            applySIB('01', ['Disp____'], 1, (x, disp8)=>x.add(signed(disp8)));
-            applySIB('10', ['Disp____________________________'], 1, (x, disp32)=>x.add(signed(disp32)));
-            op(['00'+reg+'101', 'Disp____________________________'], 1, (bits, disp32)=>Mem[bits](disp32));
-        }
-        if(hasModRM != 2)
+        const applySIB = (mod, extra=[], n=0, fn=x => x)=>{ // FIXME 16bit 64bit.
+            op([mod+reg+'Rm_', ...extra], 1+n, (bits, RM, ...rest)=>Mem[bits](fn(R(RM), ...rest)));
+            op([mod+reg+'100', 'SiIdxBas', ...extra], 3+n, (bits, scale, idx, base, ...rest)=>Mem[bits](fn(R(base).add(R(idx).shl(scale)), ...rest)));
+            op([mod+reg+'100', 'Si100Bas', ...extra], 2+n, (bits, scale, base, ...rest)=>Mem[bits](fn(R(base), ...rest)));
+            let newFn = (...x)=>R.EBP.add(signed(fn(...x)));
+            if(mod == '00') {
+                extra = ['Disp____________________________'];
+                n = 1;
+                newFn = (x, disp32)=>x.add(signed(disp32));
+            }
+            op([mod+reg+'100', 'SiIdx101', ...extra], 2+n, (bits, scale, idx, ...rest)=>Mem[bits](newFn(R(idx).shl(scale), ...rest)));
+            op([mod+reg+'100', 'Si100101', ...extra], 1+n, (bits, scale, ...rest)=>Mem[bits](newFn(uint[bits](0), ...rest)));
+        };
+        applySIB('00');
+        applySIB('01', ['Disp____'], 1, (x, disp8)=>x.add(signed(disp8)));
+        applySIB('10', ['Disp____________________________'], 1, (x, disp32)=>x.add(signed(disp32)));
+        op(['00'+reg+'101', 'Disp____________________________'], 1, (bits, disp32)=>Mem[bits](disp32));
+        if(hasModRM & 2)
             op(['11'+reg+'Rm_'], 1, (bits, RM)=>R(RM, bits));
     }
-}
+};
 
-let opMov = fn => x => Mov(x, fn(...arguments));
-let _ = (s, ...args)=>(base, fn=base)=>{
-    s = s.map((x, i)=>i?args[i-1]+x:x).join('');
-    s = s.replace(/^((?:[a-f0-9]{2})+):/i, (s, x)=>((base = x.match(/../g).map(x => parseInt(x, 16))), ''));
-    var extra = '';
-    s = s.replace(/^.*:/, x => ((extra=x),''));
+const opMov = fn => x => Mov(x, fn(...arguments));
+const _ = (_s, ...args)=>(base, fn=base)=>{
+    var s = String.raw(_s, ...args).replace(/^((?:[a-f0-9]{2})+):/i, (s, x)=>((base = x.match(/../g).map(x => parseInt(x, 16))), ''));
+    var extra = [];
+    s = s.replace(/^(.*):/, (s, x)=>(extra.push(...x.split(':').map(x => x.split('='))),''));
     if(fn === base)
         throw new TypeError('Missing base');
     if(!Array.isArray(base))
         base = [base];
     s.split(';').forEach((x, i)=>{
-        var b = base.slice();
+        var b = base.slice(), def = x.trim();
         b.splice(-1, 1, b[b.length-1]+i);
-        return _op(extra+x, b, fn);
+        b = b.map(x => x.toBinary(8));
+        def = def ? def.split(' ') : [];
+        if(def.some(x => /^[EI][acpvz]$/.test(x))) // Operand Size prefix.
+            _op(b, extra, def, fn, true);
+        _op(b, extra, def, fn);
     });
 };
 
@@ -303,18 +310,22 @@ _`0FBE:Gv Eb;Gv Ew`(MOVSX);
 ///\0FC0-0FCF
 _`0FC8:rAX;rCX;rDX;rBX;rSP;rBP;rSI;rDI`(opMov(x => x.shr(u8(24)).or(x.shr(u8(8)).and(u32(0xff00))).or(x.shl(u8(8)).and(u32(0xff000))).or(x.shl(u8(24))))); // HACK BSWAP
 
-x86.out(__dirname+'/arch-x86.js', code => String.raw`/** @file arch-x86.js This file was auto-generated */
+
+fs.writeFileSync(__dirname+'/arch-x86.js', String.raw`/** @file arch-x86.js This file was auto-generated */
 ${x86.runtime}
 exports.dis = function x86dis(b, i) {
     // HACK allows skipping prefixes.
-    var _pfxLength = 0, _pfxSizeSpecifier = false;
-    for(; b[i] >= 0x64 && b[i] <= 0x67 || b[i] == 0xF0 || b[i] == 0xF2 || b[i] == 0xF3 || b[i] == 0x26 || b[i] == 0x2E || b[i] == 0x36 || b[i] == 0x3E; i++, _pfxLength++) {
-        if(b[i] == 0x66)
-            _pfxSizeSpecifier = true;
+    var _pfxLength = 0, _pfxOperandSize = false;
+    for(var _pfx; (_pfx = b[i]), _pfx >= 0x64 && _pfx <= 0x67 || _pfx == 0xF0 || _pfx == 0xF2 || _pfx == 0xF3 || _pfx == 0x26 || _pfx == 0x2E || _pfx == 0x36 || _pfx == 0x3E; i++, _pfxLength++) {
+        if(_pfx == 0x66)
+            _pfxOperandSize = true;
         else
-            console.error('[PREFIX] '+b[i].toString(16).toUpperCase());
+            console.error('[PREFIX] '+_pfx.toString(16).toUpperCase());
     }
-${code.replace(/\t/g, '    ')}
+    if(_pfxOperandSize) {
+${x86_pfxOperandSize.code().replace(/^/gm, '\t\t').replace(/\t/g, '    ')}
+    }
+${x86.code().replace(/^/gm, '\t').replace(/\t/g, '    ')}
 }
 exports.PC = R.EIP;
 exports.SP = R.ESP;
