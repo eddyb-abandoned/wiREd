@@ -230,7 +230,7 @@ _`8F:reg=0:Ev`(POP);
 _`90:`(Nop);
 _`91:rAX rCX;rAX rDX;rAX rBX;rAX rSP;rAX rBP;rAX rSI;rAX rDI`(XCHG);
 _`98:rAX AX`((a, b)=>Mov(a, int[a.bitsof](b)));
-_`99:rDX rAX`((a, b)=>Mov(a, int[a.bitsof](b.lt(u8(0))).neg()));
+_`99:rDX rAX`((a, b)=>Mov(a, int[a.bitsof](b.lt(i8(0))).neg()));
 _`9C:Fv`(PUSH);
 _`9D:Fv`(POP);
 
@@ -294,7 +294,7 @@ Object.keys(Cond).map((x, i)=>_`Jz`([0x0F, 0x80+i], j => If(Cond[x], Mov(R.EIP, 
 ///\0F90-0F9F
 Object.keys(Cond).map((x, i)=>_`Eb`([0x0F, 0x90+i], a => Mov(a, Cond[x])));
 
-let bool = x => x.eq(u8(0)).not(); // HACK
+let bool = x => x.eq(i8(0)).not(); // HACK
 ///\0FA0-0FAF
 _`0FA2:`(()=>FnCall('CPUID', R.EAX, R.EBX, R.ECX, R.EDX)); // FIXME CPUID
 _`0FA3:Ev Gv`((a, b)=>Mov(F.C, bool(a.and(uint[a.bitsof](1).shl(b)))));
