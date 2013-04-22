@@ -403,6 +403,7 @@ var Mem${bits} = Mem[${bits}] = exports.Mem${bits} = function Mem${bits}(addr) {
 };
 Mem${bits}.prototype = new Unknown(${bits});
 Mem${bits}.prototype.constructor = Mem${bits};
+Mem${bits}.prototype.fn = 'Mem';
 Object.defineProperties(Mem${bits}.prototype, {
     lvalue: {
         get: function() {

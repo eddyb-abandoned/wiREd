@@ -409,7 +409,7 @@ let makeAnalyzer = arch => {
 
                     this.once('preOp', x => {
                         for(let op of x) { // HACK detect whether the caller cleans the stack or not.
-                            if(op.op == '=' && op.b.fn == 'Mem' && op.b.a == SP && (op.a == PC || op.a == SP || op.a == FP))
+                            if(op.op == '=' && op.b.fn == 'Mem' && op.b.addr == SP && (op.a == PC || op.a == SP || op.a == FP))
                                 break; // HACK Ignore pop PC/SP/FP, they tend to not remove arguments from the stack.
                             if(op.op == '=' && op.a == SP)
                                 return;

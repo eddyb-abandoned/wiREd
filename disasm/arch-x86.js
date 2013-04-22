@@ -2251,6 +2251,7 @@ var Mem1 = Mem[1] = exports.Mem1 = function Mem1(addr) {
 };
 Mem1.prototype = new Unknown(1);
 Mem1.prototype.constructor = Mem1;
+Mem1.prototype.fn = 'Mem';
 Object.defineProperties(Mem1.prototype, {
     lvalue: {
         get: function() {
@@ -2281,6 +2282,7 @@ var Mem8 = Mem[8] = exports.Mem8 = function Mem8(addr) {
 };
 Mem8.prototype = new Unknown(8);
 Mem8.prototype.constructor = Mem8;
+Mem8.prototype.fn = 'Mem';
 Object.defineProperties(Mem8.prototype, {
     lvalue: {
         get: function() {
@@ -2311,6 +2313,7 @@ var Mem16 = Mem[16] = exports.Mem16 = function Mem16(addr) {
 };
 Mem16.prototype = new Unknown(16);
 Mem16.prototype.constructor = Mem16;
+Mem16.prototype.fn = 'Mem';
 Object.defineProperties(Mem16.prototype, {
     lvalue: {
         get: function() {
@@ -2341,6 +2344,7 @@ var Mem32 = Mem[32] = exports.Mem32 = function Mem32(addr) {
 };
 Mem32.prototype = new Unknown(32);
 Mem32.prototype.constructor = Mem32;
+Mem32.prototype.fn = 'Mem';
 Object.defineProperties(Mem32.prototype, {
     lvalue: {
         get: function() {
@@ -2371,6 +2375,7 @@ var Mem64 = Mem[64] = exports.Mem64 = function Mem64(addr) {
 };
 Mem64.prototype = new Unknown(64);
 Mem64.prototype.constructor = Mem64;
+Mem64.prototype.fn = 'Mem';
 Object.defineProperties(Mem64.prototype, {
     lvalue: {
         get: function() {
@@ -2401,6 +2406,7 @@ var Mem128 = Mem[128] = exports.Mem128 = function Mem128(addr) {
 };
 Mem128.prototype = new Unknown(128);
 Mem128.prototype.constructor = Mem128;
+Mem128.prototype.fn = 'Mem';
 Object.defineProperties(Mem128.prototype, {
     lvalue: {
         get: function() {
@@ -2431,6 +2437,7 @@ var Mem256 = Mem[256] = exports.Mem256 = function Mem256(addr) {
 };
 Mem256.prototype = new Unknown(256);
 Mem256.prototype.constructor = Mem256;
+Mem256.prototype.fn = 'Mem';
 Object.defineProperties(Mem256.prototype, {
     lvalue: {
         get: function() {
