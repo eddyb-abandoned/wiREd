@@ -1,7 +1,10 @@
 TRACEUR:=node --stack_trace_limit=64 `npm bin`/traceur --experimental --trap-member-lookup=false --private-names=false
-# TODO: 8051
-ARCH_JS:=disasm/arch-x86.js
-PLATFORM_JS:=platform/windows.h.js
+
+ARCH_LIST:=8051 x86
+ARCH_JS:=$(ARCH_LIST:%=disasm/arch-%.js)
+
+PLATFORM_LIST:=windows
+PLATFORM_JS:=platform/platform.js $(PLATFORM_LIST:%=platform/%.h.js)
 
 all: node_modules ${ARCH_JS} ${PLATFORM_JS}
 
