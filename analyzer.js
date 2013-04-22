@@ -800,7 +800,7 @@ let makeAnalyzer = arch => {
     });
     process.on('exit', ()=>{
         t = process.hrtime(t);
-        console.log(`Decoded ${decodedInstructions} instructions (${Math.round(decodedBytes/1024*100)/100}KB) in ${t[0]+t[1]/1e9}s`);
+        console.log(`Decoded ${decodedInstructions} instructions (${(decodedBytes/1024).toFixed(2)}kB) in ${t[0]+t[1]/1e9}s`);
     });
     process.on('SIGINT', ()=>process.exit());
     symbols.forEach(symbol => {

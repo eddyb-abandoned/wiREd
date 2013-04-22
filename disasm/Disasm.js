@@ -129,7 +129,7 @@ export class Disasm {
     }
 
     code() {
-        console.error('Totals:', Math.round(this.totals*100)/100+'%'/*, '0x'+this.totals.toString(16), Math.round(this.totals/(1<<28)*1000)/10+'%'*/);
+        console.error('Totals:', this.totals.toFixed(2) + '%');
         console.log('{');
         var mapKeys = Object.keys(this.maps).map(x => [this.maps[x], this.maps[x].$ct.split('').map(x => ({'0':0, '1':1, K:2})[x])]);
         mapKeys.sort(([{$ct: a$ct}, a], [{$ct: b$ct}, b])=>{
