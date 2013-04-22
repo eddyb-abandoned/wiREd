@@ -323,9 +323,9 @@ exports.dis = function x86dis(b, i) {
             console.error('[PREFIX] '+_pfx.toString(16).toUpperCase());
     }
     if(_pfxOperandSize) {
-${x86_pfxOperandSize.code().replace(/^/gm, '\t\t').replace(/\t/g, '    ')}
+${x86_pfxOperandSize.code().replace(/^(?=.)/gm, '\t\t').replace(/\t/g, '    ')}
     }
-${x86.code().replace(/^/gm, '\t').replace(/\t/g, '    ')}
+${x86.code().replace(/^(?=.)/gm, '\t').replace(/\t/g, '    ')}
 }
 exports.PC = R.EIP;
 exports.SP = R.ESP;

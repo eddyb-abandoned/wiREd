@@ -2555,29 +2555,29 @@ exports.dis = function x86dis(b, i) {
     }
     if(_pfxOperandSize) {
         var $0, $1, $2;
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3f47ff) == 0x250469)
         switch(((((b[i+1] & 128) & 0xff) >> 7) & 0xff) & 0x1) {
             case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).mul(new Mem16(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
             case 0x1: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).mul(new Mem16(R32[5].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x38c7ff) == 0x208469)
         switch(0) {
             case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).mul(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 7) >>> 0) << 16) >>> 0)) >>> 0) & 0x747ff) == 0x50469)
         switch(((((b[i+1] & 128) & 0xff) >> 7) & 0xff) & 0x1) {
             case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).mul(new Mem16(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
             case 0x1: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).mul(new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))))];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc7ff) == 0x8469)
         switch(0) {
             case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).mul(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3f4789) == 0x250481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x5c3b) {
             case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(($0 = new Mem16(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).add($0))];
@@ -2601,7 +2601,7 @@ exports.dis = function x86dis(b, i) {
             case 0x3b: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R1[2], new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).and(new Mem16(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
             case 0x403b: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R1[2], new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).and(new Mem16(R32[5].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x38c789) == 0x208481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c3b) {
             case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).add($0))];
@@ -2615,7 +2615,7 @@ exports.dis = function x86dis(b, i) {
             case 0x23: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))))];
             case 0x3b: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R1[2], new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).and(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 7) >>> 0) << 16) >>> 0)) >>> 0) & 0x74789) == 0x50481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x5c3b) {
             case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(($0 = new Mem16(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).add($0))];
@@ -2639,7 +2639,7 @@ exports.dis = function x86dis(b, i) {
             case 0x3b: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R1[2], new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).and(new Mem16(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
             case 0x403b: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R1[2], new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).and(new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc789) == 0x8481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c3b) {
             case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).add($0))];
@@ -2653,12 +2653,12 @@ exports.dis = function x86dis(b, i) {
             case 0x23: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))))];
             case 0x3b: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R1[2], new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))).and(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc7ff) == 0x569)
         switch(0) {
             case 0x0: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0))).mul(new Mem16(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc789) == 0x581)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c3b) {
             case 0x0: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(($0 = new Mem16(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))), new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0))).add($0))];
@@ -2672,12 +2672,12 @@ exports.dis = function x86dis(b, i) {
             case 0x23: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(new Mem16(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))), new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0))))];
             case 0x3b: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(R1[2], new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0))).and(new Mem16(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc0ff) == 0x8069)
         switch(0) {
             case 0x0: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0))).mul(new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))))];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc089) == 0x8081)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c3b) {
             case 0x0: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))), new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0))).add($0))];
@@ -2691,7 +2691,7 @@ exports.dis = function x86dis(b, i) {
             case 0x23: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))), new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0))))];
             case 0x3b: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(R1[2], new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0))).and(new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         }
-        
+
         if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x3f47f7ff) == 0x2504a40f)
         switch(((((((b[i+1] & 248) & 0xffff) >> 3) & 0xffff) | ((b[i+2] << 5) & 0xffff)) & 0xffff) & 0x1001) {
             case 0x0: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem16(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))), $0.shl(new i8(new u8(b[i+8]))).or(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16))))];
@@ -2699,13 +2699,13 @@ exports.dis = function x86dis(b, i) {
             case 0x1: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem16(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))), new u32(((((1 << (((b[i+8]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16) & 0xff) & 0x1f)).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+8])))))];
             case 0x1001: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem16(R32[5].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), new u32(((((1 << (((b[i+8]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16) & 0xff) & 0x1f)).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+8])))))];
         }
-        
+
         if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x38c7f7ff) == 0x2084a40f)
         switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
             case 0x0: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), $0.shl(new i8(new u8(b[i+8]))).or(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16))))];
             case 0x1: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), new u32(((((1 << (((b[i+8]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16) & 0xff) & 0x1f)).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+8])))))];
         }
-        
+
         if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 7) >>> 0) << 24) >>> 0)) >>> 0) & 0x747f7ff) == 0x504a40f)
         switch(((((((b[i+1] & 248) & 0xffff) >> 3) & 0xffff) | ((b[i+2] << 5) & 0xffff)) & 0xffff) & 0x1001) {
             case 0x0: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem16(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), $0.shl(new i8(new u8(b[i+8]))).or(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16))))];
@@ -2713,31 +2713,31 @@ exports.dis = function x86dis(b, i) {
             case 0x1: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem16(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), new u32(((((1 << (((b[i+8]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16) & 0xff) & 0x1f)).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+8])))))];
             case 0x1001: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem16(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))))), new u32(((((1 << (((b[i+8]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16) & 0xff) & 0x1f)).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+8])))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc7f7ff) == 0x84a40f)
         switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
             case 0x0: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), $0.shl(new i8(new u8(b[i+8]))).or(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16))))];
             case 0x1: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), new u32(((((1 << (((b[i+8]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16) & 0xff) & 0x1f)).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+8])))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc0f7ff) == 0x80a40f)
         switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
             case 0x0: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.shl(new i8(new u8(b[i+7]))).or(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+7]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16))))];
             case 0x1: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), new u32(((((1 << (((b[i+7]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+7]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16) & 0xff) & 0x1f)).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+7])))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3807fd) == 0x200469)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x6001) {
             case 0x2000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))).mul(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))))];
             case 0x4001: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new i8(new u8(b[i+7]))).mul(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
         }
-        
+
         if((((b[i] | ((((b[i+1] & 7) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x7fd) == 0x469)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x6001) {
             case 0x2000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))).mul(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3]))))))];
             case 0x4001: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new i8(new u8(b[i+7]))).mul(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x380789) == 0x200481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x7c3b) {
             case 0x2000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))), new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))).add($0))];
@@ -2767,7 +2767,7 @@ exports.dis = function x86dis(b, i) {
             case 0x5c20: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.shr(new i8(new u8(b[i+7]))))];
             case 0x203b: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[2], new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))).and(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         }
-        
+
         if((((b[i] | ((((b[i+1] & 7) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x789) == 0x481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x7c3b) {
             case 0x2000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3]))))), new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))).add($0))];
@@ -2797,7 +2797,7 @@ exports.dis = function x86dis(b, i) {
             case 0x5c20: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.shr(new i8(new u8(b[i+7]))))];
             case 0x203b: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[2], new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))).and(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3]))))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         }
-        
+
         if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x3f47f1ff) == 0x2504a10f)
         switch(((((((b[i+1] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+2] << 7) & 0xffff)) & 0xffff) & 0x4007) {
             case 0x1: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))).eq(new i8(0)).not())];
@@ -2811,7 +2811,7 @@ exports.dis = function x86dis(b, i) {
             case 0x7: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))))];
             case 0x4007: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[5].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))))];
         }
-        
+
         if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x38c7f1ff) == 0x2084a10f)
         switch(((((b[i+1] & 14) & 0xff) >> 1) & 0xff) & 0x7) {
             case 0x1: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))).eq(new i8(0)).not())];
@@ -2820,7 +2820,7 @@ exports.dis = function x86dis(b, i) {
             case 0x6: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($1 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), new u32(1).shl(($0 = R8[1])).add(new i32(-1)).shl(new u8($0.neg()).add(new u8(16))).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($1.shr($0)))];
             case 0x7: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))))];
         }
-        
+
         if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 7) >>> 0) << 24) >>> 0)) >>> 0) & 0x747f1ff) == 0x504a10f)
         switch(((((((b[i+1] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+2] << 7) & 0xffff)) & 0xffff) & 0x4007) {
             case 0x1: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))).eq(new i8(0)).not())];
@@ -2834,7 +2834,7 @@ exports.dis = function x86dis(b, i) {
             case 0x7: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))))];
             case 0x4007: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 127) >>> 0) << 16) >>> 0)) >>> 0) & 0x46f0ff) == 0x4a00f)
         switch(((b[i+1] | ((b[i+2] << 8) & 0xffff)) & 0xffff) & 0x810f) {
             case 0x8003: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))).eq(new i8(0)).not())];
@@ -2845,21 +2845,21 @@ exports.dis = function x86dis(b, i) {
             case 0x800d: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($1 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), new u32(1).shl(($0 = R8[1])).add(new i32(-1)).shl(new u8($0.neg()).add(new u8(16))).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($1.shr($0)))];
             case 0x800f: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3f07fd) == 0x250469)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x6001) {
             case 0x2000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))).mul(new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3])))))))];
             case 0x1: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new i8(new u8(b[i+7]))).mul(new Mem16(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
             case 0x4001: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new i8(new u8(b[i+7]))).mul(new Mem16(R32[5].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 7) >>> 0) << 16) >>> 0)) >>> 0) & 0x707fd) == 0x50469)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x6001) {
             case 0x2000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))).mul(new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3])))))))];
             case 0x1: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new i8(new u8(b[i+7]))).mul(new Mem16(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
             case 0x4001: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new i8(new u8(b[i+7]))).mul(new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3f0789) == 0x250481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x7c3b) {
             case 0x2000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3])))))), new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))).add($0))];
@@ -2905,7 +2905,7 @@ exports.dis = function x86dis(b, i) {
             case 0x5c20: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem16(R32[5].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.shr(new i8(new u8(b[i+7]))))];
             case 0x203b: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[2], new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))).and(new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3])))))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 7) >>> 0) << 16) >>> 0)) >>> 0) & 0x70789) == 0x50481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x7c3b) {
             case 0x2000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3])))))), new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))).add($0))];
@@ -2951,7 +2951,7 @@ exports.dis = function x86dis(b, i) {
             case 0x5c20: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))), $0.shr(new i8(new u8(b[i+7]))))];
             case 0x203b: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[2], new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))).and(new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3])))))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3f4781) == 0x250481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x5c3f) {
             case 0x7: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(new Mem16(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))), new Mem16(($0 = R32[4]))), new Mov($0, $0.add(new u8(2)))];
@@ -3011,7 +3011,7 @@ exports.dis = function x86dis(b, i) {
             case 0x183f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))];
             case 0x583f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[5].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
         }
-        
+
         if((((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) | ((((b[i+2] & 63) & 0xffff) << 10) & 0xffff)) & 0xffff) & 0xfd1d) == 0x9410)
         switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0x80bf) {
             case 0x1: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem16(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -3057,7 +3057,7 @@ exports.dis = function x86dis(b, i) {
             case 0x8c: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(new Mem16(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
             case 0x808c: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(new Mem16(R32[5].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x384781) == 0x200481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x5c3f) {
             case 0x0: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)])), new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))).add($0))];
@@ -3099,7 +3099,7 @@ exports.dis = function x86dis(b, i) {
             case 0x503f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R32[8], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
             case 0x583f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
         }
-        
+
         if((((b[i+1] | ((((b[i+2] & 63) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x3847) == 0x2004)
         switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0x80ff) {
             case 0x8001: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -3125,7 +3125,7 @@ exports.dis = function x86dis(b, i) {
             case 0x808b: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
             case 0x808c: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 7) >>> 0) << 16) >>> 0)) >>> 0) & 0x74781) == 0x50481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x5c3f) {
             case 0x7: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(new Mem16(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), new Mem16(($0 = R32[4]))), new Mov($0, $0.add(new u8(2)))];
@@ -3185,7 +3185,7 @@ exports.dis = function x86dis(b, i) {
             case 0x183f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
             case 0x583f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
         }
-        
+
         if((((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) | ((((b[i+2] & 7) & 0xffff) << 10) & 0xffff)) & 0xffff) & 0x1d1d) == 0x1410)
         switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0x80bf) {
             case 0x1: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem16(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -3231,7 +3231,7 @@ exports.dis = function x86dis(b, i) {
             case 0x8c: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(new Mem16(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
             case 0x808c: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc7f1ff) == 0x5a10f)
         switch(((((b[i+1] & 14) & 0xff) >> 1) & 0xff) & 0x7) {
             case 0x1: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))).eq(new i8(0)).not())];
@@ -3240,7 +3240,7 @@ exports.dis = function x86dis(b, i) {
             case 0x6: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($1 = new Mem16(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))), new u32(1).shl(($0 = R8[1])).add(new i32(-1)).shl(new u8($0.neg()).add(new u8(16))).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($1.shr($0)))];
             case 0x7: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc0f1ff) == 0x80a10f)
         switch(((((b[i+1] & 14) & 0xff) >> 1) & 0xff) & 0x7) {
             case 0x1: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))).eq(new i8(0)).not())];
@@ -3249,7 +3249,7 @@ exports.dis = function x86dis(b, i) {
             case 0x6: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($1 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), new u32(1).shl(($0 = R8[1])).add(new i32(-1)).shl(new u8($0.neg()).add(new u8(16))).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($1.shr($0)))];
             case 0x7: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
         }
-        
+
         if((((((b[i+1] & 126) & 0xff) >> 1) & 0xff) & 0x23) == 0x2)
         switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0x81ff) {
             case 0x8001: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -3276,13 +3276,13 @@ exports.dis = function x86dis(b, i) {
             case 0x808b: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
             case 0x808c: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
         if((b[i] & 0xfd) == 0x69)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x6001) {
             case 0x2000: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))).mul(new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))))];
             case 0x4001: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new i8(new u8(b[i+6]))).mul(new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))))];
         }
-        
+
         if((((b[i] | ((((b[i+1] & 127) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x4681) == 0x481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x5cbf) {
             case 0x0: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))))), new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))).add($0))];
@@ -3340,7 +3340,7 @@ exports.dis = function x86dis(b, i) {
             case 0x503f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R32[8], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
             case 0x583f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
         }
-        
+
         if((b[i] & 0x89) == 0x81)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x7c3b) {
             case 0x2000: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))), new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))).add($0))];
@@ -3370,7 +3370,7 @@ exports.dis = function x86dis(b, i) {
             case 0x5c20: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))), $0.shr(new i8(new u8(b[i+6]))))];
             case 0x203b: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R1[2], new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))).and(new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc781) == 0x581)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c3f) {
             case 0x7: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(new Mem16(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))), new Mem16(($0 = R32[4]))), new Mov($0, $0.add(new u8(2)))];
@@ -3402,7 +3402,7 @@ exports.dis = function x86dis(b, i) {
             case 0x103f: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(R32[8], new Mem16(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))];
             case 0x183f: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))];
         }
-        
+
         if((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) & 0x31d) == 0x14)
         switch(b[i] & 0xbf) {
             case 0x1: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem16(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -3427,31 +3427,31 @@ exports.dis = function x86dis(b, i) {
             case 0x8b: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem16(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))];
             case 0x8c: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(new Mem16(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
         if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x3fc7f7ff) == 0x2544a40f)
         switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
             case 0x0: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem16(R32[5].add(new i16(new i8(new u8(b[i+4])))))), $0.shl(new i8(new u8(b[i+5]))).or(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16))))];
             case 0x1: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem16(R32[5].add(new i16(new i8(new u8(b[i+4])))))), new u32(((((1 << (((b[i+5]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16) & 0xff) & 0x1f)).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+5])))))];
         }
-        
+
         if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x38c7f7ff) == 0x2044a40f)
         switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
             case 0x0: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+4]))))), $0.shl(new i8(new u8(b[i+5]))).or(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16))))];
             case 0x1: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+4]))))), new u32(((((1 << (((b[i+5]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16) & 0xff) & 0x1f)).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+5])))))];
         }
-        
+
         if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 7) >>> 0) << 24) >>> 0)) >>> 0) & 0x7c7f7ff) == 0x544a40f)
         switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
             case 0x0: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem16(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+4])))))), $0.shl(new i8(new u8(b[i+5]))).or(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16))))];
             case 0x1: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem16(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+4])))))), new u32(((((1 << (((b[i+5]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16) & 0xff) & 0x1f)).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+5])))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc7f7ff) == 0x44a40f)
         switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
             case 0x0: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+4]))))), $0.shl(new i8(new u8(b[i+5]))).or(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16))))];
             case 0x1: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+4]))))), new u32(((((1 << (((b[i+5]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16) & 0xff) & 0x1f)).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+5])))))];
         }
-        
+
         if((b[i] & 0x81) == 0x81)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x7c3f) {
             case 0x0: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)])), new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))).add($0))];
@@ -3503,7 +3503,7 @@ exports.dis = function x86dis(b, i) {
             case 0x503f: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(R32[8], new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))))];
             case 0x583f: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))))];
         }
-        
+
         switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc0ff) {
             case 0x8001: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
             case 0x8003: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.add(new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))))];
@@ -3529,7 +3529,7 @@ exports.dis = function x86dis(b, i) {
             case 0x808b: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))))];
             case 0x808c: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3fc7bd) == 0x254481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c21) {
             case 0x1: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3])))))), $0.add(new i8(new u8(b[i+4]))))];
@@ -3549,7 +3549,7 @@ exports.dis = function x86dis(b, i) {
             case 0x1820: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3])))))), $0.shl(new i8(new u8(b[i+4]))))];
             case 0x1c20: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3])))))), $0.shr(new i8(new u8(b[i+4]))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x38c7bd) == 0x204481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c21) {
             case 0x1: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))), $0.add(new i8(new u8(b[i+4]))))];
@@ -3569,7 +3569,7 @@ exports.dis = function x86dis(b, i) {
             case 0x1820: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))), $0.shl(new i8(new u8(b[i+4]))))];
             case 0x1c20: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))), $0.shr(new i8(new u8(b[i+4]))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 7) >>> 0) << 16) >>> 0)) >>> 0) & 0x7c7bd) == 0x54481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c21) {
             case 0x1: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3])))))), $0.add(new i8(new u8(b[i+4]))))];
@@ -3589,7 +3589,7 @@ exports.dis = function x86dis(b, i) {
             case 0x1820: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3])))))), $0.shl(new i8(new u8(b[i+4]))))];
             case 0x1c20: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3])))))), $0.shr(new i8(new u8(b[i+4]))))];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc7bd) == 0x4481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c21) {
             case 0x1: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3]))))), $0.add(new i8(new u8(b[i+4]))))];
@@ -3609,7 +3609,7 @@ exports.dis = function x86dis(b, i) {
             case 0x1820: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3]))))), $0.shl(new i8(new u8(b[i+4]))))];
             case 0x1c20: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3]))))), $0.shr(new i8(new u8(b[i+4]))))];
         }
-        
+
         if((((((b[i] & 2) & 0xff) >> 1) & 0xff) & 0x1) == 0x0)
         switch(b[i] & 0xfd) {
             case 0x5: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = R32[0]), $0.add(new i32(new u32(((((b[i+1] | ((b[i+2] << 8) >>> 0)) >>> 0) | ((b[i+3] << 16) >>> 0)) >>> 0) | ((b[i+4] << 24) >>> 0)))))];
@@ -3623,23 +3623,23 @@ exports.dis = function x86dis(b, i) {
             case 0x68: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new i32(new u32(((((b[i+1] | ((b[i+2] << 8) >>> 0)) >>> 0) | ((b[i+3] << 16) >>> 0)) >>> 0) | ((b[i+4] << 24) >>> 0))))];
             case 0xa9: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R1[2], R32[0].and(new i32(new u32(((((b[i+1] | ((b[i+2] << 8) >>> 0)) >>> 0) | ((b[i+3] << 16) >>> 0)) >>> 0) | ((b[i+4] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x38c7ff) == 0x20446b)
         switch(0) {
             case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new i8(new u8(b[i+4]))).mul(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))))];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc7ff) == 0x446b)
         switch(0) {
             case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new i8(new u8(b[i+4]))).mul(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3]))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc0f7ff) == 0x40a40f)
         switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
             case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))), $0.shl(new i8(new u8(b[i+4]))).or(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+4]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16))))];
             case 0x1: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))), new u32(((((1 << (((b[i+4]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+4]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 16) & 0xff) & 0x1f)).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+4])))))];
         }
-        
+
         if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x3fc7f1ff) == 0x2544a10f)
         switch(((((b[i+1] & 14) & 0xff) >> 1) & 0xff) & 0x7) {
             case 0x1: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(R32[5].add(new i16(new i8(new u8(b[i+4])))))).eq(new i8(0)).not())];
@@ -3648,7 +3648,7 @@ exports.dis = function x86dis(b, i) {
             case 0x6: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($1 = new Mem16(R32[5].add(new i16(new i8(new u8(b[i+4])))))), new u32(1).shl(($0 = R8[1])).add(new i32(-1)).shl(new u8($0.neg()).add(new u8(16))).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($1.shr($0)))];
             case 0x7: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[5].add(new i16(new i8(new u8(b[i+4])))))))];
         }
-        
+
         if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x3887f0ff) == 0x2004a00f)
         switch(((b[i+1] | ((((b[i+2] & 127) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x400f) {
             case 0x4003: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+4]))))).eq(new i8(0)).not())];
@@ -3659,7 +3659,7 @@ exports.dis = function x86dis(b, i) {
             case 0x400d: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($1 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+4]))))), new u32(1).shl(($0 = R8[1])).add(new i32(-1)).shl(new u8($0.neg()).add(new u8(16))).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($1.shr($0)))];
             case 0x400f: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+4]))))))];
         }
-        
+
         if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 7) >>> 0) << 24) >>> 0)) >>> 0) & 0x7c7f1ff) == 0x544a10f)
         switch(((((b[i+1] & 14) & 0xff) >> 1) & 0xff) & 0x7) {
             case 0x1: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+4])))))).eq(new i8(0)).not())];
@@ -3668,7 +3668,7 @@ exports.dis = function x86dis(b, i) {
             case 0x6: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($1 = new Mem16(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+4])))))), new u32(1).shl(($0 = R8[1])).add(new i32(-1)).shl(new u8($0.neg()).add(new u8(16))).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($1.shr($0)))];
             case 0x7: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+4])))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0x87f0ff) == 0x4a00f)
         switch(((b[i+1] | ((((b[i+2] & 127) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x400f) {
             case 0x4003: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+4]))))).eq(new i8(0)).not())];
@@ -3679,22 +3679,22 @@ exports.dis = function x86dis(b, i) {
             case 0x400d: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($1 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+4]))))), new u32(1).shl(($0 = R8[1])).add(new i32(-1)).shl(new u8($0.neg()).add(new u8(16))).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($1.shr($0)))];
             case 0x400f: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+4]))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3fc7ff) == 0x25446b)
         switch(0) {
             case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new i8(new u8(b[i+4]))).mul(new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3])))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 7) >>> 0) << 16) >>> 0)) >>> 0) & 0x7c7ff) == 0x5446b)
         switch(0) {
             case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new i8(new u8(b[i+4]))).mul(new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3])))))))];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc0ff) == 0x406b)
         switch(0) {
             case 0x0: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new i8(new u8(b[i+3]))).mul(new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))))];
         }
-        
+
         if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x38c7f1ff) == 0x2004a10f)
         switch(((((b[i+1] & 14) & 0xff) >> 1) & 0xff) & 0x7) {
             case 0x1: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)])).eq(new i8(0)).not())];
@@ -3703,7 +3703,7 @@ exports.dis = function x86dis(b, i) {
             case 0x6: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($1 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)])), new u32(1).shl(($0 = R8[1])).add(new i32(-1)).shl(new u8($0.neg()).add(new u8(16))).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($1.shr($0)))];
             case 0x7: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)])))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc7f1ff) == 0x4a10f)
         switch(((((b[i+1] & 14) & 0xff) >> 1) & 0xff) & 0x7) {
             case 0x1: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))))).eq(new i8(0)).not())];
@@ -3712,7 +3712,7 @@ exports.dis = function x86dis(b, i) {
             case 0x6: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($1 = new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))))), new u32(1).shl(($0 = R8[1])).add(new i32(-1)).shl(new u8($0.neg()).add(new u8(16))).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($1.shr($0)))];
             case 0x7: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3fc781) == 0x254481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c3f) {
             case 0x7: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3]))))), new Mem16(($0 = R32[4]))), new Mov($0, $0.add(new u8(2)))];
@@ -3744,7 +3744,7 @@ exports.dis = function x86dis(b, i) {
             case 0x103f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[8], new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3]))))))];
             case 0x183f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3]))))))];
         }
-        
+
         if((((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) | ((((b[i+2] & 63) & 0xffff) << 10) & 0xffff)) & 0xffff) & 0xff1d) == 0x9510)
         switch(b[i] & 0xbf) {
             case 0x1: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3])))))), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -3769,7 +3769,7 @@ exports.dis = function x86dis(b, i) {
             case 0x8b: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3]))))))];
             case 0x8c: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3]))))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x388781) == 0x200481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 127) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x3c3f) {
             case 0x1: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)])), $0.add(new i8(new u8(b[i+3]))))];
@@ -3817,7 +3817,7 @@ exports.dis = function x86dis(b, i) {
             case 0x303f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[8], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3])))))];
             case 0x383f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3])))))];
         }
-        
+
         if((((b[i+1] | ((((b[i+2] & 63) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x3887) == 0x2004)
         switch(((b[i] | ((((b[i+1] & 127) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x40ff) {
             case 0x4001: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -3843,7 +3843,7 @@ exports.dis = function x86dis(b, i) {
             case 0x408b: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3])))))];
             case 0x408c: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3])))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 7) >>> 0) << 16) >>> 0)) >>> 0) & 0x7c781) == 0x54481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c3f) {
             case 0x7: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3]))))), new Mem16(($0 = R32[4]))), new Mov($0, $0.add(new u8(2)))];
@@ -3875,7 +3875,7 @@ exports.dis = function x86dis(b, i) {
             case 0x103f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[8], new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3]))))))];
             case 0x183f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3]))))))];
         }
-        
+
         if((((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) | ((((b[i+2] & 7) & 0xffff) << 10) & 0xffff)) & 0xffff) & 0x1f1d) == 0x1510)
         switch(b[i] & 0xbf) {
             case 0x1: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3])))))), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -3900,7 +3900,7 @@ exports.dis = function x86dis(b, i) {
             case 0x8b: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3]))))))];
             case 0x8c: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3]))))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc0bd) == 0x4081)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c21) {
             case 0x1: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))), $0.add(new i8(new u8(b[i+3]))))];
@@ -3920,7 +3920,7 @@ exports.dis = function x86dis(b, i) {
             case 0x1820: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))), $0.shl(new i8(new u8(b[i+3]))))];
             case 0x1c20: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))), $0.shr(new i8(new u8(b[i+3]))))];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0x8781) == 0x481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 127) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x3c3f) {
             case 0x1: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))))), $0.add(new i8(new u8(b[i+3]))))];
@@ -3968,7 +3968,7 @@ exports.dis = function x86dis(b, i) {
             case 0x303f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[8], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3])))))];
             case 0x383f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3])))))];
         }
-        
+
         if((b[i+1] & 0x87) == 0x4)
         switch(((b[i] | ((((b[i+1] & 127) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x40ff) {
             case 0x4001: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3]))))), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -3994,7 +3994,7 @@ exports.dis = function x86dis(b, i) {
             case 0x408b: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3])))))];
             case 0x408c: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3])))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xf0ff) == 0xa00f)
         switch(((b[i+1] | ((b[i+2] << 8) & 0xffff)) & 0xffff) & 0xc00f) {
             case 0x4003: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))).eq(new i8(0)).not())];
@@ -4007,7 +4007,7 @@ exports.dis = function x86dis(b, i) {
             case 0x400d: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($1 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))), new u32(1).shl(($0 = R8[1])).add(new i32(-1)).shl(new u8($0.neg()).add(new u8(16))).and(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($1.shr($0)))];
             case 0x400f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))))];
         }
-        
+
         if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x38c781) == 0x200481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c3f) {
             case 0x7: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)]), new Mem16(($0 = R32[4]))), new Mov($0, $0.add(new u8(2)))];
@@ -4039,7 +4039,7 @@ exports.dis = function x86dis(b, i) {
             case 0x103f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[8], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)]))];
             case 0x183f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)]))];
         }
-        
+
         if((((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) | ((((b[i+2] & 63) & 0xffff) << 10) & 0xffff)) & 0xffff) & 0xe31d) == 0x8010)
         switch(b[i] & 0xbf) {
             case 0x1: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)])), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -4064,7 +4064,7 @@ exports.dis = function x86dis(b, i) {
             case 0x8b: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)]))];
             case 0x8c: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)]), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc781) == 0x481)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c3f) {
             case 0x7: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)))), new Mem16(($0 = R32[4]))), new Mov($0, $0.add(new u8(2)))];
@@ -4096,7 +4096,7 @@ exports.dis = function x86dis(b, i) {
             case 0x103f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[8], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)))))];
             case 0x183f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)))))];
         }
-        
+
         if((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) & 0x31d) == 0x10)
         switch(b[i] & 0xbf) {
             case 0x1: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))))), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -4121,7 +4121,7 @@ exports.dis = function x86dis(b, i) {
             case 0x8b: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)))))];
             case 0x8c: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
         if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xf1ff) == 0xa10f)
         switch(((((((b[i+1] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+2] << 7) & 0xffff)) & 0xffff) & 0x6007) {
             case 0x1: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R1[1], new u16(1).shl(R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).and(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)])).eq(new i8(0)).not())];
@@ -4135,7 +4135,7 @@ exports.dis = function x86dis(b, i) {
             case 0x7: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)])))];
             case 0x6007: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = R16[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.mul(R16[((((b[i+2] & 7) & 0xff)) & 0xff)]))];
         }
-        
+
         if((b[i] & 0x81) == 0x81)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x7c3f) {
             case 0x1: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)])), $0.add(new i8(new u8(b[i+2]))))];
@@ -4199,7 +4199,7 @@ exports.dis = function x86dis(b, i) {
             case 0x303f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[8], new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2])))))];
             case 0x383f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2])))))];
         }
-        
+
         if((((((b[i] & 248) & 0xff) >> 3) & 0xff) & 0x1f) == 0x17)
         switch(((b[i] & 7) & 0xff) & 0x7) {
             case 0x0: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[0], new i16(new u16(b[i+1] | ((b[i+2] << 8) & 0xffff))))];
@@ -4211,7 +4211,7 @@ exports.dis = function x86dis(b, i) {
             case 0x6: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[6], new i16(new u16(b[i+1] | ((b[i+2] << 8) & 0xffff))))];
             case 0x7: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[7], new i16(new u16(b[i+1] | ((b[i+2] << 8) & 0xffff))))];
         }
-        
+
         switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc0ff) {
             case 0x4001: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
             case 0x4003: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]), $0.add(new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))))];
@@ -4237,7 +4237,7 @@ exports.dis = function x86dis(b, i) {
             case 0x408b: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2])))))];
             case 0x408c: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2])))), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
         if((b[i] & 0x81) == 0x81)
         switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x7c3f) {
             case 0x7: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)]), new Mem16(($0 = R32[4]))), new Mov($0, $0.add(new u8(2)))];
@@ -4297,7 +4297,7 @@ exports.dis = function x86dis(b, i) {
             case 0x183f: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)]))];
             case 0x783f: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-2))), new Mov(new Mem16($0), R16[((((b[i+1] & 7) & 0xff)) & 0xff)])];
         }
-        
+
         if((((((b[i] & 64) & 0xff) >> 6) & 0xff) & 0x1) == 0x0)
         switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc0bf) {
             case 0x1: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(($0 = new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)])), $0.add(R16[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -4343,32 +4343,32 @@ exports.dis = function x86dis(b, i) {
             case 0x8c: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)]), R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
             case 0xc08c: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(R16[((((b[i+1] & 7) & 0xff)) & 0xff)], R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)])];
         }
-        
+
     }
     var $0, $1, $2;
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3f47ff) == 0x250469)
     switch(((((b[i+1] & 128) & 0xff) >> 7) & 0xff) & 0x1) {
         case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(new u32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))).mul(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))))];
         case 0x1: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[5].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).mul(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x38c7ff) == 0x208469)
     switch(0) {
         case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).mul(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 7) >>> 0) << 16) >>> 0)) >>> 0) & 0x747ff) == 0x50469)
     switch(((((b[i+1] & 128) & 0xff) >> 7) & 0xff) & 0x1) {
         case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).mul(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))))];
         case 0x1: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))).mul(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))))];
     }
-    
+
     if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc7ff) == 0x8469)
     switch(0) {
         case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).mul(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3f4789) == 0x250481)
     switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x5c3b) {
         case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(($0 = new Mem32(new u32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), $0.add(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))))];
@@ -4392,7 +4392,7 @@ exports.dis = function x86dis(b, i) {
         case 0x3b: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R1[2], new Mem32(new u32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))).and(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         case 0x403b: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R1[2], new Mem32(R32[5].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).and(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x38c789) == 0x208481)
     switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c3b) {
         case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.add(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))))];
@@ -4406,7 +4406,7 @@ exports.dis = function x86dis(b, i) {
         case 0x23: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))))];
         case 0x3b: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R1[2], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).and(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 7) >>> 0) << 16) >>> 0)) >>> 0) & 0x74789) == 0x50481)
     switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x5c3b) {
         case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(($0 = new Mem32(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.add(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))))];
@@ -4430,7 +4430,7 @@ exports.dis = function x86dis(b, i) {
         case 0x3b: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R1[2], new Mem32(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).and(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         case 0x403b: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R1[2], new Mem32(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))).and(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc789) == 0x8481)
     switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c3b) {
         case 0x0: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.add(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))))];
@@ -4444,12 +4444,12 @@ exports.dis = function x86dis(b, i) {
         case 0x23: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0))))];
         case 0x3b: return [((((_pfxLength) & 0xff) + 11) & 0xff), new Mov(R1[2], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).and(new i32(new u32(((((b[i+7] | ((b[i+8] << 8) >>> 0)) >>> 0) | ((b[i+9] << 16) >>> 0)) >>> 0) | ((b[i+10] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc7ff) == 0x569)
     switch(0) {
         case 0x0: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))).mul(new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0)))))];
     }
-    
+
     if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc789) == 0x581)
     switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c3b) {
         case 0x0: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(($0 = new Mem32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))), $0.add(new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0)))))];
@@ -4463,12 +4463,12 @@ exports.dis = function x86dis(b, i) {
         case 0x23: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(new Mem32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))), new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0))))];
         case 0x3b: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(R1[2], new Mem32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))).and(new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc0ff) == 0x8069)
     switch(0) {
         case 0x0: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))).mul(new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0)))))];
     }
-    
+
     if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc089) == 0x8081)
     switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((((b[i+1] & 63) & 0xffff) << 7) & 0xffff)) & 0xffff) & 0x1c3b) {
         case 0x0: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))), $0.add(new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0)))))];
@@ -4482,7 +4482,7 @@ exports.dis = function x86dis(b, i) {
         case 0x23: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))), new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0))))];
         case 0x3b: return [((((_pfxLength) & 0xff) + 10) & 0xff), new Mov(R1[2], new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))).and(new i32(new u32(((((b[i+6] | ((b[i+7] << 8) >>> 0)) >>> 0) | ((b[i+8] << 16) >>> 0)) >>> 0) | ((b[i+9] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x3f47f7ff) == 0x2504a40f)
     switch(((((((b[i+1] & 248) & 0xffff) >> 3) & 0xffff) | ((b[i+2] << 5) & 0xffff)) & 0xffff) & 0x1001) {
         case 0x0: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem32(new u32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))), $0.shl(new i8(new u8(b[i+8]))).or(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32))))];
@@ -4490,13 +4490,13 @@ exports.dis = function x86dis(b, i) {
         case 0x1: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem32(new u32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))), new u32(((((1 << (((b[i+8]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32) & 0xff) & 0x1f)).and(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+8])))))];
         case 0x1001: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem32(R32[5].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), new u32(((((1 << (((b[i+8]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32) & 0xff) & 0x1f)).and(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+8])))))];
     }
-    
+
     if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x38c7f7ff) == 0x2084a40f)
     switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
         case 0x0: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), $0.shl(new i8(new u8(b[i+8]))).or(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32))))];
         case 0x1: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), new u32(((((1 << (((b[i+8]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32) & 0xff) & 0x1f)).and(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+8])))))];
     }
-    
+
     if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 7) >>> 0) << 24) >>> 0)) >>> 0) & 0x747f7ff) == 0x504a40f)
     switch(((((((b[i+1] & 248) & 0xffff) >> 3) & 0xffff) | ((b[i+2] << 5) & 0xffff)) & 0xffff) & 0x1001) {
         case 0x0: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem32(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), $0.shl(new i8(new u8(b[i+8]))).or(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32))))];
@@ -4504,13 +4504,13 @@ exports.dis = function x86dis(b, i) {
         case 0x1: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem32(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), new u32(((((1 << (((b[i+8]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32) & 0xff) & 0x1f)).and(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+8])))))];
         case 0x1001: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem32(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))))), new u32(((((1 << (((b[i+8]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32) & 0xff) & 0x1f)).and(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+8])))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc7f7ff) == 0x84a40f)
     switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
         case 0x0: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), $0.shl(new i8(new u8(b[i+8]))).or(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32))))];
         case 0x1: return [((((_pfxLength) & 0xff) + 9) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))), new u32(((((1 << (((b[i+8]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+8]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32) & 0xff) & 0x1f)).and(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+8])))))];
     }
-    
+
     if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x3f47c0ff) == 0x2504800f)
     switch(((b[i+1] | ((b[i+2] << 8) & 0xffff)) & 0xffff) & 0x803f) {
         case 0x10: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(new Mem8(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))), R1[0])];
@@ -4564,7 +4564,7 @@ exports.dis = function x86dis(b, i) {
         case 0x3f: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))))];
         case 0x803f: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[5].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))))];
     }
-    
+
     if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x38c7c0ff) == 0x2084800f)
     switch(((b[i+1] & 63) & 0xff) & 0x3f) {
         case 0x10: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(new Mem8(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))), R1[0])];
@@ -4593,7 +4593,7 @@ exports.dis = function x86dis(b, i) {
         case 0x3e: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem8(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))))];
         case 0x3f: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))))];
     }
-    
+
     if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 7) >>> 0) << 24) >>> 0)) >>> 0) & 0x747c0ff) == 0x504800f)
     switch(((b[i+1] | ((b[i+2] << 8) & 0xffff)) & 0xffff) & 0x803f) {
         case 0x10: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(new Mem8(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))), R1[0])];
@@ -4647,13 +4647,13 @@ exports.dis = function x86dis(b, i) {
         case 0x3f: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))))];
         case 0x803f: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc0f7ff) == 0x80a40f)
     switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
         case 0x0: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.shl(new i8(new u8(b[i+7]))).or(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+7]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32))))];
         case 0x1: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), new u32(((((1 << (((b[i+7]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+7]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32) & 0xff) & 0x1f)).and(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+7])))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 127) >>> 0) << 16) >>> 0)) >>> 0) & 0x46c0ff) == 0x4800f)
     switch(((b[i+1] | ((b[i+2] << 8) & 0xffff)) & 0xffff) & 0x813f) {
         case 0x8010: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(new Mem8(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0))))), R1[0])];
@@ -4684,33 +4684,33 @@ exports.dis = function x86dis(b, i) {
         case 0x803e: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem8(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))))];
         case 0x803f: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3f07fd) == 0x250469)
     switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x6001) {
         case 0x2000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[5].add(new i32(new i8(new u8(b[i+3]))))).mul(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))];
         case 0x1: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(new u32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))).mul(new i32(new i8(new u8(b[i+7])))))];
         case 0x4001: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[5].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).mul(new i32(new i8(new u8(b[i+7])))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3807fd) == 0x200469)
     switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x6001) {
         case 0x2000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3])))).mul(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))];
         case 0x4001: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).mul(new i32(new i8(new u8(b[i+7])))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 7) >>> 0) << 16) >>> 0)) >>> 0) & 0x707fd) == 0x50469)
     switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x6001) {
         case 0x2000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3]))))).mul(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))];
         case 0x1: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).mul(new i32(new i8(new u8(b[i+7])))))];
         case 0x4001: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))).mul(new i32(new i8(new u8(b[i+7])))))];
     }
-    
+
     if((((b[i] | ((((b[i+1] & 7) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x7fd) == 0x469)
     switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x6001) {
         case 0x2000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3])))).mul(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))))];
         case 0x4001: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).mul(new i32(new i8(new u8(b[i+7])))))];
     }
-    
+
     if((((((((((b[i] & 248) >>> 0) >> 3) >>> 0) | ((b[i+1] << 5) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 13) >>> 0)) >>> 0) & 0x7e0f1) == 0x4a090)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xf877) {
         case 0x0: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem8(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), $0.add(new i8(new u8(b[i+7]))))];
@@ -4808,7 +4808,7 @@ exports.dis = function x86dis(b, i) {
         case 0x8076: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[2], new Mem8(R32[5].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).and(new i8(new u8(b[i+7]))).eq(new i8(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         case 0x4077: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[2], new Mem32(R32[5].add(new i32(new i8(new u8(b[i+3]))))).and(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((((((((b[i] & 248) >>> 0) >> 3) >>> 0) | ((b[i+1] << 5) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 13) >>> 0)) >>> 0) & 0x700f1) == 0x40090)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xf877) {
         case 0x8000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.add(new i8(new u8(b[i+7]))))];
@@ -4864,7 +4864,7 @@ exports.dis = function x86dis(b, i) {
         case 0x8076: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[2], new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).and(new i8(new u8(b[i+7]))).eq(new i8(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         case 0x4077: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[2], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3])))).and(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((((((((b[i] & 248) & 0xffff) >> 3) & 0xffff) | ((b[i+1] << 5) & 0xffff)) & 0xffff) | ((((b[i+2] & 7) & 0xffff) << 13) & 0xffff)) & 0xffff) & 0xe0f1) == 0xa090)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xf877) {
         case 0x0: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem8(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.add(new i8(new u8(b[i+7]))))];
@@ -4962,7 +4962,7 @@ exports.dis = function x86dis(b, i) {
         case 0x8076: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[2], new Mem8(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))).and(new i8(new u8(b[i+7]))).eq(new i8(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         case 0x4077: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[2], new Mem32(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3]))))).and(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((((((b[i] & 248) & 0xff) >> 3) & 0xff) | ((((b[i+1] & 7) & 0xff) << 5) & 0xff)) & 0xff) & 0xf1) == 0x90)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xf877) {
         case 0x8000: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.add(new i8(new u8(b[i+7]))))];
@@ -5018,7 +5018,7 @@ exports.dis = function x86dis(b, i) {
         case 0x8076: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[2], new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))).and(new i8(new u8(b[i+7]))).eq(new i8(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         case 0x4077: return [((((_pfxLength) & 0xff) + 8) & 0xff), new Mov(R1[2], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3])))).and(new i32(new u32(((((b[i+4] | ((b[i+5] << 8) >>> 0)) >>> 0) | ((b[i+6] << 16) >>> 0)) >>> 0) | ((b[i+7] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc7c0ff) == 0x5800f)
     switch(((b[i+1] & 63) & 0xff) & 0x3f) {
         case 0x10: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(new Mem8(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))), R1[0])];
@@ -5047,7 +5047,7 @@ exports.dis = function x86dis(b, i) {
         case 0x3e: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem8(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))];
         case 0x3f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc0c0ff) == 0x80800f)
     switch(((b[i+1] & 63) & 0xff) & 0x3f) {
         case 0x10: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), R1[0])];
@@ -5076,13 +5076,13 @@ exports.dis = function x86dis(b, i) {
         case 0x3e: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
         case 0x3f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
     }
-    
+
     if((b[i] & 0xfd) == 0x69)
     switch(((((((b[i] & 254) & 0xffff) >> 1) & 0xffff) | ((b[i+1] << 7) & 0xffff)) & 0xffff) & 0x6001) {
         case 0x2000: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2])))).mul(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))];
         case 0x4001: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))).mul(new i32(new i8(new u8(b[i+6])))))];
     }
-    
+
     if((((((((((b[i] & 128) & 0xffff) >> 7) & 0xffff) | ((b[i+1] << 1) & 0xffff)) & 0xffff) | ((((b[i+2] & 63) & 0xffff) << 9) & 0xffff)) & 0xffff) & 0x7e8f) == 0x4a09)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xb87f) {
         case 0xf: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(new Mem32(new u32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))), new Mem32(($0 = R32[4]))), new Mov($0, $0.add(new u8(4)))];
@@ -5190,7 +5190,7 @@ exports.dis = function x86dis(b, i) {
         case 0x307f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(new u32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))];
         case 0xb07f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[5].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
     }
-    
+
     if((((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) | ((((b[i+2] & 63) & 0xffff) << 10) & 0xffff)) & 0xffff) & 0xfd1d) == 0x9410)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0x80bf) {
         case 0x0: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem8(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -5280,7 +5280,7 @@ exports.dis = function x86dis(b, i) {
         case 0x8e: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))];
         case 0x808e: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[5].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
     }
-    
+
     if((((((((((b[i] & 128) & 0xffff) >> 7) & 0xffff) | ((b[i+1] << 1) & 0xffff)) & 0xffff) | ((((b[i+2] & 63) & 0xffff) << 9) & 0xffff)) & 0xffff) & 0x708f) == 0x4009)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xb87f) {
         case 0x1: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)])), $0.add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))];
@@ -5346,7 +5346,7 @@ exports.dis = function x86dis(b, i) {
         case 0xa07f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R32[8], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
         case 0xb07f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
     }
-    
+
     if((((b[i+1] | ((((b[i+2] & 63) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x3847) == 0x2004)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0x80ff) {
         case 0x8000: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -5394,7 +5394,7 @@ exports.dis = function x86dis(b, i) {
         case 0x808d: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))];
         case 0x808e: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
     }
-    
+
     if((((((((((b[i] & 128) & 0xffff) >> 7) & 0xffff) | ((b[i+1] << 1) & 0xffff)) & 0xffff) | ((((b[i+2] & 7) & 0xffff) << 9) & 0xffff)) & 0xffff) & 0xe8f) == 0xa09)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xb87f) {
         case 0xf: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(new Mem32(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))), new Mem32(($0 = R32[4]))), new Mov($0, $0.add(new u8(4)))];
@@ -5502,7 +5502,7 @@ exports.dis = function x86dis(b, i) {
         case 0x307f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
         case 0xb07f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
     }
-    
+
     if((((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) | ((((b[i+2] & 7) & 0xffff) << 10) & 0xffff)) & 0xffff) & 0x1d1d) == 0x1410)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0x80bf) {
         case 0x0: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem8(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -5592,7 +5592,7 @@ exports.dis = function x86dis(b, i) {
         case 0x8e: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
         case 0x808e: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))))];
     }
-    
+
     if((((((((b[i] & 128) & 0xff) >> 7) & 0xff) | ((((b[i+1] & 127) & 0xff) << 1) & 0xff)) & 0xff) & 0x8d) == 0x9)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xb97f) {
         case 0x100: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem8(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))), $0.add(new i8(new u8(b[i+6]))))];
@@ -5700,7 +5700,7 @@ exports.dis = function x86dis(b, i) {
         case 0xa07f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R32[8], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
         case 0xb07f: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
     }
-    
+
     if((((((b[i+1] & 126) & 0xff) >> 1) & 0xff) & 0x23) == 0x2)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0x81ff) {
         case 0x8000: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -5749,7 +5749,7 @@ exports.dis = function x86dis(b, i) {
         case 0x808d: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))))];
         case 0x808e: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0))))))];
     }
-    
+
     if((((((b[i] & 248) & 0xff) >> 3) & 0xff) & 0x11) == 0x10)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xf877) {
         case 0x8000: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))), $0.add(new i8(new u8(b[i+6]))))];
@@ -5805,7 +5805,7 @@ exports.dis = function x86dis(b, i) {
         case 0x8076: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R1[2], new Mem8(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))).and(new i8(new u8(b[i+6]))).eq(new i8(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
         case 0x4077: return [((((_pfxLength) & 0xff) + 7) & 0xff), new Mov(R1[2], new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2])))).and(new i32(new u32(((((b[i+3] | ((b[i+4] << 8) >>> 0)) >>> 0) | ((b[i+5] << 16) >>> 0)) >>> 0) | ((b[i+6] << 24) >>> 0)))).eq(new i32(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) & 0x31d) == 0x14)
     switch(b[i] & 0xbf) {
         case 0x0: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem8(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -5852,31 +5852,31 @@ exports.dis = function x86dis(b, i) {
         case 0x8d: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))];
         case 0x8e: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))];
     }
-    
+
     if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x3fc7f7ff) == 0x2544a40f)
     switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
         case 0x0: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem32(R32[5].add(new i32(new i8(new u8(b[i+4])))))), $0.shl(new i8(new u8(b[i+5]))).or(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32))))];
         case 0x1: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem32(R32[5].add(new i32(new i8(new u8(b[i+4])))))), new u32(((((1 << (((b[i+5]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32) & 0xff) & 0x1f)).and(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+5])))))];
     }
-    
+
     if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x38c7f7ff) == 0x2044a40f)
     switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
         case 0x0: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+4]))))), $0.shl(new i8(new u8(b[i+5]))).or(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32))))];
         case 0x1: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+4]))))), new u32(((((1 << (((b[i+5]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32) & 0xff) & 0x1f)).and(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+5])))))];
     }
-    
+
     if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 7) >>> 0) << 24) >>> 0)) >>> 0) & 0x7c7f7ff) == 0x544a40f)
     switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
         case 0x0: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem32(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+4])))))), $0.shl(new i8(new u8(b[i+5]))).or(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32))))];
         case 0x1: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem32(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+4])))))), new u32(((((1 << (((b[i+5]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32) & 0xff) & 0x1f)).and(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+5])))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc7f7ff) == 0x44a40f)
     switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
         case 0x0: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+4]))))), $0.shl(new i8(new u8(b[i+5]))).or(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32))))];
         case 0x1: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+4]))))), new u32(((((1 << (((b[i+5]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+5]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32) & 0xff) & 0x1f)).and(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+5])))))];
     }
-    
+
     if((((((b[i+1] & 64) & 0xff) >> 6) & 0xff) & 0x1) == 0x0)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xbfff) {
         case 0x58f: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(new Mem32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))), new Mem32(($0 = R32[4]))), new Mov($0, $0.add(new u8(4)))];
@@ -5948,7 +5948,7 @@ exports.dis = function x86dis(b, i) {
         case 0x8e0f: return [((((_pfxLength) & 0xff) + 6) & 0xff), new If(R1[0].eq(R1[3]).not().or(R1[2]), new Mov(($0 = R32[8]), $0.add(new i32(((((((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)) >>> 0)) >> 0) + ((_pfxLength + 6) << 24 >> 24)))))];
         case 0x8f0f: return [((((_pfxLength) & 0xff) + 6) & 0xff), new If(R1[0].eq(R1[3]).and(R1[2].not()), new Mov(($0 = R32[8]), $0.add(new i32(((((((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)) >>> 0)) >> 0) + ((_pfxLength + 6) << 24 >> 24)))))];
     }
-    
+
     if((((((b[i] & 128) & 0xff) >> 7) & 0xff) & 0x1) == 0x1)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xf87f) {
         case 0x1: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)])), $0.add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))];
@@ -6024,7 +6024,7 @@ exports.dis = function x86dis(b, i) {
         case 0xa07f: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(R32[8], new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))))];
         case 0xb07f: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))))];
     }
-    
+
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc0ff) {
         case 0x8000: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
         case 0x8001: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))), $0.add(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -6072,27 +6072,27 @@ exports.dis = function x86dis(b, i) {
         case 0x808d: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0)))))];
         case 0x808e: return [((((_pfxLength) & 0xff) + 6) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i32(new u32(((((b[i+2] | ((b[i+3] << 8) >>> 0)) >>> 0) | ((b[i+4] << 16) >>> 0)) >>> 0) | ((b[i+5] << 24) >>> 0))))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x3fc7ff) == 0x25446b)
     switch(0) {
         case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[5].add(new i32(new i8(new u8(b[i+3]))))).mul(new i32(new i8(new u8(b[i+4])))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 16) >>> 0)) >>> 0) & 0x38c7ff) == 0x20446b)
     switch(0) {
         case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3])))).mul(new i32(new i8(new u8(b[i+4])))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((((b[i+2] & 7) >>> 0) << 16) >>> 0)) >>> 0) & 0x7c7ff) == 0x5446b)
     switch(0) {
         case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3]))))).mul(new i32(new i8(new u8(b[i+4])))))];
     }
-    
+
     if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc7ff) == 0x446b)
     switch(0) {
         case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3])))).mul(new i32(new i8(new u8(b[i+4])))))];
     }
-    
+
     if((((((((((b[i] & 248) >>> 0) >> 3) >>> 0) | ((b[i+1] << 5) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 13) >>> 0)) >>> 0) & 0x718f1) == 0x40890)
     switch(((b[i] | ((((b[i+1] & 63) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x3877) {
         case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))), $0.add(new i8(new u8(b[i+4]))))];
@@ -6138,7 +6138,7 @@ exports.dis = function x86dis(b, i) {
         case 0x3841: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))), $0.shr(new i8(new u8(b[i+4]))))];
         case 0x76: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R1[2], new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3])))).and(new i8(new u8(b[i+4]))).eq(new i8(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((((((b[i] & 248) & 0xffff) >> 3) & 0xffff) | ((b[i+1] << 5) & 0xffff)) & 0xffff) & 0x18f1) == 0x890)
     switch(((b[i] | ((((b[i+1] & 63) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x3877) {
         case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3]))))), $0.add(new i8(new u8(b[i+4]))))];
@@ -6184,7 +6184,7 @@ exports.dis = function x86dis(b, i) {
         case 0x3841: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3]))))), $0.shr(new i8(new u8(b[i+4]))))];
         case 0x76: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R1[2], new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3])))).and(new i8(new u8(b[i+4]))).eq(new i8(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x3fc7c0ff) == 0x2544800f)
     switch(((b[i+1] & 63) & 0xff) & 0x3f) {
         case 0x10: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(new Mem8(R32[5].add(new i8(new u8(b[i+4])))), R1[0])];
@@ -6213,7 +6213,7 @@ exports.dis = function x86dis(b, i) {
         case 0x3e: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem8(R32[5].add(new i8(new u8(b[i+4]))))))];
         case 0x3f: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[5].add(new i16(new i8(new u8(b[i+4])))))))];
     }
-    
+
     if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x3887c0ff) == 0x2004800f)
     switch(((b[i+1] | ((((b[i+2] & 127) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x403f) {
         case 0x4010: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(new Mem8(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+4])))), R1[0])];
@@ -6244,7 +6244,7 @@ exports.dis = function x86dis(b, i) {
         case 0x403e: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem8(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+4]))))))];
         case 0x403f: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+4]))))))];
     }
-    
+
     if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 7) >>> 0) << 24) >>> 0)) >>> 0) & 0x7c7c0ff) == 0x544800f)
     switch(((b[i+1] & 63) & 0xff) & 0x3f) {
         case 0x10: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(new Mem8(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+4]))))), R1[0])];
@@ -6273,13 +6273,13 @@ exports.dis = function x86dis(b, i) {
         case 0x3e: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem8(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+4])))))))];
         case 0x3f: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[5].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+4])))))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc0f7ff) == 0x40a40f)
     switch(((((b[i+1] & 8) & 0xff) >> 3) & 0xff) & 0x1) {
         case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))), $0.shl(new i8(new u8(b[i+4]))).or(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shr(new u8(((((-((b[i+4]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32))))];
         case 0x1: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))), new u32(((((1 << (((b[i+4]) << 24 >> 24) & 0x1f)) >>> 0) + -1) >>> 0) << (((((((-((b[i+4]) << 24 >> 24)) << 24 >> 24)) & 0xff) + 32) & 0xff) & 0x1f)).and(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]).or($0.shr(new i8(new u8(b[i+4])))))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0x87c0ff) == 0x4800f)
     switch(((b[i+1] | ((((b[i+2] & 127) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x403f) {
         case 0x4010: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(new Mem8(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+4])))), R1[0])];
@@ -6310,7 +6310,7 @@ exports.dis = function x86dis(b, i) {
         case 0x403e: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem8(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+4]))))))];
         case 0x403f: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+4]))))))];
     }
-    
+
     if((((((((((b[i] & 248) >>> 0) >> 3) >>> 0) | ((b[i+1] << 5) >>> 0)) >>> 0) | ((((b[i+2] & 63) >>> 0) << 13) >>> 0)) >>> 0) & 0x7f8f1) == 0x4a890)
     switch(((b[i] | ((((b[i+1] & 63) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x3877) {
         case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem8(R32[5].add(new i8(new u8(b[i+3]))))), $0.add(new i8(new u8(b[i+4]))))];
@@ -6356,7 +6356,7 @@ exports.dis = function x86dis(b, i) {
         case 0x3841: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem32(R32[5].add(new i32(new i8(new u8(b[i+3])))))), $0.shr(new i8(new u8(b[i+4]))))];
         case 0x76: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R1[2], new Mem8(R32[5].add(new i8(new u8(b[i+3])))).and(new i8(new u8(b[i+4]))).eq(new i8(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((((((((b[i] & 248) & 0xffff) >> 3) & 0xffff) | ((b[i+1] << 5) & 0xffff)) & 0xffff) | ((((b[i+2] & 7) & 0xffff) << 13) & 0xffff)) & 0xffff) & 0xf8f1) == 0xa890)
     switch(((b[i] | ((((b[i+1] & 63) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x3877) {
         case 0x0: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem8(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3])))))), $0.add(new i8(new u8(b[i+4]))))];
@@ -6402,7 +6402,7 @@ exports.dis = function x86dis(b, i) {
         case 0x3841: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = new Mem32(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3])))))), $0.shr(new i8(new u8(b[i+4]))))];
         case 0x76: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(R1[2], new Mem8(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3]))))).and(new i8(new u8(b[i+4]))).eq(new i8(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     switch(b[i] & 0xff) {
         case 0x5: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = R32[0]), $0.add(new i32(new u32(((((b[i+1] | ((b[i+2] << 8) >>> 0)) >>> 0) | ((b[i+3] << 16) >>> 0)) >>> 0) | ((b[i+4] << 24) >>> 0)))))];
         case 0xd: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = R32[0]), $0.or(new i32(new u32(((((b[i+1] | ((b[i+2] << 8) >>> 0)) >>> 0) | ((b[i+3] << 16) >>> 0)) >>> 0) | ((b[i+4] << 24) >>> 0)))))];
@@ -6429,12 +6429,12 @@ exports.dis = function x86dis(b, i) {
         case 0xe8: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), ($1 = R32[8]).add(new i8(_pfxLength + 5))), new Mov($1, $1.add(new i32(((((((((b[i+1] | ((b[i+2] << 8) >>> 0)) >>> 0) | ((b[i+3] << 16) >>> 0)) >>> 0) | ((b[i+4] << 24) >>> 0)) >>> 0)) >> 0) + ((_pfxLength + 5) << 24 >> 24))))];
         case 0xe9: return [((((_pfxLength) & 0xff) + 5) & 0xff), new Mov(($0 = R32[8]), $0.add(new i32(((((((((b[i+1] | ((b[i+2] << 8) >>> 0)) >>> 0) | ((b[i+3] << 16) >>> 0)) >>> 0) | ((b[i+4] << 24) >>> 0)) >>> 0)) >> 0) + ((_pfxLength + 5) << 24 >> 24))))];
     }
-    
+
     if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc0ff) == 0x406b)
     switch(0) {
         case 0x0: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2])))).mul(new i32(new i8(new u8(b[i+3])))))];
     }
-    
+
     if((((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) | ((((b[i+3] & 63) >>> 0) << 24) >>> 0)) >>> 0) & 0x38c7c0ff) == 0x2004800f)
     switch(((b[i+1] & 63) & 0xff) & 0x3f) {
         case 0x10: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(new Mem8(R32[((((b[i+3] & 7) & 0xff)) & 0xff)]), R1[0])];
@@ -6463,7 +6463,7 @@ exports.dis = function x86dis(b, i) {
         case 0x3e: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem8(R32[((((b[i+3] & 7) & 0xff)) & 0xff)])))];
         case 0x3f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)])))];
     }
-    
+
     if((((((b[i] | ((b[i+1] << 8) >>> 0)) >>> 0) | ((b[i+2] << 16) >>> 0)) >>> 0) & 0xc7c0ff) == 0x4800f)
     switch(((b[i+1] & 63) & 0xff) & 0x3f) {
         case 0x10: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(new Mem8(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6)))), R1[0])];
@@ -6492,7 +6492,7 @@ exports.dis = function x86dis(b, i) {
         case 0x3e: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem8(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))))))];
         case 0x3f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[((((b[i+3] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+3] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+3] & 192) & 0xff) >> 6))))))];
     }
-    
+
     if((((((((((b[i] & 128) & 0xffff) >> 7) & 0xffff) | ((b[i+1] << 1) & 0xffff)) & 0xffff) | ((((b[i+2] & 63) & 0xffff) << 9) & 0xffff)) & 0xffff) & 0x7f8f) == 0x4a89)
     switch(((b[i] | ((((b[i+1] & 63) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x387f) {
         case 0xf: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(new Mem32(R32[5].add(new i32(new i8(new u8(b[i+3]))))), new Mem32(($0 = R32[4]))), new Mov($0, $0.add(new u8(4)))];
@@ -6548,7 +6548,7 @@ exports.dis = function x86dis(b, i) {
         case 0x207f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[8], new Mem32(R32[5].add(new i32(new i8(new u8(b[i+3]))))))];
         case 0x307f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[5].add(new i32(new i8(new u8(b[i+3]))))))];
     }
-    
+
     if((((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) | ((((b[i+2] & 63) & 0xffff) << 10) & 0xffff)) & 0xffff) & 0xff1d) == 0x9510)
     switch(b[i] & 0xbf) {
         case 0x0: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem8(R32[5].add(new i8(new u8(b[i+3]))))), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -6595,7 +6595,7 @@ exports.dis = function x86dis(b, i) {
         case 0x8d: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], R32[5].add(new i32(new i8(new u8(b[i+3])))))];
         case 0x8e: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[5].add(new i16(new i8(new u8(b[i+3]))))))];
     }
-    
+
     if((((((((((b[i] & 128) & 0xffff) >> 7) & 0xffff) | ((b[i+1] << 1) & 0xffff)) & 0xffff) | ((((b[i+2] & 63) & 0xffff) << 9) & 0xffff)) & 0xffff) & 0x710f) == 0x4009)
     switch(((b[i] | ((((b[i+1] & 127) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x787f) {
         case 0x0: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)])), $0.add(new i8(new u8(b[i+3]))))];
@@ -6693,7 +6693,7 @@ exports.dis = function x86dis(b, i) {
         case 0x607f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[8], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3])))))];
         case 0x707f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3])))))];
     }
-    
+
     if((((b[i+1] | ((((b[i+2] & 63) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x3887) == 0x2004)
     switch(((b[i] | ((((b[i+1] & 127) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x40ff) {
         case 0x4000: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -6741,7 +6741,7 @@ exports.dis = function x86dis(b, i) {
         case 0x408d: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))];
         case 0x408e: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3])))))];
     }
-    
+
     if((((((((((b[i] & 128) & 0xffff) >> 7) & 0xffff) | ((b[i+1] << 1) & 0xffff)) & 0xffff) | ((((b[i+2] & 7) & 0xffff) << 9) & 0xffff)) & 0xffff) & 0xf8f) == 0xa89)
     switch(((b[i] | ((((b[i+1] & 63) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x387f) {
         case 0xf: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(new Mem32(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3]))))), new Mem32(($0 = R32[4]))), new Mov($0, $0.add(new u8(4)))];
@@ -6797,7 +6797,7 @@ exports.dis = function x86dis(b, i) {
         case 0x207f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[8], new Mem32(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3]))))))];
         case 0x307f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3]))))))];
     }
-    
+
     if((((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) | ((((b[i+2] & 7) & 0xffff) << 10) & 0xffff)) & 0xffff) & 0x1f1d) == 0x1510)
     switch(b[i] & 0xbf) {
         case 0x0: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem8(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3])))))), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -6844,7 +6844,7 @@ exports.dis = function x86dis(b, i) {
         case 0x8d: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3])))))];
         case 0x8e: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[5].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)).add(new i8(new u8(b[i+3]))))))];
     }
-    
+
     if((((((((b[i] & 248) & 0xffff) >> 3) & 0xffff) | ((b[i+1] << 5) & 0xffff)) & 0xffff) & 0x1811) == 0x810)
     switch(((b[i] | ((((b[i+1] & 63) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x3877) {
         case 0x0: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))), $0.add(new i8(new u8(b[i+3]))))];
@@ -6890,7 +6890,7 @@ exports.dis = function x86dis(b, i) {
         case 0x3841: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))), $0.shr(new i8(new u8(b[i+3]))))];
         case 0x76: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R1[2], new Mem8(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2])))).and(new i8(new u8(b[i+3]))).eq(new i8(0))), new Mov(R1[1], new u1(0)), new Mov(R1[0], new u1(0))];
     }
-    
+
     if((((((((b[i] & 128) & 0xffff) >> 7) & 0xffff) | ((b[i+1] << 1) & 0xffff)) & 0xffff) & 0x10f) == 0x9)
     switch(((b[i] | ((((b[i+1] & 127) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x787f) {
         case 0x0: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))))), $0.add(new i8(new u8(b[i+3]))))];
@@ -6988,7 +6988,7 @@ exports.dis = function x86dis(b, i) {
         case 0x607f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[8], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3])))))];
         case 0x707f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3])))))];
     }
-    
+
     if((b[i+1] & 0x87) == 0x4)
     switch(((b[i] | ((((b[i+1] & 127) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x40ff) {
         case 0x4000: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3]))))), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -7036,7 +7036,7 @@ exports.dis = function x86dis(b, i) {
         case 0x408d: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3]))))];
         case 0x408e: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))).add(new i8(new u8(b[i+3])))))];
     }
-    
+
     if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc0ff) == 0x800f)
     switch(((b[i+1] | ((b[i+2] << 8) & 0xffff)) & 0xffff) & 0xc03f) {
         case 0x4010: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3])))), R1[0])];
@@ -7069,7 +7069,7 @@ exports.dis = function x86dis(b, i) {
         case 0x403e: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))))];
         case 0x403f: return [((((_pfxLength) & 0xff) + 4) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+3]))))))];
     }
-    
+
     if((((((((((b[i] & 128) & 0xffff) >> 7) & 0xffff) | ((b[i+1] << 1) & 0xffff)) & 0xffff) | ((((b[i+2] & 63) & 0xffff) << 9) & 0xffff)) & 0xffff) & 0x718f) == 0x4009)
     switch(((b[i] | ((((b[i+1] & 63) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x387f) {
         case 0xf: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)]), new Mem32(($0 = R32[4]))), new Mov($0, $0.add(new u8(4)))];
@@ -7125,7 +7125,7 @@ exports.dis = function x86dis(b, i) {
         case 0x207f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[8], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)]))];
         case 0x307f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)]))];
     }
-    
+
     if((((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) | ((((b[i+2] & 63) & 0xffff) << 10) & 0xffff)) & 0xffff) & 0xe31d) == 0x8010)
     switch(b[i] & 0xbf) {
         case 0x0: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)])), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -7172,7 +7172,7 @@ exports.dis = function x86dis(b, i) {
         case 0x8d: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], R32[((((b[i+2] & 7) & 0xff)) & 0xff)])];
         case 0x8e: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)]))];
     }
-    
+
     if((((((((b[i] & 128) & 0xffff) >> 7) & 0xffff) | ((b[i+1] << 1) & 0xffff)) & 0xffff) & 0x18f) == 0x9)
     switch(((b[i] | ((((b[i+1] & 63) & 0xffff) << 8) & 0xffff)) & 0xffff) & 0x387f) {
         case 0xf: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)))), new Mem32(($0 = R32[4]))), new Mov($0, $0.add(new u8(4)))];
@@ -7228,7 +7228,7 @@ exports.dis = function x86dis(b, i) {
         case 0x207f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[8], new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)))))];
         case 0x307f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)))))];
     }
-    
+
     if((((((((b[i] & 192) & 0xffff) >> 6) & 0xffff) | ((b[i+1] << 2) & 0xffff)) & 0xffff) & 0x31d) == 0x10)
     switch(b[i] & 0xbf) {
         case 0x0: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))))), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -7275,7 +7275,7 @@ exports.dis = function x86dis(b, i) {
         case 0x8d: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6))))];
         case 0x8e: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)].add(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)].shl(new u8(((b[i+2] & 192) & 0xff) >> 6)))))];
     }
-    
+
     if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc0ff) == 0x800f)
     switch(((b[i+1] | ((b[i+2] << 8) & 0xffff)) & 0xffff) & 0xc03f) {
         case 0x10: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(new Mem8(R32[((((b[i+2] & 7) & 0xff)) & 0xff)]), R1[0])];
@@ -7329,12 +7329,12 @@ exports.dis = function x86dis(b, i) {
         case 0x3f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(new Mem16(R32[((((b[i+2] & 7) & 0xff)) & 0xff)])))];
         case 0xc03f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[((((((b[i+2] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], new i32(R16[((((b[i+2] & 7) & 0xff)) & 0xff)]))];
     }
-    
+
     if((b[i] & 0xff) == 0xc2)
     switch(0) {
         case 0x0: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[8], new Mem32(($0 = R32[4]))), new Mov($0, $0.add(new u8(4))), new Mov($0, $0.add(new i16(new u16(b[i+1] | ((b[i+2] << 8) & 0xffff)))))];
     }
-    
+
     if((((((b[i] & 128) & 0xff) >> 7) & 0xff) & 0x1) == 0x1)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xf87f) {
         case 0x0: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+1] & 7) & 0xff)) & 0xff)])), $0.add(new i8(new u8(b[i+2]))))];
@@ -7474,7 +7474,7 @@ exports.dis = function x86dis(b, i) {
         case 0x607f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[8], new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2])))))];
         case 0x707f: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2])))))];
     }
-    
+
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc0ff) {
         case 0x4000: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
         case 0x4001: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(($0 = new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))), $0.add(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -7522,7 +7522,7 @@ exports.dis = function x86dis(b, i) {
         case 0x408d: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R32[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)], R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2]))))];
         case 0x408e: return [((((_pfxLength) & 0xff) + 3) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)].add(new i8(new u8(b[i+2])))))];
     }
-    
+
     if((((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0x90ff) == 0x800f)
     switch(((b[i+1] & 127) & 0xff) & 0x6f) {
         case 0x22: return [((((_pfxLength) & 0xff) + 2) & 0xff), new FnCall('CPUID', R32[0], R32[3], R32[1], R32[2])];
@@ -7535,7 +7535,7 @@ exports.dis = function x86dis(b, i) {
         case 0x4e: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(($0 = R32[6]), new u32($0.shr(new u8(8))).and(new u32(65280)).or($0.shr(new u8(24))).or(new u32($0.shl(new u8(8))).and(new u32(0xff000))).or($0.shl(new u8(24))))];
         case 0x4f: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(($0 = R32[7]), new u32($0.shr(new u8(8))).and(new u32(65280)).or($0.shr(new u8(24))).or(new u32($0.shl(new u8(8))).and(new u32(0xff000))).or($0.shl(new u8(24))))];
     }
-    
+
     if((((((b[i] & 128) & 0xff) >> 7) & 0xff) & 0x1) == 0x1)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xf87f) {
         case 0xf: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)]), new Mem32(($0 = R32[4]))), new Mov($0, $0.add(new u8(4)))];
@@ -7643,7 +7643,7 @@ exports.dis = function x86dis(b, i) {
         case 0x307f: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), new Mem32(R32[((((b[i+1] & 7) & 0xff)) & 0xff)]))];
         case 0xf07f: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(($0 = R32[4]), $0.add(new i32(-4))), new Mov(new Mem32($0), R32[((((b[i+1] & 7) & 0xff)) & 0xff)])];
     }
-    
+
     if((((((b[i] & 64) & 0xff) >> 6) & 0xff) & 0x1) == 0x0)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0xc0bf) {
         case 0x0: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(($0 = new Mem8(R32[((((b[i+1] & 7) & 0xff)) & 0xff)])), $0.add(R8[((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff)]))];
@@ -7732,7 +7732,7 @@ exports.dis = function x86dis(b, i) {
         case 0x8e: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], new Mem16(R32[((((b[i+1] & 7) & 0xff)) & 0xff)]))];
         case 0xc08e: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(R16[((((((((b[i+1] & 56) & 0xff) >> 3) & 0xff)) & 0xff) + 16) & 0xff)], R16[((((b[i+1] & 7) & 0xff)) & 0xff)])];
     }
-    
+
     switch(b[i] & 0xff) {
         case 0x4: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(($0 = R8[0]), $0.add(new i8(new u8(b[i+1]))))];
         case 0xc: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(($0 = R8[0]), $0.or(new i8(new u8(b[i+1]))))];
@@ -7773,7 +7773,7 @@ exports.dis = function x86dis(b, i) {
         case 0xe2: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(($0 = R32[1]), $0.add(new i32(-1))), new If($0.eq(new i32(0)).not(), new Mov(($1 = R32[8]), $1.add(new i8(((b[i+1]) << 24 >> 24) + ((_pfxLength + 2) << 24 >> 24)))))];
         case 0xeb: return [((((_pfxLength) & 0xff) + 2) & 0xff), new Mov(($0 = R32[8]), $0.add(new i8(((b[i+1]) << 24 >> 24) + ((_pfxLength + 2) << 24 >> 24))))];
     }
-    
+
     switch(b[i] & 0xff) {
         case 0x90: return [((((_pfxLength) & 0xff) + 1) & 0xff), new FnCall('Nop')];
         case 0x91: return [((((_pfxLength) & 0xff) + 1) & 0xff), new Mov(($2 = new Register32), ($0 = R32[0])), new Mov($0, ($1 = R32[1])), new Mov($1, $2)];
@@ -7844,7 +7844,7 @@ exports.dis = function x86dis(b, i) {
         case 0x5e: return [((((_pfxLength) & 0xff) + 1) & 0xff), new Mov(R32[6], new Mem32(($0 = R32[4]))), new Mov($0, $0.add(new u8(4)))];
         case 0x5f: return [((((_pfxLength) & 0xff) + 1) & 0xff), new Mov(R32[7], new Mem32(($0 = R32[4]))), new Mov($0, $0.add(new u8(4)))];
     }
-    
+
 }
 exports.PC = R.EIP;
 exports.SP = R.ESP;
