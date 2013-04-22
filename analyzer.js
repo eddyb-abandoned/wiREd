@@ -47,7 +47,7 @@ Number.prototype.toSupString = function toSupString(...args) {
 
 let makeAnalyzer = arch => {
     let EventEmitter = require('events').EventEmitter;
-    let {R, PC, SP, FP, uint, int, u8, Mov, Mem, Unknown, known, valueof, lvalueof, sizeof, inspect} = arch, analyzer;
+    let {R, PC, SP, FP, uint, int, i8, Mov, Mem, Unknown, known, valueof, lvalueof, sizeof, inspect} = arch, analyzer;
 
     let eq = (a, b)=>a && a.known && a.bitsof <= 32 && typeof b === 'number' ? a._A === b : a === b; // HACK
 
@@ -373,7 +373,7 @@ let makeAnalyzer = arch => {
                 } else if(savesPC || isTailJump) {
                     console.error('Unknown '+(savesPC?'call':'tail-jump')+', assuming arguments');
                     let target = new Block({returns: true});
-                    target.SP.value = target.SP0[0].add(u8(sizeof(PC)));
+                    target.SP.value = target.SP0[0].add(i8(sizeof(PC)));
                     target.returnPoints.push(target);
 
                     let stack = this.stack[this.stack.length-1].down, i = this.SPdiff(valueof(SP)) + sizeof(PC), j = i, k = 0, pc = this.PC;
