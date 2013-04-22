@@ -268,6 +268,8 @@ for(let bits of bitSizes) {
 
         code += `
 var ${id} = ${signed ? '' : 'u'}int[${bits}] = exports.${id} = function ${id}(${dwords.join(', ')}) {
+    if(a.type === ${id}.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof ${id}))
         return new ${id}(a);
     if(typeof a == 'number')

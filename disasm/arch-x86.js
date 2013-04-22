@@ -482,6 +482,8 @@ var unsigned = exports.unsigned = function(x) {
 };
 
 var u1 = uint[1] = exports.u1 = function u1(a) {
+    if(a.type === u1.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof u1))
         return new u1(a);
     if(typeof a == 'number')
@@ -641,6 +643,8 @@ u1.prototype.ror = function ror(that) {
 };
 
 var i1 = int[1] = exports.i1 = function i1(a) {
+    if(a.type === i1.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof i1))
         return new i1(a);
     if(typeof a == 'number')
@@ -800,6 +804,8 @@ i1.prototype.ror = function ror(that) {
 };
 
 var u8 = uint[8] = exports.u8 = function u8(a) {
+    if(a.type === u8.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof u8))
         return new u8(a);
     if(typeof a == 'number')
@@ -959,6 +965,8 @@ u8.prototype.ror = function ror(that) {
 };
 
 var i8 = int[8] = exports.i8 = function i8(a) {
+    if(a.type === i8.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof i8))
         return new i8(a);
     if(typeof a == 'number')
@@ -1118,6 +1126,8 @@ i8.prototype.ror = function ror(that) {
 };
 
 var u16 = uint[16] = exports.u16 = function u16(a) {
+    if(a.type === u16.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof u16))
         return new u16(a);
     if(typeof a == 'number')
@@ -1277,6 +1287,8 @@ u16.prototype.ror = function ror(that) {
 };
 
 var i16 = int[16] = exports.i16 = function i16(a) {
+    if(a.type === i16.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof i16))
         return new i16(a);
     if(typeof a == 'number')
@@ -1436,6 +1448,8 @@ i16.prototype.ror = function ror(that) {
 };
 
 var u32 = uint[32] = exports.u32 = function u32(a) {
+    if(a.type === u32.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof u32))
         return new u32(a);
     if(typeof a == 'number')
@@ -1595,6 +1609,8 @@ u32.prototype.ror = function ror(that) {
 };
 
 var i32 = int[32] = exports.i32 = function i32(a) {
+    if(a.type === i32.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof i32))
         return new i32(a);
     if(typeof a == 'number')
@@ -1754,6 +1770,8 @@ i32.prototype.ror = function ror(that) {
 };
 
 var u64 = uint[64] = exports.u64 = function u64(a, b) {
+    if(a.type === u64.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof u64))
         return new u64(a);
     if(typeof a == 'number')
@@ -1798,6 +1816,8 @@ u64.prototype.ror = function ror(that) {
 };
 
 var i64 = int[64] = exports.i64 = function i64(a, b) {
+    if(a.type === i64.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof i64))
         return new i64(a);
     if(typeof a == 'number')
@@ -1842,6 +1862,8 @@ i64.prototype.ror = function ror(that) {
 };
 
 var u128 = uint[128] = exports.u128 = function u128(a, b, c, d) {
+    if(a.type === u128.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof u128))
         return new u128(a);
     if(typeof a == 'number')
@@ -1886,6 +1908,8 @@ u128.prototype.ror = function ror(that) {
 };
 
 var i128 = int[128] = exports.i128 = function i128(a, b, c, d) {
+    if(a.type === i128.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof i128))
         return new i128(a);
     if(typeof a == 'number')
@@ -1930,6 +1954,8 @@ i128.prototype.ror = function ror(that) {
 };
 
 var u256 = uint[256] = exports.u256 = function u256(a, b, c, d, e, f, g, h) {
+    if(a.type === u256.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof u256))
         return new u256(a);
     if(typeof a == 'number')
@@ -1974,6 +2000,8 @@ u256.prototype.ror = function ror(that) {
 };
 
 var i256 = int[256] = exports.i256 = function i256(a, b, c, d, e, f, g, h) {
+    if(a.type === i256.prototype.type) // HACK This should only fix Unknown operations.
+        return a;
     if(!(this instanceof i256))
         return new i256(a);
     if(typeof a == 'number')
