@@ -145,14 +145,13 @@ let makeAnalyzer = arch => {
             } else
                 stack = stack.up;
             stack[pos] = {bitsof: bits, canBeArg, value: v, parent: this, PC: this.PC, PCnext: this.PCnext};
+            let invalid = {invalid: true, parent: stack[pos]};
             if(originalPos < 0)
-                for(let i = pos-1; i > pos-bytes; i--) { // BUG Curly braces required because of traceur-compiler bug.
-                    stack[i] = {invalid: true, parent: stack[pos]};
-                }
+                for(let i = pos-1; i > pos-bytes; i--)
+                    stack[i] = invalid;
             else
-                for(let i = pos+1; i < pos+bytes; i++) { // BUG Curly braces required because of traceur-compiler bug.
-                    stack[i] = {invalid: true, parent: stack[pos]};
-                }
+                for(let i = pos+1; i < pos+bytes; i++)
+                    stack[i] = invalid;
         }
 
         restoreContext() {
@@ -218,10 +217,9 @@ let makeAnalyzer = arch => {
 
                     // HACK mark touched args so they don't get reused.
                     let {stackMaxAccess} = targetBlock.returnPoints.reduce((a, b)=>({stackMaxAccess: Math.max(a.stackMaxAccess, b.stackMaxAccess)}));
-                    for(let diff = this.SPdiff(SP), stack = this.stack[this.stack.length-1].down, i = diff; i < diff+stackMaxAccess; i++) { // BUG Curly braces required because of traceur-compiler bug.
+                    for(let diff = this.SPdiff(SP), stack = this.stack[this.stack.length-1].down, i = diff; i < diff+stackMaxAccess; i++)
                         if(stack[~i] && stack[~i].canBeArg)
                             stack[~i].canBeArg = false;
-                    }
 
                     // HACK save and apply initial registers with unchanged or SP-relative value.
                     let changedR0 = {};
