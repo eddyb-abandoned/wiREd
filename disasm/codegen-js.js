@@ -121,7 +121,7 @@ for(let bits of bitSizes) {
             return 'R'+bits+'['+this.name+']';
         else if(this.name.runtimeKnown)
             return 'R'+bits+'['+this.name.code(true)+']';
-        return 'new Register'+bits;
+        return '(new Register'+bits+')';
     }});
 }
 

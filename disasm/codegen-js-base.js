@@ -380,8 +380,8 @@ Register${bits}.prototype = new Unknown(${bits});
 Register${bits}.prototype.constructor = Register${bits};
 Register${bits}.prototype.name = '<${bits}>';
 Register${bits}.prototype.nthValue = -1;
-Register${bits}.prototype.inspect = function inspect() {
-    return this.name;
+Register${bits}.prototype.inspect = function() {
+    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
 };`;
 }
 
