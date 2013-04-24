@@ -550,7 +550,7 @@ let makeAnalyzer = arch => {
                 var bytes = r[0], slice = this.codeBuffer.slice(i, i+bytes), asm = '';
                 if(arch.legacyDisasm && process.env.DEBUG_ASM)
                     asm = ' // '+arch.legacyDisasm(this.codeBase+i, slice).trim();
-                r = r.slice(1);
+                r = r.slice(1).filter(x => x);
                 block.PCnext = block.PC+bytes;
                 block.preOp(r);
                 for(var j = 0; j < r.length; j++) {

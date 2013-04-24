@@ -2074,8 +2074,8 @@ Register1.prototype = new Unknown(1);
 Register1.prototype.constructor = Register1;
 Register1.prototype.name = '<1>';
 Register1.prototype.nthValue = -1;
-Register1.prototype.inspect = function inspect() {
-    return this.name;
+Register1.prototype.inspect = function() {
+    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
 };
 var Register8 = Register[8] = exports.Register8 = function Register8(name) {
     if(!(this instanceof Register8))
@@ -2105,8 +2105,8 @@ Register8.prototype = new Unknown(8);
 Register8.prototype.constructor = Register8;
 Register8.prototype.name = '<8>';
 Register8.prototype.nthValue = -1;
-Register8.prototype.inspect = function inspect() {
-    return this.name;
+Register8.prototype.inspect = function() {
+    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
 };
 var Register16 = Register[16] = exports.Register16 = function Register16(name) {
     if(!(this instanceof Register16))
@@ -2136,8 +2136,8 @@ Register16.prototype = new Unknown(16);
 Register16.prototype.constructor = Register16;
 Register16.prototype.name = '<16>';
 Register16.prototype.nthValue = -1;
-Register16.prototype.inspect = function inspect() {
-    return this.name;
+Register16.prototype.inspect = function() {
+    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
 };
 var Register32 = Register[32] = exports.Register32 = function Register32(name) {
     if(!(this instanceof Register32))
@@ -2167,8 +2167,8 @@ Register32.prototype = new Unknown(32);
 Register32.prototype.constructor = Register32;
 Register32.prototype.name = '<32>';
 Register32.prototype.nthValue = -1;
-Register32.prototype.inspect = function inspect() {
-    return this.name;
+Register32.prototype.inspect = function() {
+    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
 };
 var Register64 = Register[64] = exports.Register64 = function Register64(name) {
     if(!(this instanceof Register64))
@@ -2198,8 +2198,8 @@ Register64.prototype = new Unknown(64);
 Register64.prototype.constructor = Register64;
 Register64.prototype.name = '<64>';
 Register64.prototype.nthValue = -1;
-Register64.prototype.inspect = function inspect() {
-    return this.name;
+Register64.prototype.inspect = function() {
+    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
 };
 var Register128 = Register[128] = exports.Register128 = function Register128(name) {
     if(!(this instanceof Register128))
@@ -2229,8 +2229,8 @@ Register128.prototype = new Unknown(128);
 Register128.prototype.constructor = Register128;
 Register128.prototype.name = '<128>';
 Register128.prototype.nthValue = -1;
-Register128.prototype.inspect = function inspect() {
-    return this.name;
+Register128.prototype.inspect = function() {
+    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
 };
 var Register256 = Register[256] = exports.Register256 = function Register256(name) {
     if(!(this instanceof Register256))
@@ -2260,8 +2260,8 @@ Register256.prototype = new Unknown(256);
 Register256.prototype.constructor = Register256;
 Register256.prototype.name = '<256>';
 Register256.prototype.nthValue = -1;
-Register256.prototype.inspect = function inspect() {
-    return this.name;
+Register256.prototype.inspect = function() {
+    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
 };
 var Mem = exports.Mem = {};
 Mem.read = function(address, bits) {
@@ -2672,14 +2672,14 @@ exports.dis = function _8051dis(b, i) {
     var $0, $1, $2;
 
     if((b[i] & 0xff) == 0x85)
-    switch(((((((b[i+1] & 128) & 0xffff) >> 7) & 0xffff) | ((b[i+2] << 1) & 0xffff)) & 0xffff) & 0x101) {
+    switch(((((((b[i+1] & 128) & 0xffff) >>> 7) & 0xffff) | ((b[i+2] << 1) & 0xffff)) & 0xffff) & 0x101) {
         case 0x0: return [3, new Mov(new Mem8(new i8(new u8(b[i+1] & 127))), new Mem8(new i8(new u8(b[i+2] & 127))))];
         case 0x100: return [3, new Mov(new Mem8(new i8(new u8(b[i+1] & 127))), R8[((((b[i+2] & 127) & 0xff)) & 0xff)])];
         case 0x1: return [3, new Mov(R8[((((b[i+1] & 127) & 0xff)) & 0xff)], new Mem8(new i8(new u8(b[i+2] & 127))))];
         case 0x101: return [3, new Mov(R8[((((b[i+1] & 127) & 0xff)) & 0xff)], R8[((((b[i+2] & 127) & 0xff)) & 0xff)])];
     }
 
-    if((((((b[i] & 120) & 0xff) >> 3) & 0xff) & 0x9) == 0x0)
+    if((((((b[i] & 120) & 0xff) >>> 3) & 0xff) & 0x9) == 0x0)
     switch(b[i] & 0xb7) {
         case 0x2: return [3, new Mov(R32[0], new i32(((((b[i+2] | ((b[i+1] << 8) & 0xffff)) & 0xffff)) >> 0) + exports.PCbase))];
         case 0x12: return [3, new Mov(($0 = R8[1]), $0.add(new i8(4))), new Mov(new Mem32($0), ($1 = R32[0]).add(new i8(3))), new Mov($1, new i32(((((b[i+2] | ((b[i+1] << 8) & 0xffff)) & 0xffff)) >> 0) + exports.PCbase))];
@@ -2689,14 +2689,14 @@ exports.dis = function _8051dis(b, i) {
         case 0xb7: return [3, new If(new Mem8(new Mem8(new i8(1))).eq(new i8(new u8(b[i+1]))).not(), new Mov(($0 = R32[0]), $0.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
     }
 
-    if((((((b[i] & 8) & 0xff) >> 3) & 0xff) & 0x1) == 0x0)
+    if((((((b[i] & 8) & 0xff) >>> 3) & 0xff) & 0x1) == 0x0)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0x80f7) {
-        case 0x10: return [3, new Mov(($1 = new Register1), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(($0 = new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) + 32)))).eq(new i8(0)).not()), new Mov($0, new u8(~((1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)) & 0xff)).and($0)), new If($1, new Mov(($2 = R32[0]), $2.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
-        case 0x8010: return [3, new Mov(($1 = new Register1), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(($0 = R8[((((((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)])).eq(new i8(0)).not()), new Mov($0, new u8(~((1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)) & 0xff)).and($0)), new If($1, new Mov(($2 = R32[0]), $2.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
-        case 0x20: return [3, new If(new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)).not(), new Mov(($0 = R32[0]), $0.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
-        case 0x8020: return [3, new If(new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)).not(), new Mov(($0 = R32[0]), $0.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
-        case 0x30: return [3, new If(new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)), new Mov(($0 = R32[0]), $0.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
-        case 0x8030: return [3, new If(new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)), new Mov(($0 = R32[0]), $0.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
+        case 0x10: return [3, new Mov(($1 = (new Register1)), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(($0 = new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32)))).eq(new i8(0)).not()), new Mov($0, new u8(~((1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)) & 0xff)).and($0)), new If($1, new Mov(($2 = R32[0]), $2.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
+        case 0x8010: return [3, new Mov(($1 = (new Register1)), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(($0 = R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)])).eq(new i8(0)).not()), new Mov($0, new u8(~((1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)) & 0xff)).and($0)), new If($1, new Mov(($2 = R32[0]), $2.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
+        case 0x20: return [3, new If(new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)).not(), new Mov(($0 = R32[0]), $0.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
+        case 0x8020: return [3, new If(new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)).not(), new Mov(($0 = R32[0]), $0.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
+        case 0x30: return [3, new If(new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)), new Mov(($0 = R32[0]), $0.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
+        case 0x8030: return [3, new If(new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)), new Mov(($0 = R32[0]), $0.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
         case 0x43: return [3, new Mov(($0 = new Mem8(new i8(new u8(b[i+1] & 127)))), $0.or(new i8(new u8(b[i+2]))))];
         case 0x8043: return [3, new Mov(($0 = R8[((((b[i+1] & 127) & 0xff)) & 0xff)]), $0.or(new i8(new u8(b[i+2]))))];
         case 0x53: return [3, new Mov(($0 = new Mem8(new i8(new u8(b[i+1] & 127)))), $0.and(new i8(new u8(b[i+2]))))];
@@ -2711,18 +2711,18 @@ exports.dis = function _8051dis(b, i) {
         case 0x80d5: return [3, new Mov(($0 = R8[((((b[i+1] & 127) & 0xff)) & 0xff)]), $0.add(new i8(-1))), new If($0.eq(new i8(0)).not(), new Mov(($1 = R32[0]), $1.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
     }
 
-    if((((((b[i] & 248) & 0xff) >> 3) & 0xff) & 0x1f) == 0x17)
+    if((((((b[i] & 248) & 0xff) >>> 3) & 0xff) & 0x1f) == 0x17)
     switch(0) {
         case 0x0: return [3, new If(new Mem8(new i8(new u8(b[i] & 7))).eq(new i8(new u8(b[i+1]))).not(), new Mov(($0 = R32[0]), $0.add(new i8(((b[i+2]) << 24 >> 24) + 3))))];
     }
 
     if((((b[i] & 15) & 0xff) & 0xf) == 0x1)
-    switch(((((b[i] & 16) & 0xff) >> 4) & 0xff) & 0x1) {
-        case 0x0: return [2, new Mov(($0 = R32[0]), $0.add(new i8(2)).and(new i32(63488)).or(new i32(((((((((b[i] & 224) & 0xff) >> 5) & 0xff)) >> 0) << 8) >> 0) | ((b[i+1]) >> 0))).add(new i32(exports.PCbase)))];
-        case 0x1: return [2, new Mov(($0 = R8[1]), $0.add(new i8(4))), new Mov(new Mem32($0), ($1 = R32[0]).add(new i8(2))), new Mov($1, $1.add(new i8(2)).and(new i32(63488)).or(new i32(((((((((b[i] & 224) & 0xff) >> 5) & 0xff)) >> 0) << 8) >> 0) | ((b[i+1]) >> 0))).add(new i32(exports.PCbase)))];
+    switch(((((b[i] & 16) & 0xff) >>> 4) & 0xff) & 0x1) {
+        case 0x0: return [2, new Mov(($0 = R32[0]), $0.add(new i8(2)).and(new i32(63488)).or(new i32(((((((((b[i] & 224) & 0xff) >>> 5) & 0xff)) >> 0) << 8) >> 0) | ((b[i+1]) >> 0))).add(new i32(exports.PCbase)))];
+        case 0x1: return [2, new Mov(($0 = R8[1]), $0.add(new i8(4))), new Mov(new Mem32($0), ($1 = R32[0]).add(new i8(2))), new Mov($1, $1.add(new i8(2)).and(new i32(63488)).or(new i32(((((((((b[i] & 224) & 0xff) >>> 5) & 0xff)) >> 0) << 8) >> 0) | ((b[i+1]) >> 0))).add(new i32(exports.PCbase)))];
     }
 
-    if((((((b[i] & 8) & 0xff) >> 3) & 0xff) & 0x1) == 0x0)
+    if((((((b[i] & 8) & 0xff) >>> 3) & 0xff) & 0x1) == 0x0)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0x80f7) {
         case 0x5: return [2, new Mov(($0 = new Mem8(new i8(new u8(b[i+1] & 127)))), $0.add(new i8(1)))];
         case 0x8005: return [2, new Mov(($0 = R8[((((b[i+1] & 127) & 0xff)) & 0xff)]), $0.add(new i8(1)))];
@@ -2744,47 +2744,47 @@ exports.dis = function _8051dis(b, i) {
         case 0x8062: return [2, new Mov(($0 = R8[((((b[i+1] & 127) & 0xff)) & 0xff)]), $0.xor(R8[96]))];
         case 0x65: return [2, new Mov(($0 = R8[96]), $0.xor(new Mem8(new i8(new u8(b[i+1] & 127)))))];
         case 0x8065: return [2, new Mov(($0 = R8[96]), $0.xor(R8[((((b[i+1] & 127) & 0xff)) & 0xff)]))];
-        case 0x72: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)).not().or($0))];
-        case 0x8072: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)).not().or($0))];
-        case 0x82: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)).not().and($0))];
-        case 0x8082: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)).not().and($0))];
+        case 0x72: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)).not().or($0))];
+        case 0x8072: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)).not().or($0))];
+        case 0x82: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)).not().and($0))];
+        case 0x8082: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)).not().and($0))];
         case 0x86: return [2, new Mov(new Mem8(new Mem8(new i8(0))), new Mem8(new i8(new u8(b[i+1] & 127))))];
         case 0x8086: return [2, new Mov(new Mem8(new Mem8(new i8(0))), R8[((((b[i+1] & 127) & 0xff)) & 0xff)])];
         case 0x87: return [2, new Mov(new Mem8(new Mem8(new i8(1))), new Mem8(new i8(new u8(b[i+1] & 127))))];
         case 0x8087: return [2, new Mov(new Mem8(new Mem8(new i8(1))), R8[((((b[i+1] & 127) & 0xff)) & 0xff)])];
-        case 0x92: return [2, new Mov(($0 = new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) + 32))), new u8(R1[0]).shl(new i8(new u8(b[i+1] & 7))).or($0))];
-        case 0x8092: return [2, new Mov(($0 = R8[((((((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]), new u8(R1[0]).shl(new i8(new u8(b[i+1] & 7))).or($0))];
+        case 0x92: return [2, new Mov(($0 = new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32))), new u8(R1[0]).shl(new i8(new u8(b[i+1] & 7))).or($0))];
+        case 0x8092: return [2, new Mov(($0 = R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]), new u8(R1[0]).shl(new i8(new u8(b[i+1] & 7))).or($0))];
         case 0x95: return [2, new Mov(($1 = R1[0]), new u1(0)), new Mov(($0 = R8[96]), $0.add(new Mem8(new i8(new u8(b[i+1] & 127))).neg()).add(new i8($1).neg()))];
         case 0x8095: return [2, new Mov(($1 = R1[0]), new u1(0)), new Mov(($0 = R8[96]), $0.add(R8[((((b[i+1] & 127) & 0xff)) & 0xff)].neg()).add(new i8($1).neg()))];
-        case 0xa0: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)).or($0))];
-        case 0x80a0: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)).or($0))];
-        case 0xa2: return [2, new Mov(R1[0], new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)).not())];
-        case 0x80a2: return [2, new Mov(R1[0], new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)).not())];
+        case 0xa0: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)).or($0))];
+        case 0x80a0: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)).or($0))];
+        case 0xa2: return [2, new Mov(R1[0], new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)).not())];
+        case 0x80a2: return [2, new Mov(R1[0], new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)).not())];
         case 0xa6: return [2, new Mov(new Mem8(new Mem8(new i8(0))), new Mem8(new i8(new u8(b[i+1] & 127))))];
         case 0x80a6: return [2, new Mov(new Mem8(new Mem8(new i8(0))), R8[((((b[i+1] & 127) & 0xff)) & 0xff)])];
         case 0xa7: return [2, new Mov(new Mem8(new Mem8(new i8(1))), new Mem8(new i8(new u8(b[i+1] & 127))))];
         case 0x80a7: return [2, new Mov(new Mem8(new Mem8(new i8(1))), R8[((((b[i+1] & 127) & 0xff)) & 0xff)])];
-        case 0xb0: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)).and($0))];
-        case 0x80b0: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)).and($0))];
-        case 0xb2: return [2, new Mov(($0 = new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) + 32))), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).xor($0))];
-        case 0x80b2: return [2, new Mov(($0 = R8[((((((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).xor($0))];
+        case 0xb0: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32))).eq(new i8(0)).and($0))];
+        case 0x80b0: return [2, new Mov(($0 = R1[0]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).and(R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]).eq(new i8(0)).and($0))];
+        case 0xb2: return [2, new Mov(($0 = new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32))), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).xor($0))];
+        case 0x80b2: return [2, new Mov(($0 = R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).xor($0))];
         case 0xc0: return [2, new Mov(($0 = R8[1]), $0.add(new i8(1))), new Mov(new Mem8($0), new Mem8(new i8(new u8(b[i+1] & 127))))];
         case 0x80c0: return [2, new Mov(($0 = R8[1]), $0.add(new i8(1))), new Mov(new Mem8($0), R8[((((b[i+1] & 127) & 0xff)) & 0xff)])];
-        case 0xc2: return [2, new Mov(($0 = new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) + 32))), new u8(~((1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)) & 0xff)).and($0))];
-        case 0x80c2: return [2, new Mov(($0 = R8[((((((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]), new u8(~((1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)) & 0xff)).and($0))];
-        case 0xc5: return [2, new Mov(($2 = new Register8), ($0 = new Mem8(new i8(new u8(b[i+1] & 127))))), new Mov($0, ($1 = R8[96])), new Mov($1, $2)];
-        case 0x80c5: return [2, new Mov(($2 = new Register8), ($0 = R8[((((b[i+1] & 127) & 0xff)) & 0xff)])), new Mov($0, ($1 = R8[96])), new Mov($1, $2)];
+        case 0xc2: return [2, new Mov(($0 = new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32))), new u8(~((1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)) & 0xff)).and($0))];
+        case 0x80c2: return [2, new Mov(($0 = R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]), new u8(~((1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)) & 0xff)).and($0))];
+        case 0xc5: return [2, new Mov(($2 = (new Register8)), ($0 = new Mem8(new i8(new u8(b[i+1] & 127))))), new Mov($0, ($1 = R8[96])), new Mov($1, $2)];
+        case 0x80c5: return [2, new Mov(($2 = (new Register8)), ($0 = R8[((((b[i+1] & 127) & 0xff)) & 0xff)])), new Mov($0, ($1 = R8[96])), new Mov($1, $2)];
         case 0xd0: return [2, new Mov(($0 = R8[1]), $0.add(new i8(-1))), new Mov(new Mem8(new i8(new u8(b[i+1] & 127))), new Mem8($0))];
         case 0x80d0: return [2, new Mov(($0 = R8[1]), $0.add(new i8(-1))), new Mov(R8[((((b[i+1] & 127) & 0xff)) & 0xff)], new Mem8($0))];
-        case 0xd2: return [2, new Mov(($0 = new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) + 32))), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).or($0))];
-        case 0x80d2: return [2, new Mov(($0 = R8[((((((((((b[i+1] & 120) & 0xff) >> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).or($0))];
+        case 0xd2: return [2, new Mov(($0 = new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32))), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).or($0))];
+        case 0x80d2: return [2, new Mov(($0 = R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]), new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)).or($0))];
         case 0xe5: return [2, new Mov(R8[96], new Mem8(new i8(new u8(b[i+1] & 127))))];
         case 0x80e5: return [2, new Mov(R8[96], R8[((((b[i+1] & 127) & 0xff)) & 0xff)])];
         case 0xf5: return [2, new Mov(new Mem8(new i8(new u8(b[i+1] & 127))), R8[96])];
         case 0x80f5: return [2, new Mov(R8[((((b[i+1] & 127) & 0xff)) & 0xff)], R8[96])];
     }
 
-    if((((((b[i] & 8) & 0xff) >> 3) & 0xff) & 0x1) == 0x0)
+    if((((((b[i] & 8) & 0xff) >>> 3) & 0xff) & 0x1) == 0x0)
     switch(b[i] & 0xf7) {
         case 0x24: return [2, new Mov(($0 = R8[96]), $0.add(new i8(new u8(b[i+1]))))];
         case 0x34: return [2, new Mov(($0 = R8[96]), $0.add(new i8(new u8(b[i+1]))).add(R1[0]))];
@@ -2802,21 +2802,21 @@ exports.dis = function _8051dis(b, i) {
         case 0x94: return [2, new Mov(($1 = R1[0]), new u1(0)), new Mov(($0 = R8[96]), $0.add(new i8(-((b[i+1]) << 24 >> 24))).add(new i8($1).neg()))];
     }
 
-    if((((((b[i] & 248) & 0xff) >> 3) & 0xff) & 0x1b) == 0x11)
-    switch(((((((b[i] & 224) & 0xffff) >> 5) & 0xffff) | ((b[i+1] << 3) & 0xffff)) & 0xffff) & 0x401) {
+    if((((((b[i] & 248) & 0xff) >>> 3) & 0xff) & 0x1b) == 0x11)
+    switch(((((((b[i] & 224) & 0xffff) >>> 5) & 0xffff) | ((b[i+1] << 3) & 0xffff)) & 0xffff) & 0x401) {
         case 0x0: return [2, new Mov(new Mem8(new i8(new u8(b[i] & 7))), new Mem8(new i8(new u8(b[i+1] & 127))))];
         case 0x400: return [2, new Mov(new Mem8(new i8(new u8(b[i] & 7))), R8[((((b[i+1] & 127) & 0xff)) & 0xff)])];
         case 0x1: return [2, new Mov(new Mem8(new i8(new u8(b[i] & 7))), new Mem8(new i8(new u8(b[i+1] & 127))))];
         case 0x401: return [2, new Mov(new Mem8(new i8(new u8(b[i] & 7))), R8[((((b[i+1] & 127) & 0xff)) & 0xff)])];
     }
 
-    if((((((b[i] & 120) & 0xff) >> 3) & 0xff) & 0xb) == 0xb)
-    switch(((((b[i] & 224) & 0xff) >> 5) & 0xff) & 0x5) {
+    if((((((b[i] & 120) & 0xff) >>> 3) & 0xff) & 0xb) == 0xb)
+    switch(((((b[i] & 224) & 0xff) >>> 5) & 0xff) & 0x5) {
         case 0x1: return [2, new Mov(new Mem8(new i8(new u8(b[i] & 7))), new i8(new u8(b[i+1])))];
         case 0x4: return [2, new Mov(($0 = new Mem8(new i8(new u8(b[i] & 7)))), $0.add(new i8(-1))), new If($0.eq(new i8(0)).not(), new Mov(($1 = R32[0]), $1.add(new i8(((b[i+1]) << 24 >> 24) + 2))))];
     }
 
-    if((((((b[i] & 8) & 0xff) >> 3) & 0xff) & 0x1) == 0x0)
+    if((((((b[i] & 8) & 0xff) >>> 3) & 0xff) & 0x1) == 0x0)
     switch(b[i] & 0xf7) {
         case 0x83: return [1, new Mov(($0 = R8[96]), new Mem8(R32[0].add(new i8(1)).add($0).add(new i32(exports.PCbase))))];
         case 0x84: return [1, new Mov(($0 = R8[96]), $0.div(R8[112]))];
@@ -2824,17 +2824,17 @@ exports.dis = function _8051dis(b, i) {
         case 0x96: return [1, new Mov(($1 = R1[0]), new u1(0)), new Mov(($0 = R8[96]), $0.add(new Mem8(new Mem8(new i8(0))).neg()).add(new i8($1).neg()))];
         case 0x97: return [1, new Mov(($1 = R1[0]), new u1(0)), new Mov(($0 = R8[96]), $0.add(new Mem8(new Mem8(new i8(1))).neg()).add(new i8($1).neg()))];
         case 0xa3: return [1, new Mov(($0 = R16[2]), $0.add(new i8(1)))];
-        case 0xa4: return [1, new Mov(($1 = new Register16), new u8(($0 = R8[96])).mul(($2 = R8[112]))), new Mov($0, $1), new Mov($2, $1.shr(new u8(8)))];
+        case 0xa4: return [1, new Mov(($1 = (new Register16)), new u8(($0 = R8[96])).mul(($2 = R8[112]))), new Mov($0, $1), new Mov($2, $1.shr(new u8(8)))];
         case 0xa5: return [1, new FnCall('Reserved')];
         case 0xb3: return [1, new Mov(($0 = R1[0]), $0.not())];
         case 0xc3: return [1, new Mov(R1[0], new u1(0))];
         case 0xc4: return [1, new Mov(($0 = R8[96]), new u8($0).shl(new u8(4)).or(new u8($0).shr(new u8(4))))];
-        case 0xc6: return [1, new Mov(($2 = new Register8), ($0 = new Mem8(new Mem8(new i8(0))))), new Mov($0, ($1 = R8[96])), new Mov($1, $2)];
-        case 0xc7: return [1, new Mov(($2 = new Register8), ($0 = new Mem8(new Mem8(new i8(1))))), new Mov($0, ($1 = R8[96])), new Mov($1, $2)];
+        case 0xc6: return [1, new Mov(($2 = (new Register8)), ($0 = new Mem8(new Mem8(new i8(0))))), new Mov($0, ($1 = R8[96])), new Mov($1, $2)];
+        case 0xc7: return [1, new Mov(($2 = (new Register8)), ($0 = new Mem8(new Mem8(new i8(1))))), new Mov($0, ($1 = R8[96])), new Mov($1, $2)];
         case 0xd3: return [1, new Mov(R1[0], new u1(1))];
         case 0xd4: return [1, new Mov(($0 = R8[96]), new FnCall('DecimalAdjust', $0, R1[0]))];
-        case 0xd6: return [1, new Mov(($2 = new Register8), ($0 = new Mem8(new Mem8(new i8(0))))), new Mov($0, $0.and(new i8(-16)).or(($1 = R8[96]).and(new i8(15)))), new Mov($1, $1.and(new i8(-16)).or($2.and(new i8(15))))];
-        case 0xd7: return [1, new Mov(($2 = new Register8), ($0 = new Mem8(new Mem8(new i8(1))))), new Mov($0, $0.and(new i8(-16)).or(($1 = R8[96]).and(new i8(15)))), new Mov($1, $1.and(new i8(-16)).or($2.and(new i8(15))))];
+        case 0xd6: return [1, new Mov(($2 = (new Register8)), ($0 = new Mem8(new Mem8(new i8(0))))), new Mov($0, $0.and(new i8(-16)).or(($1 = R8[96]).and(new i8(15)))), new Mov($1, $1.and(new i8(-16)).or($2.and(new i8(15))))];
+        case 0xd7: return [1, new Mov(($2 = (new Register8)), ($0 = new Mem8(new Mem8(new i8(1))))), new Mov($0, $0.and(new i8(-16)).or(($1 = R8[96]).and(new i8(15)))), new Mov($1, $1.and(new i8(-16)).or($2.and(new i8(15))))];
         case 0xe0: return [1, new Mov(R8[96], new Mem8(new i32(R16[2]).add(new i32(917504))))];
         case 0xe2: return [1, new Mov(R8[96], new Mem8(new i32(new Mem8(new i8(0))).add(new i32(917504))))];
         case 0xe3: return [1, new Mov(R8[96], new Mem8(new i32(new Mem8(new i8(1))).add(new i32(917504))))];
@@ -2873,8 +2873,8 @@ exports.dis = function _8051dis(b, i) {
         case 0x73: return [1, new Mov(R32[0], new i32(R16[2].add(R8[96])).add(new i32(exports.PCbase)))];
     }
 
-    if((((((b[i] & 8) & 0xff) >> 3) & 0xff) & 0x1) == 0x1)
-    switch(((((b[i] & 240) & 0xff) >> 4) & 0xff) & 0xf) {
+    if((((((b[i] & 8) & 0xff) >>> 3) & 0xff) & 0x1) == 0x1)
+    switch(((((b[i] & 240) & 0xff) >>> 4) & 0xff) & 0xf) {
         case 0x0: return [1, new Mov(($0 = new Mem8(new i8(new u8(b[i] & 7)))), $0.add(new i8(1)))];
         case 0x1: return [1, new Mov(($0 = new Mem8(new i8(new u8(b[i] & 7)))), $0.add(new i8(-1)))];
         case 0x2: return [1, new Mov(($0 = R8[96]), $0.add(new Mem8(new i8(new u8(b[i] & 7)))))];
@@ -2883,7 +2883,7 @@ exports.dis = function _8051dis(b, i) {
         case 0x5: return [1, new Mov(($0 = R8[96]), $0.and(new Mem8(new i8(new u8(b[i] & 7)))))];
         case 0x6: return [1, new Mov(($0 = R8[96]), $0.xor(new Mem8(new i8(new u8(b[i] & 7)))))];
         case 0x9: return [1, new Mov(($1 = R1[0]), new u1(0)), new Mov(($0 = R8[96]), $0.add(new Mem8(new i8(new u8(b[i] & 7))).neg()).add(new i8($1).neg()))];
-        case 0xc: return [1, new Mov(($2 = new Register8), ($0 = new Mem8(new i8(new u8(b[i] & 7))))), new Mov($0, ($1 = R8[96])), new Mov($1, $2)];
+        case 0xc: return [1, new Mov(($2 = (new Register8)), ($0 = new Mem8(new i8(new u8(b[i] & 7))))), new Mov($0, ($1 = R8[96])), new Mov($1, $2)];
         case 0xe: return [1, new Mov(R8[96], new Mem8(new i8(new u8(b[i] & 7))))];
         case 0xf: return [1, new Mov(new Mem8(new i8(new u8(b[i] & 7))), R8[96])];
     }

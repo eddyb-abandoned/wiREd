@@ -46,14 +46,16 @@ export const pushVars = ()=>{
     return code;
 };
 let methods = (ctor, methods)=>{
-    ctor.prototype.touch = function touch() {
+    ctor.prototype.touch = function touch(noCreate, ...args) {
         if(!this.runtimeKnown) {
             let i = vars.keys.indexOf(this);
             if(i === -1) {
-                i = vars.keys.push(this)-1;
-                vars.data[i] = {generated: 0};
+                if(!noCreate) {
+                    i = vars.keys.push(this)-1;
+                    vars.data[i] = {generated: 0};
+                }
                 if(methods.touch)
-                    methods.touch.call(this);
+                    methods.touch.apply(this, arguments);
             } else if(!vars.data[i].name) {
                 vars.data[i].name = '$'+(vars.used++);
                 if(vars.used > maxVarsUsed)
@@ -77,8 +79,8 @@ let methods = (ctor, methods)=>{
 for(let fn in unaryOps) {
     let op = unaryOps[fn];
     rk($[fn], x => x.a.runtimeKnown);
-    methods($[fn], {touch() {
-        this.a.touch && this.a.touch();
+    methods($[fn], {touch(...args) {
+        this.a.touch && this.a.touch(...args);
     }, code(bareRK=false) {
         if(this.a.runtimeKnown)
             return this.type.wrap(op+this.a.code(true), bareRK);
@@ -89,9 +91,9 @@ for(let fn in unaryOps) {
 for(let fn in binaryOps) {
     let op = binaryOps[fn];
     rk($[fn], x => x.a.runtimeKnown && x.b.runtimeKnown);
-    methods($[fn], {touch() {
-        this.a.touch && this.a.touch();
-        this.b.touch && this.b.touch();
+    methods($[fn], {touch(...args) {
+        this.a.touch && this.a.touch(...args);
+        this.b.touch && this.b.touch(...args);
     }, code(bareRK=false) {
         if(op == '=')
             return 'new '+fn+'('+this.a.code()+', '+this.b.code()+')';
@@ -126,22 +128,24 @@ for(let bits of bitSizes) {
 }
 
 for(let bits of bitSizes) {
-    methods($['Mem'+bits], {touch() {
-        this.addr.touch && this.addr.touch();
+    methods($['Mem'+bits], {touch(...args) {
+        this.addr.touch && this.addr.touch(...args);
     }, code() {
         return 'new Mem'+bits+'('+this.addr.code()+')';
     }});
 }
 
-methods($.If, {touch() {
-    this.cond.touch && this.cond.touch();
-    this.then.touch && this.then.touch();
+methods($.If, {touch(noCreate, ...args) {
+    this.cond.touch && this.cond.touch(noCreate, ...args);
+    this.then.touch && this.then.touch(noCreate || this.cond.runtimeKnown, ...args);
 }, code() {
+    if(this.cond.runtimeKnown)
+        return '('+this.cond.code(true)+'?'+this.then.code()+':null)';
     return 'new If('+this.cond.code()+', '+this.then.code()+')';
 }});
 
-methods($.FnCall, {touch() {
-    this.args.forEach(x => x.touch && x.touch());
+methods($.FnCall, {touch(...args) {
+    this.args.forEach(x => x.touch && x.touch(...args));
 }, code() {
     return 'new FnCall('+[`'${this.name}'`, ...this.args.map(x => x.code())].join(', ')+')';
 }});
@@ -156,8 +160,8 @@ for(let bits of bitSizes) {
             // HACK setting $[id].prototype.type.wrap required because type is $[id].bind(null).
             $[id].wrap = $[id].prototype.type.wrap = (x, bare)=>(bare ? '(('+x+') '+conv+')' : 'new '+id+'('+x+')');
         }
-        methods($[id], {touch() {
-            this._A.touch && this._A.touch();
+        methods($[id], {touch(...args) {
+            this._A.touch && this._A.touch(...args);
         }, code(bareRK=false) {
             if(this.known && bits <= 32) { // TODO
                 var n = Math.abs(this._A), h = '0x'+n.toString(16), d = n.toString(10);
