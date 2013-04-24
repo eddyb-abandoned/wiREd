@@ -221,25 +221,21 @@ let makeAnalyzer = arch => {
                         if(stack[~i] && stack[~i].canBeArg)
                             stack[~i].canBeArg = false;
 
-                    // HACK save and apply initial registers with unchanged or SP-relative value.
+                    // HACK pass current register values to the called function.
                     let changedR0 = {};
                     {
-                        let r = [];
-                        for(let i in R)
-                            if(R[i].value == this.R0[i]) {
-                                changedR0[i] = targetBlock.R0[i].value;
-                                targetBlock.R0[i].value = R[i].value;
-                                r.push(inspect(R[i]));
-                            }
-                        //if(r.length)
-                        //    console.log('->₀', r.join(', '));
-                    }
-                    for(let i in R)
-                        if(this.SPdiffAll(R[i].value)[1] !== null) {
+                        let initial = [];
+                        for(let i in R) {
+                            if(R[i].value == this.R0[i])
+                                initial.push(inspect(R[i]));
+                            else
+                                /*console.log('->', R[i], '=', R[i].value)*/;
                             changedR0[i] = targetBlock.R0[i].value;
                             targetBlock.R0[i].value = R[i].value;
-                            //console.log('->', R[i], '=', R[i].value);
                         }
+                        //if(initial.length)
+                        //    console.log('->₀', initial.join(', '));
+                    }
 
                     // HACK apply SP-relative changes to registers.
                     let updatedR = [];
