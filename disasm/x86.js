@@ -1,12 +1,5 @@
 var fs = require('fs');
 
-Number.prototype.toBinary = function(n=-1) {
-    var s = this.toString(2);
-    while(s.length < n)
-        s = '0'+s;
-    return s;
-};
-
 import {Disasm, codegen} from 'Disasm.js';
 const {Mov, Register, Mem, If, FnCall, Nop, Interrupt, int, uint, signed, unsigned, i8, i32, u1, u8, u32} = codegen.$;
 

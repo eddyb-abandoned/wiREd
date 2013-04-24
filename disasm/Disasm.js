@@ -3,6 +3,13 @@ export codegen;
 
 export const filters = {};
 
+Number.prototype.toBinary = function(n=-1) {
+    var s = this.toString(2);
+    while(s.length < n)
+        s = '0'+s;
+    return s;
+};
+
 function Var(name, pos, len, bigEndian) {
     var resBits = 8 << Math.ceil(Math.log(Math.ceil(len/8))/Math.LN2);
     return {
