@@ -47,7 +47,7 @@ Number.prototype.toSupString = function toSupString(...args) {
 
 let makeAnalyzer = arch => {
     let EventEmitter = require('events').EventEmitter;
-    let {R, PC, SP, FP, uint, int, i8, Mov, Mem, Unknown, known, valueof, lvalueof, sizeof, inspect} = arch, analyzer;
+    let {R, PC, SP, FP, returnPC, uint, int, i8, Mov, Mem, Unknown, known, valueof, lvalueof, sizeof, inspect} = arch, analyzer;
 
     let eq = (a, b)=>a && a.known && a.bitsof <= 32 && typeof b === 'number' ? a._A === b : a === b; // HACK
 
@@ -210,7 +210,7 @@ let makeAnalyzer = arch => {
             if(this.PCwritten && !eq(PC.value, this.PCnext)) {
                 console.log('-->', inspect(PC.value));
                 let targetBlock = this.getJumpTarget(PC.value);
-                let savesPC = eq(analyzer.memRead(valueof(SP), PC.bitsof), this.PCnext);
+                let savesPC = eq(valueof(returnPC), this.PCnext);
                 if(savesPC) {
                     if(!targetBlock.returnPoints.length)
                         throw new Error('Not returning from a function call'/*+inspect(targetBlock)*/);
@@ -343,7 +343,7 @@ let makeAnalyzer = arch => {
         }
 
         getJumpTarget(newPC) {
-            let savesPC = eq(analyzer.memRead(valueof(SP), PC.bitsof), this.PCnext);
+            let savesPC = eq(valueof(returnPC), this.PCnext);
 
             if(!newPC.known) {
                 let isTailJump = !savesPC && this.SP0.length == 1 && this.SPdiff(valueof(SP)) == 0;
@@ -437,9 +437,11 @@ let makeAnalyzer = arch => {
             if(savesPC)
                 console.group('0x'+newPC.toString(16).padLeft(8, '0'));
             let target = new Block({start: newPC}), returnPoint = x => this.emit('returnPoint', x);
-            if(savesPC)
-                target.writeStack(0, PC.bitsof, target.retPC);
-            else {
+            if(savesPC) {
+                target.restoreContext();
+                target.op(valueof(Mov(returnPC, target.retPC)));
+                target.saveContext();
+            } else {
                 target.on('returnPoint', returnPoint);
                 target.retPC = this.retPC;
                 target.SP0 = this.SP0.slice();
@@ -800,7 +802,10 @@ let makeAnalyzer = arch => {
     symbols.forEach(symbol => {
         let mainBlock = new analyzer.Block({start: symbol.addr});
         console.log('Analyzing '+symbol.name+'@'+symbol.addr.toString(16).padLeft(8, '0'));
-        mainBlock.writeStack(0, arch.PC.bitsof, mainBlock.retPC); // HACK
+        // FIXME this is duplicated, move into Block.
+        mainBlock.restoreContext();
+        mainBlock.op(arch.valueof(arch.Mov(arch.returnPC, mainBlock.retPC)));
+        mainBlock.saveContext();
         try {
             analyzer.getBlock(mainBlock);
         } catch(e) {

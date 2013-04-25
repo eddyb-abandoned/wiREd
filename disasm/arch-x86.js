@@ -7884,3 +7884,4 @@ exports.dis = function x86dis(b, i) {
 exports.PC = R.EIP;
 exports.SP = R.ESP;
 exports.FP = R.EBP;
+exports.returnPC = Mem32(exports.SP);

@@ -227,4 +227,5 @@ ${_8051.code().replace(/^(?=.)/gm, '\t').replace(/\t/g, '    ')}
 }
 exports.PC = R.PC;
 exports.SP = R.SP;
+exports.returnPC = Mem32(exports.SP); // FIXME proper stack handling, returnPC should be 16-bit.
 `);

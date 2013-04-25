@@ -323,4 +323,5 @@ ${x86.code().replace(/^(?=.)/gm, '\t').replace(/\t/g, '    ')}
 exports.PC = R.EIP;
 exports.SP = R.ESP;
 exports.FP = R.EBP;
+exports.returnPC = Mem32(exports.SP);
 `);
