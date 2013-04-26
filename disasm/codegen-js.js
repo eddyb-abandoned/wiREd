@@ -150,11 +150,17 @@ methods($.FnCall, {touch(...args) {
     return 'new FnCall('+[`'${this.name}'`, ...this.args.map(x => x.code())].join(', ')+')';
 }});
 
+let makeLiteral = x => {
+    var n = Math.abs(x), h = '0x'+n.toString(16), d = n.toString(10);
+    return (x < 0 ? '-' : '')+(h.length > d.length ? d : h);
+};
+
 for(let bits of bitSizes) {
     for(let signed of [false, true]) {
         let id = (signed ? 'i' : 'u')+bits; // FIXME duplicated from codegen-js-base.js.
         let conv = signed ? (bits >= 32 ? '>> 0' : '<< '+(32-bits)+' >> '+(32-bits))
                           : (bits >= 32 ? '>>> 0' : '& 0x'+((1<<bits)-1).toString(16));
+        let dwords = 'abcdefgh'.slice(0, Math.ceil(bits / 32)).split('');
         if(bits <= 32) { // TODO
             rk($[id], x => x.known || x._A.runtimeKnown);
             // HACK setting $[id].prototype.type.wrap required because type is $[id].bind(null).
@@ -163,11 +169,8 @@ for(let bits of bitSizes) {
         methods($[id], {touch(...args) {
             this._A.touch && this._A.touch(...args);
         }, code(bareRK=false) {
-            if(this.known && bits <= 32) { // TODO
-                var n = Math.abs(this._A), h = '0x'+n.toString(16), d = n.toString(10);
-                n = (this._A < 0 ? '-' : '')+(h.length > d.length ? d : h);
-                return bareRK ? n : 'new '+id+'('+n+')';
-            }
+            if(this.known)
+                return bareRK && bits <= 32 ? makeLiteral(this._A) : 'new '+id+'('+dwords.map(x => makeLiteral(this['_'+x.toUpperCase()])).join(', ')+')';
             if(this.runtimeKnown)
                 return bareRK && this._A.bitsof === bits && this._A.signed === signed ? this._A.code(bareRK) : $[id].wrap(this._A.code(bareRK), bareRK);
             return 'new '+id+'('+this._A.code()+')';
