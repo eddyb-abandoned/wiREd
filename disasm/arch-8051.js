@@ -2892,3 +2892,9 @@ exports.dis = function _8051dis(b, i) {
 exports.PC = R.PC;
 exports.SP = R.SP;
 exports.returnPC = Mem32(exports.SP); // FIXME proper stack handling, returnPC should be 16-bit.
+
+exports.paddingLength = function(b, i) {
+    var l;
+    for(l = 0; i < b.length && b[i] === 0x00 /*NOP*/; i++, l++);
+    return l;
+};

@@ -324,4 +324,10 @@ exports.PC = R.EIP;
 exports.SP = R.ESP;
 exports.FP = R.EBP;
 exports.returnPC = Mem32(exports.SP);
+
+exports.paddingLength = function(b, i) {
+    var l;
+    for(l = 0; i < b.length && (b[i] === 0x90 /*NOP*/ || b[i] === 0xCC /*INT3*/); i++, l++);
+    return l;
+};
 `);
