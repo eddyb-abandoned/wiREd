@@ -177,13 +177,3 @@ for(let bits of bitSizes) {
         }});
     }
 }
-/*{
-    let {Register32, u8, u32, Mov, inspect, valueof} = $;
-    var EAX = new Register32('EAX'), EDX = new Register32('EDX');
-    EAX.nthValue = 1, EDX.nthValue = 1;
-    EDX.value = u32(5);
-    var eax = u32(EAX), edx = u32(EDX);
-    var op = Mov(eax, eax.add(eax.mul(edx.shl(u32(new Register32(u8({runtimeKnown: true, code: ()=>'r'})))))));
-    op.touch();
-    console.log(op.code()+' // '+inspect(valueof(op))+' // '+inspect(op));
-}*/
