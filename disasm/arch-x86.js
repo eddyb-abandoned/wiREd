@@ -2050,6 +2050,199 @@ i256.prototype.ror = function ror(that) {
     return this.shr(that).or(this.shl(u8(256).sub(that)));
 };
 
+var Float = exports.Float = function Float() {}
+var _floatConvertor = new DataView(new ArrayBuffer(8));
+Float.prototype = {
+    constructor: Float, known: true, isInteger: false,
+    get value() {
+        if(!this.known) {
+            var v = valueof(this._A);
+            if(this._A.fn === 'Mem' && this.bitsof <= 64) { // HACK *reinterpret_cast<float*>(addr)
+                if(!v.isInteger || v.bitsof !== this.bitsof || !v.known)
+                    return; // TODO better support for reinterpret casts.
+                _floatConvertor.setInt32(0, v._A | 0, true);
+                if(this.bitsof === 32)
+                    return new this.type(_floatConvertor.getFloat32(0, true));
+                _floatConvertor.setInt32(4, v._B | 0, true);
+                return new this.type(_floatConvertor.getFloat64(0, true));
+            }
+            if(v !== this._A)
+                return new this.type(v);
+        }
+    },
+    get lvalue() {
+        if(!this.known)
+            return this._A.lvalue;
+    },
+    sub: function sub(that) {
+        if(that.isInteger || that.bitsof < this.bitsof) // HACK cleaner output
+            that = new this.type(that);
+        return this.add(that.neg());
+    }
+};
+
+var float = exports.float = [];
+
+// TODO how would the
+var f32 = float[32] = exports.f32 = function f32(a) {
+    if(a.type === f32) // HACK This should only fix Unknown operations.
+        return a;
+    if(!(this instanceof f32))
+        return new f32(a);
+    if(typeof a === 'number')
+        this._A = a; // TODO actual conversion.
+    else if(!a.isInteger && a.known) // FIXME check if it's actually a Float.
+        this._A = a._A; // TODO actual conversion.
+    else {
+        this._A = a instanceof f32 ? a._A : a;
+        this.known = false;
+    }
+}
+f32.prototype = new Float;
+f32.prototype.constructor = f32;
+f32.prototype.type = f32;
+f32.prototype._A = 0;
+f32.prototype.bitsof = 32;
+f32.prototype.signed = true;
+f32.prototype.inspect = function() {
+    if(this.known)
+        return this._A.toString();
+    var a = inspect(this._A);
+    return (/*process.env.DEBUG_FLOAT*/false || this._A instanceof Float || this._A instanceof Unknown) ? 'f32('+a+')' : a;
+};
+f32.prototype.not = Unknown.prototype.not;
+f32.prototype.neg = Unknown.prototype.neg;
+f32.prototype.mov = Unknown.prototype.mov;
+f32.prototype.add = Unknown.prototype.add;
+f32.prototype.mul = Unknown.prototype.mul;
+f32.prototype.div = Unknown.prototype.div;
+f32.prototype.and = Unknown.prototype.and;
+f32.prototype.or = Unknown.prototype.or;
+f32.prototype.xor = Unknown.prototype.xor;
+f32.prototype.eq = Unknown.prototype.eq;
+f32.prototype.lt = Unknown.prototype.lt;
+f32.prototype.shl = Unknown.prototype.shl;
+f32.prototype.shr = Unknown.prototype.shr;
+// TODO how would the
+var f64 = float[64] = exports.f64 = function f64(a) {
+    if(a.type === f64) // HACK This should only fix Unknown operations.
+        return a;
+    if(!(this instanceof f64))
+        return new f64(a);
+    if(typeof a === 'number')
+        this._A = a; // TODO actual conversion.
+    else if(!a.isInteger && a.known) // FIXME check if it's actually a Float.
+        this._A = a._A; // TODO actual conversion.
+    else {
+        this._A = a instanceof f64 ? a._A : a;
+        this.known = false;
+    }
+}
+f64.prototype = new Float;
+f64.prototype.constructor = f64;
+f64.prototype.type = f64;
+f64.prototype._A = 0;
+f64.prototype.bitsof = 64;
+f64.prototype.signed = true;
+f64.prototype.inspect = function() {
+    if(this.known)
+        return this._A.toString();
+    var a = inspect(this._A);
+    return (/*process.env.DEBUG_FLOAT*/false || this._A instanceof Float || this._A instanceof Unknown) ? 'f64('+a+')' : a;
+};
+f64.prototype.not = Unknown.prototype.not;
+f64.prototype.neg = Unknown.prototype.neg;
+f64.prototype.mov = Unknown.prototype.mov;
+f64.prototype.add = Unknown.prototype.add;
+f64.prototype.mul = Unknown.prototype.mul;
+f64.prototype.div = Unknown.prototype.div;
+f64.prototype.and = Unknown.prototype.and;
+f64.prototype.or = Unknown.prototype.or;
+f64.prototype.xor = Unknown.prototype.xor;
+f64.prototype.eq = Unknown.prototype.eq;
+f64.prototype.lt = Unknown.prototype.lt;
+f64.prototype.shl = Unknown.prototype.shl;
+f64.prototype.shr = Unknown.prototype.shr;
+// TODO how would the
+var f80 = float[80] = exports.f80 = function f80(a) {
+    if(a.type === f80) // HACK This should only fix Unknown operations.
+        return a;
+    if(!(this instanceof f80))
+        return new f80(a);
+    if(typeof a === 'number')
+        this._A = a; // TODO actual conversion.
+    else if(!a.isInteger && a.known) // FIXME check if it's actually a Float.
+        this._A = a._A; // TODO actual conversion.
+    else {
+        this._A = a instanceof f80 ? a._A : a;
+        this.known = false;
+    }
+}
+f80.prototype = new Float;
+f80.prototype.constructor = f80;
+f80.prototype.type = f80;
+f80.prototype._A = 0;
+f80.prototype.bitsof = 80;
+f80.prototype.signed = true;
+f80.prototype.inspect = function() {
+    if(this.known)
+        return this._A.toString();
+    var a = inspect(this._A);
+    return (/*process.env.DEBUG_FLOAT*/false || this._A instanceof Float || this._A instanceof Unknown) ? 'f80('+a+')' : a;
+};
+f80.prototype.not = Unknown.prototype.not;
+f80.prototype.neg = Unknown.prototype.neg;
+f80.prototype.mov = Unknown.prototype.mov;
+f80.prototype.add = Unknown.prototype.add;
+f80.prototype.mul = Unknown.prototype.mul;
+f80.prototype.div = Unknown.prototype.div;
+f80.prototype.and = Unknown.prototype.and;
+f80.prototype.or = Unknown.prototype.or;
+f80.prototype.xor = Unknown.prototype.xor;
+f80.prototype.eq = Unknown.prototype.eq;
+f80.prototype.lt = Unknown.prototype.lt;
+f80.prototype.shl = Unknown.prototype.shl;
+f80.prototype.shr = Unknown.prototype.shr;
+// TODO how would the
+var f128 = float[128] = exports.f128 = function f128(a) {
+    if(a.type === f128) // HACK This should only fix Unknown operations.
+        return a;
+    if(!(this instanceof f128))
+        return new f128(a);
+    if(typeof a === 'number')
+        this._A = a; // TODO actual conversion.
+    else if(!a.isInteger && a.known) // FIXME check if it's actually a Float.
+        this._A = a._A; // TODO actual conversion.
+    else {
+        this._A = a instanceof f128 ? a._A : a;
+        this.known = false;
+    }
+}
+f128.prototype = new Float;
+f128.prototype.constructor = f128;
+f128.prototype.type = f128;
+f128.prototype._A = 0;
+f128.prototype.bitsof = 128;
+f128.prototype.signed = true;
+f128.prototype.inspect = function() {
+    if(this.known)
+        return this._A.toString();
+    var a = inspect(this._A);
+    return (/*process.env.DEBUG_FLOAT*/false || this._A instanceof Float || this._A instanceof Unknown) ? 'f128('+a+')' : a;
+};
+f128.prototype.not = Unknown.prototype.not;
+f128.prototype.neg = Unknown.prototype.neg;
+f128.prototype.mov = Unknown.prototype.mov;
+f128.prototype.add = Unknown.prototype.add;
+f128.prototype.mul = Unknown.prototype.mul;
+f128.prototype.div = Unknown.prototype.div;
+f128.prototype.and = Unknown.prototype.and;
+f128.prototype.or = Unknown.prototype.or;
+f128.prototype.xor = Unknown.prototype.xor;
+f128.prototype.eq = Unknown.prototype.eq;
+f128.prototype.lt = Unknown.prototype.lt;
+f128.prototype.shl = Unknown.prototype.shl;
+f128.prototype.shr = Unknown.prototype.shr;
 var Register = exports.Register = [];
 var Register1 = Register[1] = exports.Register1 = function Register1(name) {
     if(!(this instanceof Register1))

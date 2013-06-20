@@ -28,6 +28,7 @@ export const binaryOps = {
     '=':13,
     ',':14
 }, intBitSizes = [1, 8, 16, 32, 64, 128, 256],
+floatBitSizes = [32, 64, 80, 128],
 storageBitSizes = [1, 8, 16, 32, 64, 80, 128, 256];
 
 export var code = '';
@@ -343,6 +344,88 @@ ${id}.prototype.ror = function ror(that) {
     return this.shr(that).or(this.shl(u8(${bits}).sub(that)));
 };
 `;
+    }
+}
+
+// Float.
+code += `
+var Float = exports.Float = function Float() {}
+var _floatConvertor = new DataView(new ArrayBuffer(8));
+Float.prototype = {
+    constructor: Float, known: true, isInteger: false,
+    get value() {
+        if(!this.known) {
+            var v = valueof(this._A);
+            if(this._A.fn === 'Mem' && this.bitsof <= 64) { // HACK *reinterpret_cast<float*>(addr)
+                if(!v.isInteger || v.bitsof !== this.bitsof || !v.known)
+                    return; // TODO better support for reinterpret casts.
+                _floatConvertor.setInt32(0, v._A | 0, true);
+                if(this.bitsof === 32)
+                    return new this.type(_floatConvertor.getFloat32(0, true));
+                _floatConvertor.setInt32(4, v._B | 0, true);
+                return new this.type(_floatConvertor.getFloat64(0, true));
+            }
+            if(v !== this._A)
+                return new this.type(v);
+        }
+    },
+    get lvalue() {
+        if(!this.known)
+            return this._A.lvalue;
+    },
+    sub: function sub(that) {
+        if(that.isInteger || that.bitsof < this.bitsof) // HACK cleaner output
+            that = new this.type(that);
+        return this.add(that.neg());
+    }
+};
+
+var float = exports.float = [];
+`;
+
+// TODO implement operations and inspection for floats.
+for(let bits of floatBitSizes) {
+    let id = 'f'+bits;
+
+    code += `
+// TODO how would the
+var ${id} = float[${bits}] = exports.${id} = function ${id}(a) {
+    if(a.type === ${id}) // HACK This should only fix Unknown operations.
+        return a;
+    if(!(this instanceof ${id}))
+        return new ${id}(a);
+    if(typeof a === 'number')
+        this._A = a; // TODO actual conversion.
+    else if(!a.isInteger && a.known) // FIXME check if it's actually a Float.
+        this._A = a._A; // TODO actual conversion.
+    else {
+        this._A = a instanceof ${id} ? a._A : a;
+        this.known = false;
+    }
+}
+${id}.prototype = new Float;
+${id}.prototype.constructor = ${id};
+${id}.prototype.type = ${id};
+${id}.prototype._A = 0;
+${id}.prototype.bitsof = ${bits};
+${id}.prototype.signed = true;
+${id}.prototype.inspect = function() {
+    if(this.known)
+        return this._A.toString();
+    var a = inspect(this._A);
+    return (/*process.env.DEBUG_FLOAT*/false || this._A instanceof Float || this._A instanceof Unknown) ? '${id}('+a+')' : a;
+};`;
+
+    for(let fn in unaryOps) {
+        let op = unaryOps[fn], fnLower = fn.toLowerCase();
+        code += `
+${id}.prototype.${fnLower} = Unknown.prototype.${fnLower};`;
+    }
+
+    for(let fn in binaryOps) {
+        let op = binaryOps[fn], fnLower = fn.toLowerCase(), logic = op === '==' || op === '<';
+        code += `
+${id}.prototype.${fnLower} = Unknown.prototype.${fnLower};`;
     }
 }
 

@@ -179,3 +179,15 @@ for(let bits of intBitSizes) {
         }});
     }
 }
+
+for(let bits of floatBitSizes) {
+    let id = 'f'+bits;
+    // TODO runtimeKnown.
+    methods($[id], {touch(...args) {
+        this._A.touch && this._A.touch(...args);
+    }, code(bareRK=false) {
+        if(this.known) // FIXME proper constants.
+            return 'new '+id+'('+this._A+')';
+        return 'new '+id+'('+this._A.code()+')';
+    }});
+}
