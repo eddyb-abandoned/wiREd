@@ -834,9 +834,26 @@ let makeAnalyzer = arch => {
     });
     if(!symbols.length)
         console.error('No usable symbols'), process.exit(1);
-    analyzer.on('Block.postOp', block => {
+
+    analyzer.blocks = [];
+    Array.prototype.binarySearch = function binarySearch(compare, left=0, right=this.length-1) {//TRACE;
+        if(left > right)
+            return left;
+        var mid = (left + right) >>> 1, c = compare(this[mid]);
+        if(c < 0)
+            return this.binarySearch(compare, left, mid - 1);
+        if(c > 0)
+            return this.binarySearch(compare, mid + 1, right);
+        return mid;
+    };
+    analyzer.on('Block.start', block => {
+        let pos = analyzer.blocks.binarySearch(x => block.start - x.start);
+        analyzer.blocks.splice(pos, 0, block);
+    });
+    analyzer.on('Block.preOp', block => {
         decodedInstructions++;
         decodedBytes += block.PCnext - block.PC;
+        block.end = block.PCnext;
     });
 
     var t = process.hrtime(), decodedInstructions = 0, decodedBytes = 0;
@@ -846,7 +863,8 @@ let makeAnalyzer = arch => {
         var ts = t[0]+t[1]/1e9;
         console.log(`Decoded ${decodedInstructions} instructions (${(decodedBytes/1024).toFixed(2)}kB) in ${ts.toFixed(6)}s / ${(analyzer.codeBuffer.length/decodedBytes*ts).toFixed(6)}s`);
     });
-    symbols.forEach(symbol => {
+
+    let analyzeSymbol = symbol => {
         let mainBlock = new analyzer.Block({start: symbol.addr});
         console.log('Analyzing '+symbol.name+'@'+symbol.addr.toString(16).padLeft(8, '0'));
         // FIXME this is duplicated, move into Block.
@@ -859,7 +877,31 @@ let makeAnalyzer = arch => {
             if(typeof e === 'object')
                 e = e.stack;
             console.error(e);
-            while(console.groupEnd() !== false);
         }
-    });
-}
+        while(console.groupEnd() !== false);
+    };
+    symbols.forEach(analyzeSymbol);
+    (() => {
+        for(var i = 0, j = 0; i <= analyzer.blocks.length && j < analyzer.codeBuffer.length;) {
+            if(arch.paddingLength) // TODO check alignment.
+                j += arch.paddingLength(analyzer.codeBuffer, j);
+
+            var block = analyzer.blocks[i];
+            if(block) {
+                if(block.start > analyzer.codeBase + j) {
+                    analyzeSymbol({addr: analyzer.codeBase + j, name: ''});
+                    if(analyzer.blocks[i] === block) {
+                        console.error('Linear analysis was interrupted, skipping over some bytes.');
+                        if(arch.skipUnknownInstruction)
+                            j += arch.skipUnknownInstruction(analyzer.codeBuffer, j) || 1;
+                        else
+                            j++; // HACK skip a byte.
+                    }
+                    continue;
+                }
+                j = (block.end || block.start) - analyzer.codeBase;
+            }
+            i++;
+        }
+        process.exit();
+    })();
