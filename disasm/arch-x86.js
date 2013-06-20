@@ -123,7 +123,7 @@ Unknown.prototype = {
         if(that.bitsof > this.bitsof || that.bitsof == this.bitsof && that.signed < this.signed) { // that.type > this.type
             if(that.known)
                 return that.type(this).lt(that);
-            return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
+            return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
         }
         return new Lt(this, that);
     },
@@ -146,7 +146,7 @@ Unknown.prototype = {
     }
 };
 var Not = exports.Not = function Not(a) { // assumes !a.known.
-    if(a.op == '~') return a.a;
+    if(a.op === '~') return a.a;
     this.a = a;
     this.type = a.type;
     this.bitsof = a.bitsof;
@@ -162,12 +162,12 @@ Object.defineProperty(Not.prototype, 'value', {get: function() {
         return a.not();
 }});
 Not.prototype.inspect = function(_, p) {
-    if(this.bitsof == 1) {
-        if(this.a.op == '==') {
-            var expr = inspect(this.a.a, 7)+' != '+inspect(this.a.b, 7);
+    if(this.bitsof === 1) {
+        if(this.a.op === '==') {
+            var expr = inspect(this.a.a, 7)+' !== '+inspect(this.a.b, 7);
             return 7 <= p ? expr : '('+expr+')'
         }
-        if(this.a.op == '<') {
+        if(this.a.op === '<') {
             var expr = inspect(this.a.a, 6)+' >= '+inspect(this.a.b, 6);
             return 6 <= p ? expr : '('+expr+')'
         }
@@ -176,7 +176,7 @@ Not.prototype.inspect = function(_, p) {
     return 2 <= p ? expr : '('+expr+')';
 };
 var Neg = exports.Neg = function Neg(a) { // assumes !a.known.
-    if(a.op == '-') return a.a;
+    if(a.op === '-') return a.a;
     this.a = a;
     this.type = a.type;
     this.bitsof = a.bitsof;
@@ -212,7 +212,7 @@ Object.defineProperty(Mov.prototype, 'value', {get: function() {
 Mov.prototype.inspect = function(_, p) {
     var a = this.a, b = this.b;
     var op = '=';
-    if(b.op && b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.op != '-' && b.op != '~' && (b.a === a || b.a.lvalue === a)) { // HACK the lvalue check might be costy.
+    if(b.op && b.op !== '=' && b.op !== '<->' && b.op !== '==' && b.op !== '<' && b.op !== '-' && b.op !== '~' && (b.a === a || b.a.lvalue === a)) { // HACK the lvalue check might be costy.
         if(b.op == '+' && b.b.bitsof <= 32 && b.b._A < 0 && b.b._A != -1 << (b.b.bitsof-1)) { // HACK doesn't work > 32bits.
             op = '-=';
             b = b.b.neg();
@@ -248,7 +248,7 @@ Add.prototype.inspect = function(_, p) {
     if(b.bitsof <= 32 && b._A < 0 && b._A != -1 << (b.bitsof-1)) { // HACK doesn't work > 32bits.
         op = '-';
         b = b.neg();
-    } else if(b.op == '-') {
+    } else if(b.op === '-') {
         op = '-';
         b = b.a;
     }
@@ -482,7 +482,7 @@ var u1 = uint[1] = exports.u1 = function u1(a) {
         return a;
     if(!(this instanceof u1))
         return new u1(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a & 0x1;
     else if(a.known)
         this._A = a._A & 0x1;
@@ -523,7 +523,7 @@ u1.prototype.mov = function mov(that) { // assumes that is of an integer type.
         return new Mov(this, that);
     if(!that.known)
         return that.mov(this);
-    return u1(this._A = (that._A & 0x1));
+    return new u1(this._A = (that._A & 0x1));
 };
 u1.prototype.add = function add(that) { // assumes that is of an integer type.
     if(that.bitsof > 1) { // that.type > this.type
@@ -535,7 +535,7 @@ u1.prototype.add = function add(that) { // assumes that is of an integer type.
         return new Add(this, that);
     if(!that.known)
         return that.add(this);
-    return u1(this._A + (that._A & 0x1));
+    return new u1(this._A + (that._A & 0x1));
 };
 u1.prototype.mul = function mul(that) { // assumes that is of an integer type.
     if(that.bitsof > 1) { // that.type > this.type
@@ -547,7 +547,7 @@ u1.prototype.mul = function mul(that) { // assumes that is of an integer type.
         return new Mul(this, that);
     if(!that.known)
         return that.mul(this);
-    return u1(this._A * (that._A & 0x1));
+    return new u1(this._A * (that._A & 0x1));
 };
 u1.prototype.div = function div(that) { // assumes that is of an integer type.
     if(that.bitsof > 1) { // that.type > this.type
@@ -559,7 +559,7 @@ u1.prototype.div = function div(that) { // assumes that is of an integer type.
         return new Div(this, that);
     if(!that.known)
         return that.div(this);
-    return u1(this._A / (that._A & 0x1));
+    return new u1(this._A / (that._A & 0x1));
 };
 u1.prototype.and = function and(that) { // assumes that is of an integer type.
     if(that.bitsof > 1) { // that.type > this.type
@@ -571,7 +571,7 @@ u1.prototype.and = function and(that) { // assumes that is of an integer type.
         return new And(this, that);
     if(!that.known)
         return that.and(this);
-    return u1(this._A & (that._A & 0x1));
+    return new u1(this._A & (that._A & 0x1));
 };
 u1.prototype.or = function or(that) { // assumes that is of an integer type.
     if(that.bitsof > 1) { // that.type > this.type
@@ -583,7 +583,7 @@ u1.prototype.or = function or(that) { // assumes that is of an integer type.
         return new Or(this, that);
     if(!that.known)
         return that.or(this);
-    return u1(this._A | (that._A & 0x1));
+    return new u1(this._A | (that._A & 0x1));
 };
 u1.prototype.xor = function xor(that) { // assumes that is of an integer type.
     if(that.bitsof > 1) { // that.type > this.type
@@ -595,7 +595,7 @@ u1.prototype.xor = function xor(that) { // assumes that is of an integer type.
         return new Xor(this, that);
     if(!that.known)
         return that.xor(this);
-    return u1(this._A ^ (that._A & 0x1));
+    return new u1(this._A ^ (that._A & 0x1));
 };
 u1.prototype.eq = function eq(that) { // assumes that is of an integer type.
     if(that.bitsof > 1) { // that.type > this.type
@@ -607,29 +607,29 @@ u1.prototype.eq = function eq(that) { // assumes that is of an integer type.
         return new Eq(this, that);
     if(!that.known)
         return that.eq(this);
-    return u1((this._A == (that._A & 0x1)) & 1);
+    return new u1((this._A == (that._A & 0x1) ? 1 : 0));
 };
 u1.prototype.lt = function lt(that) { // assumes that is of an integer type.
     if(that.bitsof > 1) { // that.type > this.type
         if(!this.known && that.known) // Unknown#lt
             return that.type(this).lt(that);
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
     }
     if(!this.known) // Unknown#lt
         return new Lt(this, that);
     if(!that.known)
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
-    return u1((this._A < (that._A & 0x1)) & 1);
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
+    return new u1((this._A < (that._A & 0x1) ? 1 : 0));
 };
 u1.prototype.shl = function shl(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shl
         return new Shl(this, that);
-    return u1(this._A << (that._A & 0x0));
+    return new u1(this._A << (that._A & 0x0));
 };
 u1.prototype.shr = function shr(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shr
         return new Shr(this, that);
-    return u1(this._A >>> (that._A & 0x0));
+    return new u1(this._A >>> (that._A & 0x0));
 };
 u1.prototype.rol = function rol(that) {
     return this.shl(that).or(this.shr(u8(1).sub(that)));
@@ -643,7 +643,7 @@ var i1 = int[1] = exports.i1 = function i1(a) {
         return a;
     if(!(this instanceof i1))
         return new i1(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a << 31 >> 31;
     else if(a.known)
         this._A = a._A << 31 >> 31;
@@ -684,7 +684,7 @@ i1.prototype.mov = function mov(that) { // assumes that is of an integer type.
         return new Mov(this, that);
     if(!that.known)
         return that.mov(this);
-    return i1(this._A = that._A);
+    return new i1(this._A = that._A);
 };
 i1.prototype.add = function add(that) { // assumes that is of an integer type.
     if(that.bitsof > 1 || that.bitsof == 1 && !that.signed) { // that.type > this.type
@@ -696,7 +696,7 @@ i1.prototype.add = function add(that) { // assumes that is of an integer type.
         return new Add(this, that);
     if(!that.known)
         return that.add(this);
-    return i1(this._A + that._A);
+    return new i1(this._A + that._A);
 };
 i1.prototype.mul = function mul(that) { // assumes that is of an integer type.
     if(that.bitsof > 1 || that.bitsof == 1 && !that.signed) { // that.type > this.type
@@ -708,7 +708,7 @@ i1.prototype.mul = function mul(that) { // assumes that is of an integer type.
         return new Mul(this, that);
     if(!that.known)
         return that.mul(this);
-    return i1(this._A * that._A);
+    return new i1(this._A * that._A);
 };
 i1.prototype.div = function div(that) { // assumes that is of an integer type.
     if(that.bitsof > 1 || that.bitsof == 1 && !that.signed) { // that.type > this.type
@@ -720,7 +720,7 @@ i1.prototype.div = function div(that) { // assumes that is of an integer type.
         return new Div(this, that);
     if(!that.known)
         return that.div(this);
-    return i1(this._A / that._A);
+    return new i1(this._A / that._A);
 };
 i1.prototype.and = function and(that) { // assumes that is of an integer type.
     if(that.bitsof > 1 || that.bitsof == 1 && !that.signed) { // that.type > this.type
@@ -732,7 +732,7 @@ i1.prototype.and = function and(that) { // assumes that is of an integer type.
         return new And(this, that);
     if(!that.known)
         return that.and(this);
-    return i1(this._A & that._A);
+    return new i1(this._A & that._A);
 };
 i1.prototype.or = function or(that) { // assumes that is of an integer type.
     if(that.bitsof > 1 || that.bitsof == 1 && !that.signed) { // that.type > this.type
@@ -744,7 +744,7 @@ i1.prototype.or = function or(that) { // assumes that is of an integer type.
         return new Or(this, that);
     if(!that.known)
         return that.or(this);
-    return i1(this._A | that._A);
+    return new i1(this._A | that._A);
 };
 i1.prototype.xor = function xor(that) { // assumes that is of an integer type.
     if(that.bitsof > 1 || that.bitsof == 1 && !that.signed) { // that.type > this.type
@@ -756,7 +756,7 @@ i1.prototype.xor = function xor(that) { // assumes that is of an integer type.
         return new Xor(this, that);
     if(!that.known)
         return that.xor(this);
-    return i1(this._A ^ that._A);
+    return new i1(this._A ^ that._A);
 };
 i1.prototype.eq = function eq(that) { // assumes that is of an integer type.
     if(that.bitsof > 1 || that.bitsof == 1 && !that.signed) { // that.type > this.type
@@ -768,29 +768,29 @@ i1.prototype.eq = function eq(that) { // assumes that is of an integer type.
         return new Eq(this, that);
     if(!that.known)
         return that.eq(this);
-    return u1((this._A == that._A) & 1);
+    return new u1((this._A == that._A ? 1 : 0));
 };
 i1.prototype.lt = function lt(that) { // assumes that is of an integer type.
     if(that.bitsof > 1 || that.bitsof == 1 && !that.signed) { // that.type > this.type
         if(!this.known && that.known) // Unknown#lt
             return that.type(this).lt(that);
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
     }
     if(!this.known) // Unknown#lt
         return new Lt(this, that);
     if(!that.known)
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
-    return u1((this._A < that._A) & 1);
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
+    return new u1((this._A < that._A ? 1 : 0));
 };
 i1.prototype.shl = function shl(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shl
         return new Shl(this, that);
-    return i1(this._A << (that._A & 0x0));
+    return new i1(this._A << (that._A & 0x0));
 };
 i1.prototype.shr = function shr(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shr
         return new Shr(this, that);
-    return i1(this._A >> (that._A & 0x0));
+    return new i1(this._A >> (that._A & 0x0));
 };
 i1.prototype.rol = function rol(that) {
     return this.shl(that).or(this.shr(u8(1).sub(that)));
@@ -804,7 +804,7 @@ var u8 = uint[8] = exports.u8 = function u8(a) {
         return a;
     if(!(this instanceof u8))
         return new u8(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a & 0xff;
     else if(a.known)
         this._A = a._A & 0xff;
@@ -845,7 +845,7 @@ u8.prototype.mov = function mov(that) { // assumes that is of an integer type.
         return new Mov(this, that);
     if(!that.known)
         return that.mov(this);
-    return u8(this._A = (that._A & 0xff));
+    return new u8(this._A = (that._A & 0xff));
 };
 u8.prototype.add = function add(that) { // assumes that is of an integer type.
     if(that.bitsof > 8) { // that.type > this.type
@@ -857,7 +857,7 @@ u8.prototype.add = function add(that) { // assumes that is of an integer type.
         return new Add(this, that);
     if(!that.known)
         return that.add(this);
-    return u8(this._A + (that._A & 0xff));
+    return new u8(this._A + (that._A & 0xff));
 };
 u8.prototype.mul = function mul(that) { // assumes that is of an integer type.
     if(that.bitsof > 8) { // that.type > this.type
@@ -869,7 +869,7 @@ u8.prototype.mul = function mul(that) { // assumes that is of an integer type.
         return new Mul(this, that);
     if(!that.known)
         return that.mul(this);
-    return u8(this._A * (that._A & 0xff));
+    return new u8(this._A * (that._A & 0xff));
 };
 u8.prototype.div = function div(that) { // assumes that is of an integer type.
     if(that.bitsof > 8) { // that.type > this.type
@@ -881,7 +881,7 @@ u8.prototype.div = function div(that) { // assumes that is of an integer type.
         return new Div(this, that);
     if(!that.known)
         return that.div(this);
-    return u8(this._A / (that._A & 0xff));
+    return new u8(this._A / (that._A & 0xff));
 };
 u8.prototype.and = function and(that) { // assumes that is of an integer type.
     if(that.bitsof > 8) { // that.type > this.type
@@ -893,7 +893,7 @@ u8.prototype.and = function and(that) { // assumes that is of an integer type.
         return new And(this, that);
     if(!that.known)
         return that.and(this);
-    return u8(this._A & (that._A & 0xff));
+    return new u8(this._A & (that._A & 0xff));
 };
 u8.prototype.or = function or(that) { // assumes that is of an integer type.
     if(that.bitsof > 8) { // that.type > this.type
@@ -905,7 +905,7 @@ u8.prototype.or = function or(that) { // assumes that is of an integer type.
         return new Or(this, that);
     if(!that.known)
         return that.or(this);
-    return u8(this._A | (that._A & 0xff));
+    return new u8(this._A | (that._A & 0xff));
 };
 u8.prototype.xor = function xor(that) { // assumes that is of an integer type.
     if(that.bitsof > 8) { // that.type > this.type
@@ -917,7 +917,7 @@ u8.prototype.xor = function xor(that) { // assumes that is of an integer type.
         return new Xor(this, that);
     if(!that.known)
         return that.xor(this);
-    return u8(this._A ^ (that._A & 0xff));
+    return new u8(this._A ^ (that._A & 0xff));
 };
 u8.prototype.eq = function eq(that) { // assumes that is of an integer type.
     if(that.bitsof > 8) { // that.type > this.type
@@ -929,29 +929,29 @@ u8.prototype.eq = function eq(that) { // assumes that is of an integer type.
         return new Eq(this, that);
     if(!that.known)
         return that.eq(this);
-    return u1((this._A == (that._A & 0xff)) & 1);
+    return new u1((this._A == (that._A & 0xff) ? 1 : 0));
 };
 u8.prototype.lt = function lt(that) { // assumes that is of an integer type.
     if(that.bitsof > 8) { // that.type > this.type
         if(!this.known && that.known) // Unknown#lt
             return that.type(this).lt(that);
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
     }
     if(!this.known) // Unknown#lt
         return new Lt(this, that);
     if(!that.known)
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
-    return u1((this._A < (that._A & 0xff)) & 1);
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
+    return new u1((this._A < (that._A & 0xff) ? 1 : 0));
 };
 u8.prototype.shl = function shl(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shl
         return new Shl(this, that);
-    return u8(this._A << (that._A & 0x7));
+    return new u8(this._A << (that._A & 0x7));
 };
 u8.prototype.shr = function shr(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shr
         return new Shr(this, that);
-    return u8(this._A >>> (that._A & 0x7));
+    return new u8(this._A >>> (that._A & 0x7));
 };
 u8.prototype.rol = function rol(that) {
     return this.shl(that).or(this.shr(u8(8).sub(that)));
@@ -965,7 +965,7 @@ var i8 = int[8] = exports.i8 = function i8(a) {
         return a;
     if(!(this instanceof i8))
         return new i8(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a << 24 >> 24;
     else if(a.known)
         this._A = a._A << 24 >> 24;
@@ -1006,7 +1006,7 @@ i8.prototype.mov = function mov(that) { // assumes that is of an integer type.
         return new Mov(this, that);
     if(!that.known)
         return that.mov(this);
-    return i8(this._A = that._A);
+    return new i8(this._A = that._A);
 };
 i8.prototype.add = function add(that) { // assumes that is of an integer type.
     if(that.bitsof > 8 || that.bitsof == 8 && !that.signed) { // that.type > this.type
@@ -1018,7 +1018,7 @@ i8.prototype.add = function add(that) { // assumes that is of an integer type.
         return new Add(this, that);
     if(!that.known)
         return that.add(this);
-    return i8(this._A + that._A);
+    return new i8(this._A + that._A);
 };
 i8.prototype.mul = function mul(that) { // assumes that is of an integer type.
     if(that.bitsof > 8 || that.bitsof == 8 && !that.signed) { // that.type > this.type
@@ -1030,7 +1030,7 @@ i8.prototype.mul = function mul(that) { // assumes that is of an integer type.
         return new Mul(this, that);
     if(!that.known)
         return that.mul(this);
-    return i8(this._A * that._A);
+    return new i8(this._A * that._A);
 };
 i8.prototype.div = function div(that) { // assumes that is of an integer type.
     if(that.bitsof > 8 || that.bitsof == 8 && !that.signed) { // that.type > this.type
@@ -1042,7 +1042,7 @@ i8.prototype.div = function div(that) { // assumes that is of an integer type.
         return new Div(this, that);
     if(!that.known)
         return that.div(this);
-    return i8(this._A / that._A);
+    return new i8(this._A / that._A);
 };
 i8.prototype.and = function and(that) { // assumes that is of an integer type.
     if(that.bitsof > 8 || that.bitsof == 8 && !that.signed) { // that.type > this.type
@@ -1054,7 +1054,7 @@ i8.prototype.and = function and(that) { // assumes that is of an integer type.
         return new And(this, that);
     if(!that.known)
         return that.and(this);
-    return i8(this._A & that._A);
+    return new i8(this._A & that._A);
 };
 i8.prototype.or = function or(that) { // assumes that is of an integer type.
     if(that.bitsof > 8 || that.bitsof == 8 && !that.signed) { // that.type > this.type
@@ -1066,7 +1066,7 @@ i8.prototype.or = function or(that) { // assumes that is of an integer type.
         return new Or(this, that);
     if(!that.known)
         return that.or(this);
-    return i8(this._A | that._A);
+    return new i8(this._A | that._A);
 };
 i8.prototype.xor = function xor(that) { // assumes that is of an integer type.
     if(that.bitsof > 8 || that.bitsof == 8 && !that.signed) { // that.type > this.type
@@ -1078,7 +1078,7 @@ i8.prototype.xor = function xor(that) { // assumes that is of an integer type.
         return new Xor(this, that);
     if(!that.known)
         return that.xor(this);
-    return i8(this._A ^ that._A);
+    return new i8(this._A ^ that._A);
 };
 i8.prototype.eq = function eq(that) { // assumes that is of an integer type.
     if(that.bitsof > 8 || that.bitsof == 8 && !that.signed) { // that.type > this.type
@@ -1090,29 +1090,29 @@ i8.prototype.eq = function eq(that) { // assumes that is of an integer type.
         return new Eq(this, that);
     if(!that.known)
         return that.eq(this);
-    return u1((this._A == that._A) & 1);
+    return new u1((this._A == that._A ? 1 : 0));
 };
 i8.prototype.lt = function lt(that) { // assumes that is of an integer type.
     if(that.bitsof > 8 || that.bitsof == 8 && !that.signed) { // that.type > this.type
         if(!this.known && that.known) // Unknown#lt
             return that.type(this).lt(that);
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
     }
     if(!this.known) // Unknown#lt
         return new Lt(this, that);
     if(!that.known)
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
-    return u1((this._A < that._A) & 1);
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
+    return new u1((this._A < that._A ? 1 : 0));
 };
 i8.prototype.shl = function shl(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shl
         return new Shl(this, that);
-    return i8(this._A << (that._A & 0x7));
+    return new i8(this._A << (that._A & 0x7));
 };
 i8.prototype.shr = function shr(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shr
         return new Shr(this, that);
-    return i8(this._A >> (that._A & 0x7));
+    return new i8(this._A >> (that._A & 0x7));
 };
 i8.prototype.rol = function rol(that) {
     return this.shl(that).or(this.shr(u8(8).sub(that)));
@@ -1126,7 +1126,7 @@ var u16 = uint[16] = exports.u16 = function u16(a) {
         return a;
     if(!(this instanceof u16))
         return new u16(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a & 0xffff;
     else if(a.known)
         this._A = a._A & 0xffff;
@@ -1167,7 +1167,7 @@ u16.prototype.mov = function mov(that) { // assumes that is of an integer type.
         return new Mov(this, that);
     if(!that.known)
         return that.mov(this);
-    return u16(this._A = (that._A & 0xffff));
+    return new u16(this._A = (that._A & 0xffff));
 };
 u16.prototype.add = function add(that) { // assumes that is of an integer type.
     if(that.bitsof > 16) { // that.type > this.type
@@ -1179,7 +1179,7 @@ u16.prototype.add = function add(that) { // assumes that is of an integer type.
         return new Add(this, that);
     if(!that.known)
         return that.add(this);
-    return u16(this._A + (that._A & 0xffff));
+    return new u16(this._A + (that._A & 0xffff));
 };
 u16.prototype.mul = function mul(that) { // assumes that is of an integer type.
     if(that.bitsof > 16) { // that.type > this.type
@@ -1191,7 +1191,7 @@ u16.prototype.mul = function mul(that) { // assumes that is of an integer type.
         return new Mul(this, that);
     if(!that.known)
         return that.mul(this);
-    return u16(this._A * (that._A & 0xffff));
+    return new u16(this._A * (that._A & 0xffff));
 };
 u16.prototype.div = function div(that) { // assumes that is of an integer type.
     if(that.bitsof > 16) { // that.type > this.type
@@ -1203,7 +1203,7 @@ u16.prototype.div = function div(that) { // assumes that is of an integer type.
         return new Div(this, that);
     if(!that.known)
         return that.div(this);
-    return u16(this._A / (that._A & 0xffff));
+    return new u16(this._A / (that._A & 0xffff));
 };
 u16.prototype.and = function and(that) { // assumes that is of an integer type.
     if(that.bitsof > 16) { // that.type > this.type
@@ -1215,7 +1215,7 @@ u16.prototype.and = function and(that) { // assumes that is of an integer type.
         return new And(this, that);
     if(!that.known)
         return that.and(this);
-    return u16(this._A & (that._A & 0xffff));
+    return new u16(this._A & (that._A & 0xffff));
 };
 u16.prototype.or = function or(that) { // assumes that is of an integer type.
     if(that.bitsof > 16) { // that.type > this.type
@@ -1227,7 +1227,7 @@ u16.prototype.or = function or(that) { // assumes that is of an integer type.
         return new Or(this, that);
     if(!that.known)
         return that.or(this);
-    return u16(this._A | (that._A & 0xffff));
+    return new u16(this._A | (that._A & 0xffff));
 };
 u16.prototype.xor = function xor(that) { // assumes that is of an integer type.
     if(that.bitsof > 16) { // that.type > this.type
@@ -1239,7 +1239,7 @@ u16.prototype.xor = function xor(that) { // assumes that is of an integer type.
         return new Xor(this, that);
     if(!that.known)
         return that.xor(this);
-    return u16(this._A ^ (that._A & 0xffff));
+    return new u16(this._A ^ (that._A & 0xffff));
 };
 u16.prototype.eq = function eq(that) { // assumes that is of an integer type.
     if(that.bitsof > 16) { // that.type > this.type
@@ -1251,29 +1251,29 @@ u16.prototype.eq = function eq(that) { // assumes that is of an integer type.
         return new Eq(this, that);
     if(!that.known)
         return that.eq(this);
-    return u1((this._A == (that._A & 0xffff)) & 1);
+    return new u1((this._A == (that._A & 0xffff) ? 1 : 0));
 };
 u16.prototype.lt = function lt(that) { // assumes that is of an integer type.
     if(that.bitsof > 16) { // that.type > this.type
         if(!this.known && that.known) // Unknown#lt
             return that.type(this).lt(that);
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
     }
     if(!this.known) // Unknown#lt
         return new Lt(this, that);
     if(!that.known)
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
-    return u1((this._A < (that._A & 0xffff)) & 1);
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
+    return new u1((this._A < (that._A & 0xffff) ? 1 : 0));
 };
 u16.prototype.shl = function shl(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shl
         return new Shl(this, that);
-    return u16(this._A << (that._A & 0xf));
+    return new u16(this._A << (that._A & 0xf));
 };
 u16.prototype.shr = function shr(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shr
         return new Shr(this, that);
-    return u16(this._A >>> (that._A & 0xf));
+    return new u16(this._A >>> (that._A & 0xf));
 };
 u16.prototype.rol = function rol(that) {
     return this.shl(that).or(this.shr(u8(16).sub(that)));
@@ -1287,7 +1287,7 @@ var i16 = int[16] = exports.i16 = function i16(a) {
         return a;
     if(!(this instanceof i16))
         return new i16(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a << 16 >> 16;
     else if(a.known)
         this._A = a._A << 16 >> 16;
@@ -1328,7 +1328,7 @@ i16.prototype.mov = function mov(that) { // assumes that is of an integer type.
         return new Mov(this, that);
     if(!that.known)
         return that.mov(this);
-    return i16(this._A = that._A);
+    return new i16(this._A = that._A);
 };
 i16.prototype.add = function add(that) { // assumes that is of an integer type.
     if(that.bitsof > 16 || that.bitsof == 16 && !that.signed) { // that.type > this.type
@@ -1340,7 +1340,7 @@ i16.prototype.add = function add(that) { // assumes that is of an integer type.
         return new Add(this, that);
     if(!that.known)
         return that.add(this);
-    return i16(this._A + that._A);
+    return new i16(this._A + that._A);
 };
 i16.prototype.mul = function mul(that) { // assumes that is of an integer type.
     if(that.bitsof > 16 || that.bitsof == 16 && !that.signed) { // that.type > this.type
@@ -1352,7 +1352,7 @@ i16.prototype.mul = function mul(that) { // assumes that is of an integer type.
         return new Mul(this, that);
     if(!that.known)
         return that.mul(this);
-    return i16(this._A * that._A);
+    return new i16(this._A * that._A);
 };
 i16.prototype.div = function div(that) { // assumes that is of an integer type.
     if(that.bitsof > 16 || that.bitsof == 16 && !that.signed) { // that.type > this.type
@@ -1364,7 +1364,7 @@ i16.prototype.div = function div(that) { // assumes that is of an integer type.
         return new Div(this, that);
     if(!that.known)
         return that.div(this);
-    return i16(this._A / that._A);
+    return new i16(this._A / that._A);
 };
 i16.prototype.and = function and(that) { // assumes that is of an integer type.
     if(that.bitsof > 16 || that.bitsof == 16 && !that.signed) { // that.type > this.type
@@ -1376,7 +1376,7 @@ i16.prototype.and = function and(that) { // assumes that is of an integer type.
         return new And(this, that);
     if(!that.known)
         return that.and(this);
-    return i16(this._A & that._A);
+    return new i16(this._A & that._A);
 };
 i16.prototype.or = function or(that) { // assumes that is of an integer type.
     if(that.bitsof > 16 || that.bitsof == 16 && !that.signed) { // that.type > this.type
@@ -1388,7 +1388,7 @@ i16.prototype.or = function or(that) { // assumes that is of an integer type.
         return new Or(this, that);
     if(!that.known)
         return that.or(this);
-    return i16(this._A | that._A);
+    return new i16(this._A | that._A);
 };
 i16.prototype.xor = function xor(that) { // assumes that is of an integer type.
     if(that.bitsof > 16 || that.bitsof == 16 && !that.signed) { // that.type > this.type
@@ -1400,7 +1400,7 @@ i16.prototype.xor = function xor(that) { // assumes that is of an integer type.
         return new Xor(this, that);
     if(!that.known)
         return that.xor(this);
-    return i16(this._A ^ that._A);
+    return new i16(this._A ^ that._A);
 };
 i16.prototype.eq = function eq(that) { // assumes that is of an integer type.
     if(that.bitsof > 16 || that.bitsof == 16 && !that.signed) { // that.type > this.type
@@ -1412,29 +1412,29 @@ i16.prototype.eq = function eq(that) { // assumes that is of an integer type.
         return new Eq(this, that);
     if(!that.known)
         return that.eq(this);
-    return u1((this._A == that._A) & 1);
+    return new u1((this._A == that._A ? 1 : 0));
 };
 i16.prototype.lt = function lt(that) { // assumes that is of an integer type.
     if(that.bitsof > 16 || that.bitsof == 16 && !that.signed) { // that.type > this.type
         if(!this.known && that.known) // Unknown#lt
             return that.type(this).lt(that);
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
     }
     if(!this.known) // Unknown#lt
         return new Lt(this, that);
     if(!that.known)
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
-    return u1((this._A < that._A) & 1);
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
+    return new u1((this._A < that._A ? 1 : 0));
 };
 i16.prototype.shl = function shl(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shl
         return new Shl(this, that);
-    return i16(this._A << (that._A & 0xf));
+    return new i16(this._A << (that._A & 0xf));
 };
 i16.prototype.shr = function shr(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shr
         return new Shr(this, that);
-    return i16(this._A >> (that._A & 0xf));
+    return new i16(this._A >> (that._A & 0xf));
 };
 i16.prototype.rol = function rol(that) {
     return this.shl(that).or(this.shr(u8(16).sub(that)));
@@ -1448,7 +1448,7 @@ var u32 = uint[32] = exports.u32 = function u32(a) {
         return a;
     if(!(this instanceof u32))
         return new u32(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a >>> 0;
     else if(a.known)
         this._A = a._A >>> 0;
@@ -1489,7 +1489,7 @@ u32.prototype.mov = function mov(that) { // assumes that is of an integer type.
         return new Mov(this, that);
     if(!that.known)
         return that.mov(this);
-    return u32(this._A = (that._A >>> 0));
+    return new u32(this._A = (that._A >>> 0));
 };
 u32.prototype.add = function add(that) { // assumes that is of an integer type.
     if(that.bitsof > 32) { // that.type > this.type
@@ -1501,7 +1501,7 @@ u32.prototype.add = function add(that) { // assumes that is of an integer type.
         return new Add(this, that);
     if(!that.known)
         return that.add(this);
-    return u32(this._A + (that._A >>> 0));
+    return new u32(this._A + (that._A >>> 0));
 };
 u32.prototype.mul = function mul(that) { // assumes that is of an integer type.
     if(that.bitsof > 32) { // that.type > this.type
@@ -1513,7 +1513,7 @@ u32.prototype.mul = function mul(that) { // assumes that is of an integer type.
         return new Mul(this, that);
     if(!that.known)
         return that.mul(this);
-    return u32(this._A * (that._A >>> 0));
+    return new u32(this._A * (that._A >>> 0));
 };
 u32.prototype.div = function div(that) { // assumes that is of an integer type.
     if(that.bitsof > 32) { // that.type > this.type
@@ -1525,7 +1525,7 @@ u32.prototype.div = function div(that) { // assumes that is of an integer type.
         return new Div(this, that);
     if(!that.known)
         return that.div(this);
-    return u32(this._A / (that._A >>> 0));
+    return new u32(this._A / (that._A >>> 0));
 };
 u32.prototype.and = function and(that) { // assumes that is of an integer type.
     if(that.bitsof > 32) { // that.type > this.type
@@ -1537,7 +1537,7 @@ u32.prototype.and = function and(that) { // assumes that is of an integer type.
         return new And(this, that);
     if(!that.known)
         return that.and(this);
-    return u32(this._A & (that._A >>> 0));
+    return new u32(this._A & (that._A >>> 0));
 };
 u32.prototype.or = function or(that) { // assumes that is of an integer type.
     if(that.bitsof > 32) { // that.type > this.type
@@ -1549,7 +1549,7 @@ u32.prototype.or = function or(that) { // assumes that is of an integer type.
         return new Or(this, that);
     if(!that.known)
         return that.or(this);
-    return u32(this._A | (that._A >>> 0));
+    return new u32(this._A | (that._A >>> 0));
 };
 u32.prototype.xor = function xor(that) { // assumes that is of an integer type.
     if(that.bitsof > 32) { // that.type > this.type
@@ -1561,7 +1561,7 @@ u32.prototype.xor = function xor(that) { // assumes that is of an integer type.
         return new Xor(this, that);
     if(!that.known)
         return that.xor(this);
-    return u32(this._A ^ (that._A >>> 0));
+    return new u32(this._A ^ (that._A >>> 0));
 };
 u32.prototype.eq = function eq(that) { // assumes that is of an integer type.
     if(that.bitsof > 32) { // that.type > this.type
@@ -1573,29 +1573,29 @@ u32.prototype.eq = function eq(that) { // assumes that is of an integer type.
         return new Eq(this, that);
     if(!that.known)
         return that.eq(this);
-    return u1((this._A == (that._A >>> 0)) & 1);
+    return new u1((this._A == (that._A >>> 0) ? 1 : 0));
 };
 u32.prototype.lt = function lt(that) { // assumes that is of an integer type.
     if(that.bitsof > 32) { // that.type > this.type
         if(!this.known && that.known) // Unknown#lt
             return that.type(this).lt(that);
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
     }
     if(!this.known) // Unknown#lt
         return new Lt(this, that);
     if(!that.known)
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
-    return u1((this._A < (that._A >>> 0)) & 1);
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
+    return new u1((this._A < (that._A >>> 0) ? 1 : 0));
 };
 u32.prototype.shl = function shl(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shl
         return new Shl(this, that);
-    return u32(this._A << (that._A & 0x1f));
+    return new u32(this._A << (that._A & 0x1f));
 };
 u32.prototype.shr = function shr(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shr
         return new Shr(this, that);
-    return u32(this._A >>> (that._A & 0x1f));
+    return new u32(this._A >>> (that._A & 0x1f));
 };
 u32.prototype.rol = function rol(that) {
     return this.shl(that).or(this.shr(u8(32).sub(that)));
@@ -1609,7 +1609,7 @@ var i32 = int[32] = exports.i32 = function i32(a) {
         return a;
     if(!(this instanceof i32))
         return new i32(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a >> 0;
     else if(a.known)
         this._A = a._A >> 0;
@@ -1650,7 +1650,7 @@ i32.prototype.mov = function mov(that) { // assumes that is of an integer type.
         return new Mov(this, that);
     if(!that.known)
         return that.mov(this);
-    return i32(this._A = that._A);
+    return new i32(this._A = that._A);
 };
 i32.prototype.add = function add(that) { // assumes that is of an integer type.
     if(that.bitsof > 32 || that.bitsof == 32 && !that.signed) { // that.type > this.type
@@ -1662,7 +1662,7 @@ i32.prototype.add = function add(that) { // assumes that is of an integer type.
         return new Add(this, that);
     if(!that.known)
         return that.add(this);
-    return i32(this._A + that._A);
+    return new i32(this._A + that._A);
 };
 i32.prototype.mul = function mul(that) { // assumes that is of an integer type.
     if(that.bitsof > 32 || that.bitsof == 32 && !that.signed) { // that.type > this.type
@@ -1674,7 +1674,7 @@ i32.prototype.mul = function mul(that) { // assumes that is of an integer type.
         return new Mul(this, that);
     if(!that.known)
         return that.mul(this);
-    return i32(this._A * that._A);
+    return new i32(this._A * that._A);
 };
 i32.prototype.div = function div(that) { // assumes that is of an integer type.
     if(that.bitsof > 32 || that.bitsof == 32 && !that.signed) { // that.type > this.type
@@ -1686,7 +1686,7 @@ i32.prototype.div = function div(that) { // assumes that is of an integer type.
         return new Div(this, that);
     if(!that.known)
         return that.div(this);
-    return i32(this._A / that._A);
+    return new i32(this._A / that._A);
 };
 i32.prototype.and = function and(that) { // assumes that is of an integer type.
     if(that.bitsof > 32 || that.bitsof == 32 && !that.signed) { // that.type > this.type
@@ -1698,7 +1698,7 @@ i32.prototype.and = function and(that) { // assumes that is of an integer type.
         return new And(this, that);
     if(!that.known)
         return that.and(this);
-    return i32(this._A & that._A);
+    return new i32(this._A & that._A);
 };
 i32.prototype.or = function or(that) { // assumes that is of an integer type.
     if(that.bitsof > 32 || that.bitsof == 32 && !that.signed) { // that.type > this.type
@@ -1710,7 +1710,7 @@ i32.prototype.or = function or(that) { // assumes that is of an integer type.
         return new Or(this, that);
     if(!that.known)
         return that.or(this);
-    return i32(this._A | that._A);
+    return new i32(this._A | that._A);
 };
 i32.prototype.xor = function xor(that) { // assumes that is of an integer type.
     if(that.bitsof > 32 || that.bitsof == 32 && !that.signed) { // that.type > this.type
@@ -1722,7 +1722,7 @@ i32.prototype.xor = function xor(that) { // assumes that is of an integer type.
         return new Xor(this, that);
     if(!that.known)
         return that.xor(this);
-    return i32(this._A ^ that._A);
+    return new i32(this._A ^ that._A);
 };
 i32.prototype.eq = function eq(that) { // assumes that is of an integer type.
     if(that.bitsof > 32 || that.bitsof == 32 && !that.signed) { // that.type > this.type
@@ -1734,29 +1734,29 @@ i32.prototype.eq = function eq(that) { // assumes that is of an integer type.
         return new Eq(this, that);
     if(!that.known)
         return that.eq(this);
-    return u1((this._A == that._A) & 1);
+    return new u1((this._A == that._A ? 1 : 0));
 };
 i32.prototype.lt = function lt(that) { // assumes that is of an integer type.
     if(that.bitsof > 32 || that.bitsof == 32 && !that.signed) { // that.type > this.type
         if(!this.known && that.known) // Unknown#lt
             return that.type(this).lt(that);
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
     }
     if(!this.known) // Unknown#lt
         return new Lt(this, that);
     if(!that.known)
-        return /*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not());
-    return u1((this._A < that._A) & 1);
+        return /*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not());
+    return new u1((this._A < that._A ? 1 : 0));
 };
 i32.prototype.shl = function shl(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shl
         return new Shl(this, that);
-    return i32(this._A << (that._A & 0x1f));
+    return new i32(this._A << (that._A & 0x1f));
 };
 i32.prototype.shr = function shr(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#shr
         return new Shr(this, that);
-    return i32(this._A >> (that._A & 0x1f));
+    return new i32(this._A >> (that._A & 0x1f));
 };
 i32.prototype.rol = function rol(that) {
     return this.shl(that).or(this.shr(u8(32).sub(that)));
@@ -1770,7 +1770,7 @@ var u64 = uint[64] = exports.u64 = function u64(a, b) {
         return a;
     if(!(this instanceof u64))
         return new u64(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a >>> 0;
     else if(a.known)
         this._A = a._A >>> 0;
@@ -1816,7 +1816,7 @@ var i64 = int[64] = exports.i64 = function i64(a, b) {
         return a;
     if(!(this instanceof i64))
         return new i64(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a >> 0;
     else if(a.known)
         this._A = a._A >> 0;
@@ -1862,7 +1862,7 @@ var u128 = uint[128] = exports.u128 = function u128(a, b, c, d) {
         return a;
     if(!(this instanceof u128))
         return new u128(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a >>> 0;
     else if(a.known)
         this._A = a._A >>> 0;
@@ -1908,7 +1908,7 @@ var i128 = int[128] = exports.i128 = function i128(a, b, c, d) {
         return a;
     if(!(this instanceof i128))
         return new i128(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a >> 0;
     else if(a.known)
         this._A = a._A >> 0;
@@ -1954,7 +1954,7 @@ var u256 = uint[256] = exports.u256 = function u256(a, b, c, d, e, f, g, h) {
         return a;
     if(!(this instanceof u256))
         return new u256(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a >>> 0;
     else if(a.known)
         this._A = a._A >>> 0;
@@ -2000,7 +2000,7 @@ var i256 = int[256] = exports.i256 = function i256(a, b, c, d, e, f, g, h) {
         return a;
     if(!(this instanceof i256))
         return new i256(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a >> 0;
     else if(a.known)
         this._A = a._A >> 0;

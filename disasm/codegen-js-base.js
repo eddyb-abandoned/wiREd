@@ -92,7 +92,7 @@ for(let fn in unaryOps) {
 
 for(let fn in binaryOps) {
     let op = binaryOps[fn], fnLower = fn.toLowerCase();
-    if(op == '<<' || op == '>>')
+    if(op === '<<' || op === '>>')
         code += `,
     ${fnLower}: function ${fnLower}(that) {
         return new ${fn}(this, that);
@@ -103,7 +103,7 @@ for(let fn in binaryOps) {
         if(that.bitsof > this.bitsof || that.bitsof == this.bitsof && that.signed < this.signed) { // that.type > this.type
             if(that.known)
                 return that.type(this).${fnLower}(that);
-            return ${op == '<' ? `/*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not())` : `that.${fnLower}(this)`};
+            return ${op === '<' ? `/*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not())` : `that.${fnLower}(this)`};
         }
         return new ${fn}(this, that);
     }`;
@@ -129,7 +129,7 @@ for(let fn in unaryOps) {
 
     code += `
 var ${fn} = exports.${fn} = function ${fn}(a) { // assumes !a.known.
-    if(a.op == '${op}') return a.a;
+    if(a.op === '${op}') return a.a;
     this.a = a;
     this.type = a.type;
     this.bitsof = a.bitsof;
@@ -145,12 +145,12 @@ Object.defineProperty(${fn}.prototype, 'value', {get: function() {
         return a.${fn.toLowerCase()}();
 }});
 ${fn}.prototype.inspect = function(_, p) {
-    ${op == '~' ? `if(this.bitsof == 1) {
-        if(this.a.op == '==') {
-            var expr = inspect(this.a.a, ${precendence['==']})+' != '+inspect(this.a.b, ${precendence['==']});
+    ${op === '~' ? `if(this.bitsof === 1) {
+        if(this.a.op === '==') {
+            var expr = inspect(this.a.a, ${precendence['==']})+' !== '+inspect(this.a.b, ${precendence['==']});
             return ${precendence['==']} <= p ? expr : '('+expr+')'
         }
-        if(this.a.op == '<') {
+        if(this.a.op === '<') {
             var expr = inspect(this.a.a, ${precendence['<']})+' >= '+inspect(this.a.b, ${precendence['<']});
             return ${precendence['<']} <= p ? expr : '('+expr+')'
         }
@@ -161,10 +161,10 @@ ${fn}.prototype.inspect = function(_, p) {
 }
 
 for(let fn in binaryOps) {
-    let op = binaryOps[fn], prec = precendence[op], logic = op == '==' || op == '<';
+    let op = binaryOps[fn], prec = precendence[op], logic = op === '==' || op === '<';
     let prologue = '', p = (...args)=>prologue += '\n    '+String.raw(...args);
 
-    if(op == '+' || op == '|' || op == '^' || op == '<<' || op == '>>' || op == '>>>')
+    if(op === '+' || op === '|' || op === '^' || op === '<<' || op === '>>' || op === '>>>')
         p`if(b.bitsof <= 32 && b._A === 0) /* HACK doesn't work > 32bits. */ return a;`;
     if(op == '&')
         p`if(b.bitsof <= 32 && b._A === 0) /* HACK doesn't work > 32bits. */ return a.type(0);`;
@@ -172,14 +172,14 @@ for(let fn in binaryOps) {
         p`if(a === b) return a.type(0);`;
     if(op == '&' || op == '|')
         p`if(a === b) return a;`;
-    if(op == '|' || op == '&')
+    if(op === '|' || op === '&')
         p`if(b.known && b.bitsof <= 32 && b._A === b.type(-1)._A) return ${op == '|' ? 'b' : 'a'};`;
     if(op == '+' || op == '|' || op == '^' || op == '&')
         p`if(a.op == '${op}' && a.b.known && b.known) return a.a.${fn.toLowerCase()}(a.b.${fn.toLowerCase()}(b));`;
     if(op == '+')
         p`if(a.op == '-' && a.a == b || b.op == '-' && b.a == a) return a.type(0);`;
 
-    if(op == '=')
+    if(op === '=')
         p`if(!(this instanceof ${fn})) return new ${fn}(a, b);`;
 
     code += `
@@ -195,20 +195,20 @@ ${fn}.prototype.constructor = ${fn};
 ${fn}.prototype.fn = '${fn}'; // TODO obsolete?
 ${fn}.prototype.op = '${op}';
 Object.defineProperty(${fn}.prototype, 'value', {get: function() {
-    var a = ${op == '=' ? 'l' : ''}valueof(this.a), b = valueof(this.b);
+    var a = ${op === '=' ? 'l' : ''}valueof(this.a), b = valueof(this.b);
     if(a !== this.a || b !== this.b)
-        return ${op == '=' ? `new ${fn}(a, b)` : `a.${fn.toLowerCase()}(b)`};
+        return ${op === '=' ? `new ${fn}(a, b)` : `a.${fn.toLowerCase()}(b)`};
 }});
 ${fn}.prototype.inspect = function(_, p) {
-    var a = this.a, b = this.b;${op == '=' || op == '+' ? `
+    var a = this.a, b = this.b;${op === '=' || op === '+' ? `
     var op = '${op}';
     ` : ''}${op == '+' ? `if(b.bitsof <= 32 && b._A < 0 && b._A != -1 << (b.bitsof-1)) { // HACK doesn't work > 32bits.
         op = '-';
         b = b.neg();
-    } else if(b.op == '-') {
+    } else if(b.op === '-') {
         op = '-';
         b = b.a;
-    }` : ''}${op == '=' ? `if(b.op && b.op != '=' && b.op != '<->' && b.op != '==' && b.op != '<' && b.op != '-' && b.op != '~' && (b.a === a || b.a.lvalue === a)) { // HACK the lvalue check might be costy.
+    }` : ''}${op === '=' ? `if(b.op && b.op !== '=' && b.op !== '<->' && b.op !== '==' && b.op !== '<' && b.op !== '-' && b.op !== '~' && (b.a === a || b.a.lvalue === a)) { // HACK the lvalue check might be costy.
         if(b.op == '+' && b.b.bitsof <= 32 && b.b._A < 0 && b.b._A != -1 << (b.b.bitsof-1)) { // HACK doesn't work > 32bits.
             op = '-=';
             b = b.b.neg();
@@ -268,7 +268,7 @@ var ${id} = ${signed ? '' : 'u'}int[${bits}] = exports.${id} = function ${id}(${
         return a;
     if(!(this instanceof ${id}))
         return new ${id}(a);
-    if(typeof a == 'number')
+    if(typeof a === 'number')
         this._A = a ${conv};
     else if(a.known)
         this._A = a._A ${conv};
@@ -305,16 +305,16 @@ ${id}.prototype.${fnLower} = function ${fnLower}() {
         }
 
         for(let fn in binaryOps) {
-            let op = binaryOps[fn], fnLower = fn.toLowerCase(), logic = op == '==' || op == '<';
+            let op = binaryOps[fn], fnLower = fn.toLowerCase(), logic = op === '==' || op === '<';
             if(bits > 32)
                 code += `
 ${id}.prototype.${fnLower} = Unknown.prototype.${fnLower};`;
-            else if(op == '<<' || op == '>>')
+            else if(op === '<<' || op === '>>')
                 code += `
 ${id}.prototype.${fnLower} = function ${fnLower}(that) { // assumes that is of an integer type.
     if(!this.known || !that.known) // Unknown#${fnLower}
         return new ${fn}(this, that);
-    return ${id}(this._A ${op == '>>' && !signed ? '>>>' : op} (that._A & 0x${(bits-1).toString(16)}));
+    return new ${id}(this._A ${op === '>>' && !signed ? '>>>' : op} (that._A & 0x${(bits-1).toString(16)}));
 };`;
             else
                 code += `
@@ -322,13 +322,13 @@ ${id}.prototype.${fnLower} = function ${fnLower}(that) { // assumes that is of a
     if(that.bitsof > ${bits}${signed ? ` || that.bitsof == ${bits} && !that.signed` : ''}) { // that.type > this.type
         if(!this.known && that.known) // Unknown#${fnLower}
             return that.type(this).${fnLower}(that);
-        return ${op == '<' ? `/*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not())` : `that.${fnLower}(this)`};
+        return ${op === '<' ? `/*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not())` : `that.${fnLower}(this)`};
     }
     if(!this.known) // Unknown#${fnLower}
         return new ${fn}(this, that);
     if(!that.known)
-        return ${op == '<' ? `/*HACK < is the only operator where a.op(b) != b.op(a) */ that.lt(this).not().and(that.eq(this).not())` : `that.${fnLower}(this)`};
-    return ${logic ? 'u1(' : id}(this._A ${op} ${signed ? `that._A` : `(that._A ${conv})`}${logic ? ') & 1' : ''});
+        return ${op === '<' ? `/*HACK < is the only non-commutative operator */ that.lt(this).not().and(that.eq(this).not())` : `that.${fnLower}(this)`};
+    return new ${logic ? 'u1(' : id}(this._A ${op} ${signed ? `that._A` : `(that._A ${conv})`}${logic ? ' ? 1 : 0)' : ''});
 };`;
         }
 

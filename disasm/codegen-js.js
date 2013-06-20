@@ -95,16 +95,16 @@ for(let fn in binaryOps) {
         this.a.touch && this.a.touch(...args);
         this.b.touch && this.b.touch(...args);
     }, code(bareRK=false) {
-        if(op == '=')
+        if(op === '=')
             return 'new '+fn+'('+this.a.code()+', '+this.b.code()+')';
         if(this.a.runtimeKnown && this.b.runtimeKnown) {
-            if(op == '<<' || op == '>>')
+            if(op === '<<' || op === '>>')
                 return this.type.wrap(this.a.code(true)+' '+(op == '>>' && !this.signed ? '>>>' : op)+' '+(this.b.known ? this.b.and(u8(this.bitsof-1)).code(true) : '('+this.b.code(true)+' & 0x'+(this.bitsof-1).toString(16)+')'), bareRK);
             return this.type.wrap(this.a.code(true)+' '+op+' '+this.b.code(true), bareRK);
         }
         return '(new '+fn+'('+this.a.code()+', '+this.b.code()+'))';
     }});
-    if(op != '==' && op != '<')
+    if(op !== '==' && op !== '<')
         Object.defineProperties($[fn].prototype, {
             ZF: {get() {
                 return op == '+' && this.b.fn == 'Neg' ? this.a.eq(this.b.a) : this.eq(this.type(0));
