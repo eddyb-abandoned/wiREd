@@ -819,29 +819,33 @@ let makeAnalyzer = arch => {
     };
 
     var symbols = [];
+    console.group('Symbols');
     bin.symbols.forEach(x => {
-        console.log('Symbol %s: fw=%s bind=%s type=%s addr=%s offset=%s size=%d ordinal=%d',
+        console.log('%s: fw=%s bind=%s type=%s addr=%s offset=%s size=%d ordinal=%d',
             x.name, x.forwarder, x.bind, x.type, (bin.baseAddress+x.rva).toString(16),
             x.offset.toString(16), x.size, x.ordinal);
         if(x.type == 'FUNC')
             symbols.push({name: x.name, addr: bin.baseAddress+x.rva});
     });
+    console.groupEnd();
     bin.entries.forEach(x => {
         console.log('Entry: addr=%s offset=%s', (bin.baseAddress+x.rva).toString(16), x.offset.toString(16));
         symbols.push({name: 'entry', addr: bin.baseAddress+x.rva});
     });
     if(!symbols.length)
         console.error('No usable symbols'), process.exit(1);
-    var t = process.hrtime(), decodedInstructions = 0, decodedBytes = 0;
     analyzer.on('Block.postOp', block => {
         decodedInstructions++;
         decodedBytes += block.PCnext - block.PC;
     });
-    process.on('exit', ()=>{
+
+    var t = process.hrtime(), decodedInstructions = 0, decodedBytes = 0;
+    'INT TERM HUP'.split(' ').forEach(x => process.on('SIG'+x, ()=>process.exit()));
+    process.once('exit', ()=>{
         t = process.hrtime(t);
-        console.log(`Decoded ${decodedInstructions} instructions (${(decodedBytes/1024).toFixed(2)}kB) in ${t[0]+t[1]/1e9}s`);
+        var ts = t[0]+t[1]/1e9;
+        console.log(`Decoded ${decodedInstructions} instructions (${(decodedBytes/1024).toFixed(2)}kB) in ${ts.toFixed(6)}s / ${(analyzer.codeBuffer.length/decodedBytes*ts).toFixed(6)}s`);
     });
-    process.on('SIGINT', ()=>process.exit());
     symbols.forEach(symbol => {
         let mainBlock = new analyzer.Block({start: symbol.addr});
         console.log('Analyzing '+symbol.name+'@'+symbol.addr.toString(16).padLeft(8, '0'));
