@@ -35,10 +35,6 @@ code += `
 
 var _inspect = (typeof require !== 'undefined' ? require('util').inspect : function(x) {/*HACK*/return JSON.stringify(x, 0, 2);});
 
-var known = exports.known = function known(x) {
-    return typeof x === 'number';
-}
-
 var bitsof = exports.bitsof = function bitsof(x) {
     if(typeof x === 'object' && 'bitsof' in x)
         return x.bitsof;
@@ -50,7 +46,7 @@ var sizeof = exports.sizeof = function sizeof(x) {
 }
 
 var valueof = exports.valueof = function valueof(x) {
-    if(known(x))
+    if(x.known)
         return x;
     var v = x.value;
     if(v === null || v === void 0)
