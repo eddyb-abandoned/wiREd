@@ -330,4 +330,10 @@ exports.paddingLength = function(b, i) {
     for(l = 0; i < b.length && (b[i] === 0x90 /*NOP*/ || b[i] === 0xCC /*INT3*/); i++, l++);
     return l;
 };
+exports.skipUnknownInstruction = function(b, i) {
+    // HACK skip the entire function, if possible.
+    var l;
+    for(l = 0; i < b.length && (i % 16 || b[i - 1] !== 0x90 /*NOP*/ && b[i - 1] !== 0xCC /*INT3*/); i++, l++);
+    return l;
+};
 `);
