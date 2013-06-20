@@ -55,6 +55,14 @@ let makeAnalyzer = arch => {
         }
     }
 
+    let numLinksCounters = [];
+    process.on('exit', ()=>{
+        console.group('Link counters');
+        numLinksCounters.forEach((x, i)=>{
+            console.log(i+'\t'+x);
+        });
+        console.groupEnd();
+    });
     class Block extends EventEmitter {
         constructor(options={}) {
             super();
@@ -64,6 +72,8 @@ let makeAnalyzer = arch => {
             this.stack = [{down: [], up: []}];
             this.stackMaxAccess = -Infinity;
             this.returnPoints = [];
+            this.functionBlocks = [this];
+            this.linkedFrom = [];
             this.R = {};
             this.R0 = {};
             for(let i in R) {
@@ -443,11 +453,15 @@ let makeAnalyzer = arch => {
                 target.retPC = this.retPC;
                 target.SP0 = this.SP0.slice();
                 target.returnPoints = this.returnPoints;
+                target.functionBlocks = this.functionBlocks;
+                target.functionBlocks.push(target);
+                target.linkedFrom.push(this);
                 target.stack = this.stack.map(x => ({down: x.down.slice(), up: x.up.slice()}));
                 for(let i in R) { // HACK forward the registers with a SP0-relative value (or things like function pointers).
-                    if(this.SPdiffAll(this.R[i].value)[1] !== null || R[i] != SP && this.R[i].value == this.R0[i] || this.R[i].value.fn == 'Function')
+                    // HACK forward everything, fix later if required.
+                    //if(this.SPdiffAll(this.R[i].value)[1] !== null || R[i] != SP && this.R[i].value == this.R0[i] || this.R[i].value.fn == 'Function')
                         ({value: target.R[i].value, nthValue: target.R[i].nthValue}) = this.R[i];
-                    if(R[i] != SP)
+                    if(R[i] !== SP)
                         target.R0[i] = this.R0[i];
                 }
             }
@@ -458,6 +472,10 @@ let makeAnalyzer = arch => {
                 if(newTarget.returnPoints !== this.returnPoints)
                     for(let x in newTarget.returnPoints)
                         this.addReturnPoint(x);
+                if(newTarget.functionBlocks !== this.functionBlocks)
+                    console.error('Warning: jumped to block of different function');
+                else
+                    newTarget.linkedFrom.push(this);
             }
             this.restoreContext();
             if(newTarget.inProgress && savesPC) {
@@ -471,6 +489,28 @@ let makeAnalyzer = arch => {
                 }
             }
             return newTarget;
+        }
+
+        finalize() {
+            if(this.functionBlocks[0] !== this) // HACK, detects first analyzed block in a function.
+                return;
+            for(let block of this.functionBlocks) {
+                let nLinks = block.linkedFrom.length;
+                numLinksCounters[nLinks] = (numLinksCounters[nLinks] || 0) + 1;
+
+                // Cleanup local details, not required anymore.
+                if(block !== this)
+                    ;//delete block.R0;
+                if(this.returnPoints.indexOf(block) === -1) {
+                    if(block !== this)
+                        ;//delete block.SP0;
+                    //delete block.R;
+                    //delete block.stack;
+                } else {
+                    //block.SP0 = [block.SP0[0]];
+                    //block.stack = [{up: block.stack[0].up, down: []}];
+                }
+            }
         }
     };
 
@@ -606,6 +646,7 @@ let makeAnalyzer = arch => {
             }
             this.decoder = this.decoderGenerator = null;
             block.saveContext();
+            block.finalize();
             block.inProgress = false;
             yield;
         }
