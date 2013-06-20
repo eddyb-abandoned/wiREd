@@ -717,24 +717,29 @@ let makeAnalyzer = arch => {
             return asm.mdisassemble(buffer, buffer.length).buf_asm;
         };
 
-    let sections = [], codeSection;
+    let sections = [], codeSections = [];
     bin.sections.forEach(x => {
-        x = {name: x.name, addr: bin.baseAddress+x.rva, offset: x.offset, size: x.size, srwx: x.srwx};
+        x = {name: x.name, addr: bin.baseAddress+x.rva, end: bin.baseAddress+x.rva+x.vsize, offset: x.offset, size: x.size, srwx: x.srwx};
         sections.push(x);
         if(x.srwx & 1) {
-            //if(codeSection || !x.size)
-            //    console.error('Ignoring code section '+x.name);
-            //else
-                codeSection = x;
+            if(codeSections.length && codeSections[codeSections.length - 1] !== sections[sections.length - 2]) {
+                console.error('Code section', x.name, 'not immediately after', codeSections[codeSections.length - 1].name);
+                codeSections = [];
+            }
+            codeSections.push(x);
         }
     });
-    if(!codeSection)
-        throw new Error('No code section');
-    analyzer.codeBuffer = bin.buffer.slice(codeSection.offset, codeSection.offset+codeSection.size);
-    analyzer.codeBase = arch.PCbase = codeSection.addr;
+    if(!codeSections.length)
+        throw new Error('No code section found');
+    analyzer.codeBuffer = new Buffer(codeSections[codeSections.length - 1].end - codeSections[0].addr);
+    analyzer.codeBuffer.fill();
+    for(let {addr, offset, size} of codeSections)
+        bin.buffer.slice(offset, offset + size).copy(analyzer.codeBuffer, addr - codeSections[0].addr);
+
+    analyzer.codeBase = arch.PCbase = codeSections[0].addr;
 
     for(let x of entries) {
-        x.offset = x.rva-codeSection.addr+codeSection.offset;
+        x.offset = x.rva-codeSections[0].addr+codeSections[0].offset; // HACK find the actual section. then agian, offset isn't required by anything.
         x.rva -= bin.baseAddress;
     }
 
