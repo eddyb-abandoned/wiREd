@@ -107,10 +107,10 @@ for(let fn in binaryOps) {
     if(op !== '==' && op !== '<')
         Object.defineProperties($[fn].prototype, {
             ZF: {get() {
-                return op == '+' && this.b.fn == 'Neg' ? this.a.eq(this.b.a) : this.eq(this.type(0));
+                return op == '+' && this.b.fn == 'Neg' ? this.a.eq(this.b.a) : this.eq(new this.type(0));
             }},
             NF: {get() {
-                return op == '+' && this.b.fn == 'Neg' ? this.a.lt(this.b.a) : this.lt(this.type(0));
+                return op == '+' && this.b.fn == 'Neg' ? this.a.lt(this.b.a) : this.lt(new this.type(0));
             }},
             CF: {get() {
                 return op == '+' && this.b.fn == 'Neg' ? unsigned(this.a).lt(unsigned(this.b.a)) : $.u1(0);
@@ -166,8 +166,7 @@ for(let bits of bitSizes) {
         let dwords = 'abcdefgh'.slice(0, Math.ceil(bits / 32)).split('');
         if(bits <= 32) { // TODO
             rk($[id], x => x.known || x._A.runtimeKnown);
-            // HACK setting $[id].prototype.type.wrap required because type is $[id].bind(null).
-            $[id].wrap = $[id].prototype.type.wrap = (x, bare)=>(bare ? '(('+x+') '+conv+')' : 'new '+id+'('+x+')');
+            $[id].wrap = (x, bare)=>(bare ? '(('+x+') '+conv+')' : 'new '+id+'('+x+')');
         }
         methods($[id], {touch(...args) {
             this._A.touch && this._A.touch(...args);

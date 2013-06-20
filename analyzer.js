@@ -276,7 +276,7 @@ let makeAnalyzer = arch => {
                                 throw new Error(inspect(R[i])+' differs '+inspect(x.SP0[j])+' + '+diff+' ('+inspect(x.start)+') vs '+inspect(SP0)+' + '+SPdiff+', from '+inspect(this.start)+' for '+inspect(targetBlock.start));
                         }
                         if(SP0) {
-                            this.op(valueof(Mov(R[i], SP0.add(SP.type(SPdiff)))));
+                            this.op(valueof(Mov(R[i], SP0.add(new SP.type(SPdiff)))));
                             updatedR.push(i);
                             //console.log('<-', R[i], '=', R[i].value, '//', inspect(targetBlock.returnPoints[0].R[i].value));
                         }
@@ -392,7 +392,7 @@ let makeAnalyzer = arch => {
 
                     if(isTailJump) { // FIXME duplicated code.
                         console.error('Assuming callee cleans the stack ('+(j-i)+')');
-                        target.SP.value = target.SP.value.add(SP.type(j-i));
+                        target.SP.value = target.SP.value.add(new SP.type(j-i));
 
                         // HACK this fakes a return following the current instruction.
                         this.returns = true;
@@ -410,7 +410,7 @@ let makeAnalyzer = arch => {
                                 return;
                         }
                         console.error('Assuming callee cleans the stack ('+(j-i)+')');
-                        this.op(valueof(Mov(SP, SP.add(SP.type(j-i)))));
+                        this.op(valueof(Mov(SP, SP.add(new SP.type(j-i)))));
                     });
 
                     return target;
@@ -571,7 +571,7 @@ let makeAnalyzer = arch => {
                         block.linkIf = block.getJumpTarget(targetPC);
                         console.groupEnd();
                         console.group('else');
-                        block.link = block.getJumpTarget(PC.type(block.PCnext));
+                        block.link = block.getJumpTarget(new PC.type(block.PCnext));
                         console.groupEnd();
                         this.decoder = this.decoderGenerator = null;
                         block.saveContext();
