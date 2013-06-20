@@ -110,14 +110,16 @@ export class Disasm {
                 return s;
             };
             ct = niceCT(ct);
+            // HACK remove leading variable bits (which are actually tailing variable bytes).
+            ct = ct.replace(/^x+/, '');
             var ctMask = ct.replace(/[01]/g, 'K');
             this.totals += 100/Math.pow(2, ctMask.split('').reduce((a, b)=>a+(b=='K'), 0));
             if(!this.maps[ctMask])
                 this.maps[ctMask] = {$ct: ct};
             else
-                this.maps[ctMask].$ct = this.maps[ctMask].$ct.split('').map((x, i)=>x==ct[i]?x:'K').join('');
+                this.maps[ctMask].$ct = this.maps[ctMask].$ct.split('').map((x, i)=> x === ct[i] ? x : 'K').join('');
             this.maps[ctMask][ct] = res;
-            console.log.apply(console, [ct+':'].concat(res));
+            console.log(ct+':', ...res);
         }
         var vals = [], isUnfiltered = [];
         vals.byName = {};
@@ -144,9 +146,9 @@ export class Disasm {
                 return b.length - a.length;
             var len = a.length, extraA = 0, extraB = 0;
             for(var i = 0; i < len; i++) {
-                var ak = a[i] < 2, bk = b[i] < 2;
-                if(ak && bk && a[i] != b[i])
-                    return a[i]-b[i];
+                var ak = a[i] <= 2, bk = b[i] <= 2;
+                if(a[i] < 2 && b[i] < 2 && a[i] !== b[i])
+                    return a[i] - b[i];
                 if(ak && !bk)
                     extraA++;
                 if(!ak && bk)
@@ -162,7 +164,7 @@ export class Disasm {
         });
         var code = '';
         mapKeys.forEach(([v])=>{
-            var ct = v.$ct, cond = '';
+            var ct = v.$ct, cond = '';// '\n// '+ct;
             var cstart = 0, cend = 0;
             var cmask = ct.replace(/^[^01]+/, s => {cstart += s.length; return '';}).replace(/[^01]+$/, s => {cend += s.length; return '';});
             if(cmask.length) {
@@ -170,25 +172,30 @@ export class Disasm {
 
                 console.log(ct.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'));
                 var cval = '0x'+parseInt(ct.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'), 2).toString(16);
-                cond = '\nif(('+cmask+') == '+cval+')';
+                cond += '\nif(('+cmask+') === '+cval+')';
             }
 
             cstart = cend = 0;
             var mask = ct.replace(/^[^K]+/, s => {cstart += s.length; return '';}).replace(/[^K]+$/, s => {cend += s.length; return '';});
             mask = parseInt(mask.replace(/[^K]/g,'0').replace(/K/g,'1'), 2);
 
-            var val = mask ? Var(' ', cend, ct.length-cend-cstart).code(true)+' & 0x'+mask.toString(16) : '0';
-
-            code += cond+'\nswitch('+val+') {\n';
             console.log('  \''+ct.replace(/K/g,'#').replace(/x/g,'_')+'\': {');
-            for(var j in v)
-                if(j !== '$ct') {
-                    console.log('    \''+j+'\': ', v[j]);
-                    val = '0x'+(parseInt(j.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'), 2) & mask).toString(16);
-                    code += '\tcase '+val+': return '+codegen.makeResult(v[j])+';\n';
+            var cases = [];
+            for(var i in v)
+                if(i !== '$ct') {
+                    console.log('    \''+i+'\': ', v[i]);
+                    cases.push([parseInt(i.slice(cstart, ct.length-cend).replace(/[^01]/g,'0'), 2) & mask,  codegen.makeResult(v[i])/*+'; // '+i*/]);
                 }
             console.log('  }');
-            code += '}\n';
+
+            if(cases.length === 1 && cases[0][0] === 0 && cond)
+                code += cond+'\n\treturn '+cases[0][1]+';\n';
+            else {
+                var val = mask ? Var(' ', cend, ct.length-cend-cstart).code(true)+' & 0x'+mask.toString(16) : '0';
+                code += cond+'\nswitch('+val+') {\n';
+                code += cases.sort(([a], [b]) => a - b).map(([i, x]) => '\tcase 0x'+i.toString(16)+': return '+x+';').join('\n');
+                code += '\n}\n';
+            }
         });
         code = codegen.prologue()+code;
         console.log('}\n');
