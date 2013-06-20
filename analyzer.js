@@ -612,12 +612,13 @@ let makeAnalyzer = arch => {
                         console.groupEnd();
                         this.decoder = this.decoderGenerator = null;
                         block.saveContext();
+                        block.finalize();
                         block.inProgress = false;
-                        yield;
+                        return;
                     }
-                    block.op(v);
 
                     s = inspect(v)+' // '+s;
+                    block.op(v);
 
                     if(j)
                         s = (j==r.length-1?'└':'├').padLeft(13+bytes*2).padRight(31, '─')+s;
@@ -648,7 +649,6 @@ let makeAnalyzer = arch => {
             block.saveContext();
             block.finalize();
             block.inProgress = false;
-            yield;
         }
     });
 };
