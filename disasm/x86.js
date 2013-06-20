@@ -1,7 +1,7 @@
 var fs = require('fs');
 
 import {Disasm, codegen} from 'Disasm.js';
-const {Mov, Register, Mem, If, FnCall, Nop, Interrupt, int, uint, signed, unsigned, i8, i32, u1, u8, u32} = codegen.$;
+const {sizeof, Mov, Register, Mem, If, FnCall, Nop, Interrupt, int, uint, signed, unsigned, i8, i16, i32, i64, u1, u8, u32} = codegen.$;
 
 const x86 = new Disasm, x86_pfxOperandSize = new Disasm;
 
@@ -162,8 +162,8 @@ let NEG = (x, v=x.neg())=>[Mov(F.C, v.CF || u1(0)), Mov(x, v)/*HACK out-of-order
 let CMP = (a, b, v=a.sub(b))=>[Mov(F.Z, v.ZF || v.eq(u8(0))), Mov(F.C, v.CF || u1(0))]; // FIXME all teh flags.
 let SUB = (a, b, v=a.sub(b))=>[Mov(F.Z, v.ZF || v.eq(u8(0))), Mov(F.C, v.CF || u1(0)), Mov(a, v)/*HACK out-of-order so the updated value isn't used*/]; // FIXME all teh flags.
 let TEST = (a, b, v=a.and(b))=>[Mov(F.Z, v.ZF || v.eq(u8(0))), Mov(F.C, u1(0)), Mov(F.O, u1(0))]; // FIXME all teh flags.
-let PUSH = x => [Mov(R.ESP, R.ESP.sub(u8(x.bitsof/8))), Mov(Mem[x.bitsof](R.ESP), x)];
-let POP =  x => [Mov(x, Mem[x.bitsof](R.ESP)), Mov(R.ESP, R.ESP.add(u8(x.bitsof/8)))];
+let PUSH = x => [Mov(R.ESP, R.ESP.sub(u8(sizeof(x)))), Mov(Mem[x.bitsof](R.ESP), x)];
+let POP =  x => [Mov(x, Mem[x.bitsof](R.ESP)), Mov(R.ESP, R.ESP.add(u8(sizeof(x))))];
 let INT = Interrupt;
 let JMPN = j => Mov(R.EIP, j), CALLN = (EIP, j)=>[...PUSH(EIP), Mov(R.EIP, j)];
 let MOVSX = (a, b)=>Mov(a, int[a.bitsof](b));
