@@ -168,6 +168,8 @@ let INT = Interrupt;
 let JMPN = j => Mov(R.EIP, j), CALLN = (EIP, j)=>[...PUSH(EIP), Mov(R.EIP, j)];
 let MOVSX = (a, b)=>Mov(a, int[a.bitsof](b));
 let XCHG = (a, b, t=new Register[a.bitsof])=>[Mov(t, a), Mov(a, b), Mov(b, t)];
+let LoadSS = (ss, x, m) => [Mov(ss, Mem[ss.bitsof](m)), Mov(x, Mem[x.bitsof](m.add(u8(sizeof(ss)))))];
+let bool = x => x.eq(i8(0)).not(); // HACK
 
 /// One-byte opcodes.
 ///\00-0F
@@ -224,6 +226,7 @@ _`90:`(Nop);
 _`91:rAX rCX;rAX rDX;rAX rBX;rAX rSP;rAX rBP;rAX rSI;rAX rDI`(XCHG);
 _`98:rAX AX`((a, b)=>Mov(a, int[a.bitsof](b)));
 _`99:rDX rAX`((a, b)=>Mov(a, int[a.bitsof](b.lt(i8(0))).neg()));
+_`9A:J Iw Iz`((j, a, b) => [...PUSH(R.CS), Mov(R.CS, a), ...CALLN(j, b)]);
 _`9C:Fv`(PUSH);
 _`9D:Fv`(POP);
 
@@ -231,6 +234,7 @@ _`9D:Fv`(POP);
 // TODO more opcodes.
 _`A0:AL Ob;rAX Ov;Ob AL;Ov rAX`(Mov);
 _`A4:Xb Yb;Xv Yv`(Mov); // FIXME MOVS.
+_`A6:Xb Yb;Xv Yv`(CMP); // FIXME CMPS.
 _`A8:AL Ib;rAX Iz`(TEST);
 _`AA:Yb AL;Yv rAX`(Mov); // FIXME STOS.
 _`AC:AL Xb;rAX Xv`(Mov); // FIXME LDOS.
@@ -244,9 +248,12 @@ _`B8:rAX Iv;rCX Iv;rDX Iv;rBX Iv;rSP Iv;rBP Iv;rSI Iv;rDI Iv`(Mov);
 // TODO more opcodes.
 _`C2:Iw`(x => [...POP(R.EIP), Mov(R.ESP, R.ESP.add(x))]);/*f64*/
 _`C3:`(x => POP(R.EIP));/*f64*/
+_`C4:ES Gz M;DS Gz M`(LoadSS);
 _`C6:reg=0:Eb Ib;Ev Iz`(Mov);
+_`C8:Iw Ib`((a, b, lvl=b.and(u8(31)), t=new Register[R.ESP.bitsof])=>[...PUSH(R.EBP), Mov(t, R.ESP), If(lvl.lt(u8(2)).not(), FnCall('ENTER.loop', lvl /*TODO*/)), If(lvl.lt(u8(2)).not(), Mov(R.EBP, R.EBP.sub(lvl.sub(u8(2)).shl(u8(2))/*.mul(4)*/))), ...PUSH(t).map(x => If(bool(lvl), x)), Mov(R.EBP, t), Mov(R.ESP, R.ESP.sub(a))]);
 _`C9:`(()=>[Mov(R.ESP, R.EBP), ...POP(R.EBP)]);
 _`CC:`(()=>INT(u8(3)));
+_`CE:`(()=>If(F.O, INT(u8(4))));
 
 ///\D0-DF
 // TODO more opcodes (escape to FPU).
@@ -263,10 +270,15 @@ _`E1:eCX Jb`((count, j)=>[DEC(count), If(count.eq(count.type(0)).not().and(F.Z),
 _`E2:eCX Jb`((count, j)=>[DEC(count), If(count.eq(count.type(0)).not(), JMPN(j))]);
 _`E8:J Jz`(CALLN);/*f64*/
 _`E9:Jz`(JMPN);/*f64*/
+_`EA:eIP Iw Iz`((eIP, a, b) => [Mov(R.CS, a), Mov(eIP, b)]);
 _`EB:Jb`(JMPN);/*f64*/
+_`EC:AL DX;eAX DX`((a, b)=>Mov(a, FnCall('INPORT', b)));
+_`EE:DX AL;DX eAX`((a, b)=>FnCall('OUTPORT', a, b));
 
 ///\F0-FF
 // TODO more opcodes.
+_`F1:`(()=>INT(u8(1))); // Undocumented by Intel.
+_`F4:`(()=>FnCall('HLT'));
 _`F6:reg=0:Eb Ib;Ev Iz`(TEST);
 [NOT, NEG, /*MUL IMUL DIV IDIV AL/rAX*/].map((fn, i)=>_`F6:reg=${i+2}:Eb;Ev`(fn));
 _`F6:reg=4:AX AL Eb;EAX EAX Ev`((d, s1, s2)=>Mov(d, s1.mul(s2))); // FIXME EDX:EAX.
@@ -281,13 +293,15 @@ _`FC:`(()=>Mov(F.D, u1(0))); _`FD:`(()=>Mov(F.D, u1(1)));
 _`FF:reg=6:Ev`(PUSH);/*d64*/
 
 /// Two-byte opcodes.
+///\0F40-0F4F
+Object.keys(Cond).map((x, i)=>_`Gv Ev`([0x0F, 0x40+i], (a, b)=>If(Cond[x], Mov(a, b))));
+
 ///\0F80-0F8F
 Object.keys(Cond).map((x, i)=>_`Jz`([0x0F, 0x80+i], j => If(Cond[x], Mov(R.EIP, j))));
 
 ///\0F90-0F9F
 Object.keys(Cond).map((x, i)=>_`Eb`([0x0F, 0x90+i], a => Mov(a, Cond[x])));
 
-let bool = x => x.eq(i8(0)).not(); // HACK
 ///\0FA0-0FAF
 _`0FA2:`(()=>FnCall('CPUID', R.EAX, R.EBX, R.ECX, R.EDX)); // FIXME CPUID
 _`0FA3:Ev Gv`((a, b)=>Mov(F.C, bool(a.and(uint[a.bitsof](1).shl(b)))));
