@@ -2080,7 +2080,7 @@ Register1.prototype.constructor = Register1;
 Register1.prototype.name = '<1>';
 Register1.prototype.nthValue = -1;
 Register1.prototype.inspect = function() {
-    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
+    return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
 var Register8 = Register[8] = exports.Register8 = function Register8(name) {
     if(!(this instanceof Register8))
@@ -2111,7 +2111,7 @@ Register8.prototype.constructor = Register8;
 Register8.prototype.name = '<8>';
 Register8.prototype.nthValue = -1;
 Register8.prototype.inspect = function() {
-    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
+    return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
 var Register16 = Register[16] = exports.Register16 = function Register16(name) {
     if(!(this instanceof Register16))
@@ -2142,7 +2142,7 @@ Register16.prototype.constructor = Register16;
 Register16.prototype.name = '<16>';
 Register16.prototype.nthValue = -1;
 Register16.prototype.inspect = function() {
-    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
+    return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
 var Register32 = Register[32] = exports.Register32 = function Register32(name) {
     if(!(this instanceof Register32))
@@ -2173,7 +2173,7 @@ Register32.prototype.constructor = Register32;
 Register32.prototype.name = '<32>';
 Register32.prototype.nthValue = -1;
 Register32.prototype.inspect = function() {
-    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
+    return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
 var Register64 = Register[64] = exports.Register64 = function Register64(name) {
     if(!(this instanceof Register64))
@@ -2204,7 +2204,38 @@ Register64.prototype.constructor = Register64;
 Register64.prototype.name = '<64>';
 Register64.prototype.nthValue = -1;
 Register64.prototype.inspect = function() {
-    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
+    return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
+};
+var Register80 = Register[80] = exports.Register80 = function Register80(name) {
+    if(!(this instanceof Register80))
+        return new Register80(name);
+    var self = this;
+    if(name !== undefined)
+        this.name = name;
+    this.lvalue = {
+        inspect: function() {
+            return self.name + self.nthValue.toSubString();
+        },
+        freeze: function(v) {
+            var frozenName = self.name + (self.nthValue++).toSubString();
+            self.value = new Unknown(80);
+            self.value.frozenValue = v;
+            self.value.inspect = function() {return frozenName;};
+        },
+        get value() {
+            return self.value;
+        },
+        set value(v) {
+            self.value = v;
+        }
+    };
+}
+Register80.prototype = new Unknown(80);
+Register80.prototype.constructor = Register80;
+Register80.prototype.name = '<80>';
+Register80.prototype.nthValue = -1;
+Register80.prototype.inspect = function() {
+    return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
 var Register128 = Register[128] = exports.Register128 = function Register128(name) {
     if(!(this instanceof Register128))
@@ -2235,7 +2266,7 @@ Register128.prototype.constructor = Register128;
 Register128.prototype.name = '<128>';
 Register128.prototype.nthValue = -1;
 Register128.prototype.inspect = function() {
-    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
+    return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
 var Register256 = Register[256] = exports.Register256 = function Register256(name) {
     if(!(this instanceof Register256))
@@ -2266,15 +2297,15 @@ Register256.prototype.constructor = Register256;
 Register256.prototype.name = '<256>';
 Register256.prototype.nthValue = -1;
 Register256.prototype.inspect = function() {
-    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
+    return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
 var Mem = exports.Mem = {};
 Mem.read = function(address, bits) {
-    if(process.env.DEBUG_MEM)
+    if(/*process.env.DEBUG_MEM*/false)
         console.error('Non-implemented Mem read ['+inspect(address)+']'+bits);
 };
 Mem.write = function(address, bits, value) {
-    if(process.env.DEBUG_MEM)
+    if(/*process.env.DEBUG_MEM*/false)
         console.error('Non-implemented Mem write ['+inspect(address)+']'+bits+' = '+inspect(value));
 };
 var Mem1 = Mem[1] = exports.Mem1 = function Mem1(addr) {
@@ -2430,6 +2461,37 @@ Object.defineProperties(Mem64.prototype, {
 });
 Mem64.prototype.inspect = function() {
     return '['+inspect(this.addr)+']64';
+};
+
+var Mem80 = Mem[80] = exports.Mem80 = function Mem80(addr) {
+    if(!(this instanceof Mem80))
+        return new Mem80(addr);
+    this.addr = addr;
+};
+Mem80.prototype = new Unknown(80);
+Mem80.prototype.constructor = Mem80;
+Mem80.prototype.fn = 'Mem';
+Object.defineProperties(Mem80.prototype, {
+    lvalue: {
+        get: function() {
+            var v = valueof(this.addr);
+            if(v !== this.addr) return Mem80(v);
+        }
+    },
+    value: {
+        get: function() {
+            var v = valueof(this.addr), m = Mem.read(v, 80);
+            if(m !== null && m !== void 0)
+                return m;
+            if(v !== this.addr) return Mem80(v);
+        },
+        set: function(v) {
+            return Mem.write(this.addr, 80, v);
+        }
+    }
+});
+Mem80.prototype.inspect = function() {
+    return '['+inspect(this.addr)+']80';
 };
 
 var Mem128 = Mem[128] = exports.Mem128 = function Mem128(addr) {

@@ -118,7 +118,7 @@ for(let fn in binaryOps) {
         });
 }
 
-for(let bits of bitSizes) {
+for(let bits of storageBitSizes) {
     methods($['Register'+bits], {code() {
         if(typeof this.name === 'string' && this.name[0] != '<') // HACK ignore automated <${bits}> names.
             return 'R'+bits+'.'+this.name;
@@ -130,7 +130,7 @@ for(let bits of bitSizes) {
     }});
 }
 
-for(let bits of bitSizes) {
+for(let bits of storageBitSizes) {
     methods($['Mem'+bits], {touch(...args) {
         this.addr.touch && this.addr.touch(...args);
     }, code() {
@@ -158,7 +158,7 @@ let makeLiteral = x => {
     return (x < 0 ? '-' : '')+(h.length > d.length ? d : h);
 };
 
-for(let bits of bitSizes) {
+for(let bits of intBitSizes) {
     for(let signed of [false, true]) {
         let id = (signed ? 'i' : 'u')+bits; // FIXME duplicated from codegen-js-base.js.
         let conv = signed ? (bits >= 32 ? '>> 0' : '<< '+(32-bits)+' >> '+(32-bits))

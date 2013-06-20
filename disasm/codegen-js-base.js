@@ -27,7 +27,8 @@ export const binaryOps = {
 
     '=':13,
     ',':14
-}, bitSizes = [1, 8, 16, 32, 64, 128, 256];
+}, intBitSizes = [1, 8, 16, 32, 64, 128, 256],
+storageBitSizes = [1, 8, 16, 32, 64, 80, 128, 256];
 
 export var code = '';
 
@@ -258,7 +259,7 @@ var unsigned = exports.unsigned = function(x) {
 `;
 
 // TODO implement operations and inspection for bits > 32.
-for(let bits of bitSizes) {
+for(let bits of intBitSizes) {
     for(let signed of [false, true]) {
         let id = (signed ? 'i' : 'u')+bits, dwords = 'abcdefgh'.slice(0, Math.ceil(bits / 32)).split('');
         let conv = signed ? (bits >= 32 ? '>> 0' : '<< '+(32-bits)+' >> '+(32-bits))
@@ -348,7 +349,7 @@ ${id}.prototype.ror = function ror(that) {
 // Register*.
 code += `
 var Register = exports.Register = [];`;
-for(let bits of bitSizes) {
+for(let bits of storageBitSizes) {
     code += `
 var Register${bits} = Register[${bits}] = exports.Register${bits} = function Register${bits}(name) {
     if(!(this instanceof Register${bits}))
@@ -379,7 +380,7 @@ Register${bits}.prototype.constructor = Register${bits};
 Register${bits}.prototype.name = '<${bits}>';
 Register${bits}.prototype.nthValue = -1;
 Register${bits}.prototype.inspect = function() {
-    return typeof this.name === 'string' ? this.name : '(R)'+inspect(this.name);
+    return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };`;
 }
 
@@ -387,14 +388,14 @@ Register${bits}.prototype.inspect = function() {
 code += `
 var Mem = exports.Mem = {};
 Mem.read = function(address, bits) {
-    if(process.env.DEBUG_MEM)
+    if(/*process.env.DEBUG_MEM*/false)
         console.error('Non-implemented Mem read ['+inspect(address)+']'+bits);
 };
 Mem.write = function(address, bits, value) {
-    if(process.env.DEBUG_MEM)
+    if(/*process.env.DEBUG_MEM*/false)
         console.error('Non-implemented Mem write ['+inspect(address)+']'+bits+' = '+inspect(value));
 };`;
-for(let bits of bitSizes) {
+for(let bits of storageBitSizes) {
     code += `
 var Mem${bits} = Mem[${bits}] = exports.Mem${bits} = function Mem${bits}(addr) {
     if(!(this instanceof Mem${bits}))
