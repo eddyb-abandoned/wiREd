@@ -53,7 +53,7 @@ const _op = (b, extra, def, fn, pfxOperandSize=false, archBits=32)=>{
 
         c: pfxOperandSize ? 8 : 16,
         v: operandSize,
-        z: Math.max(operandSize, 32)
+        z: Math.min(operandSize, 32)
     };
     var hasModRM = 0, modRM, immIdx, immLengthBias = 0, byteLen, imm = [], ctReg = false, reg = 'Reg';
     for(var [name, value] of extra)
@@ -131,7 +131,7 @@ const _op = (b, extra, def, fn, pfxOperandSize=false, archBits=32)=>{
         applySIB('00');
         applySIB('01', ['Disp____'], 1, (x, disp8)=>x.add(signed(disp8)));
         applySIB('10', ['Disp____________________________'], 1, (x, disp32)=>x.add(signed(disp32)));
-        op(['00'+reg+'101', 'Disp____________________________'], 1, (bits, disp32)=>Mem[bits](disp32));
+        op(['00'+reg+'101', 'Disp____________________________'], 1, (bits, disp32)=>Mem[bits](unsigned(disp32)));
         if(hasModRM & 2)
             op(['11'+reg+'Rm_'], 1, (bits, RM)=>R(RM, bits));
     }
@@ -151,7 +151,7 @@ const _ = (_s, ...args)=>(base, fn=base)=>{
         b.splice(-1, 1, b[b.length-1]+i);
         b = b.map(x => x.toBinary(8));
         def = def ? def.split(' ') : [];
-        if(def.some(x => /^[EI][acpvz]$/.test(x))) // Operand Size prefix.
+        if(def.some(x => /^([EI][acpvz]|[re]([ABCD]X|[SBI]P|[SD]I))$/.test(x))) // Operand Size prefix.
             _op(b, extra, def, fn, true);
         _op(b, extra, def, fn);
     });
