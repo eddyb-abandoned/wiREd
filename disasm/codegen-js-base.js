@@ -434,21 +434,30 @@ code += `
 var Register = exports.Register = [];`;
 for(let bits of storageBitSizes) {
     code += `
+function RegisterFrozen${bits}(name, value, type) {
+    this.name = name;
+    this.frozenValue = value;
+    this.type = type;
+}
+RegisterFrozen${bits}.prototype = new Unknown(${bits});
+RegisterFrozen${bits}.prototype.constructor = RegisterFrozen${bits};
+RegisterFrozen${bits}.prototype.inspect = function() {
+    return this.name;
+};
 var Register${bits} = Register[${bits}] = exports.Register${bits} = function Register${bits}(name) {
     if(!(this instanceof Register${bits}))
         return new Register${bits}(name);
     var self = this;
     if(name !== undefined)
         this.name = name;
+    else
+        name = this.name;
     this.lvalue = {
         inspect: function() {
-            return self.name + self.nthValue.toSubString();
+            return name + self.nthValue.toSubString();
         },
         freeze: function(v) {
-            var frozenName = self.name + (self.nthValue++).toSubString();
-            self.value = new Unknown(${bits});
-            self.value.frozenValue = v;
-            self.value.inspect = function() {return frozenName;};
+            self.value = new RegisterFrozen${bits}(name + (self.nthValue++).toSubString(), v, self.type);
         },
         get value() {
             return self.value;
