@@ -59,15 +59,11 @@ let makeAnalyzer = arch => {
         constructor(options={}) {
             super();
 
-            this.setMaxListeners(64);
+            //this.setMaxListeners(64);
 
             this.stack = [{down: [], up: []}];
             this.stackMaxAccess = -Infinity;
             this.returnPoints = [];
-            this.on('returnPoint', x => {
-                if(this.returnPoints.indexOf(x) === -1)
-                    this.returnPoints.push(x);
-            });
             this.R = {};
             this.R0 = {};
             for(let i in R) {
@@ -88,6 +84,10 @@ let makeAnalyzer = arch => {
                 this[i] = options[i];
         }
 
+        addReturnPoint(x) {
+            if(this.returnPoints.indexOf(x) === -1)
+                this.returnPoints.push(x);
+        }
         saveContext() {
             for(let i in R) {
                 this.R[i] = {nthValue: R[i].nthValue, value: R[i].value};
@@ -172,13 +172,12 @@ let makeAnalyzer = arch => {
         }
 
         preOp(x) {
-            this.emit('preOp', x);
+            this.emit('preOp', x); // FIXME required by getJumpTarget to detect stack cleaning by callee.
             PC.value = uint[PC.bitsof](this.PC); // HACK
             this.PCwritten = false;
         }
 
         op(x) {
-            this.emit('op', x);
             if(x.op == '=') {
                 if(x.a == PC.lvalue) // HACK
                     this.PCwritten = true;
@@ -206,7 +205,6 @@ let makeAnalyzer = arch => {
         }
 
         postOp() {
-            this.emit('postOp');
             if(this.PCwritten && !eq(PC.value, this.PCnext)) {
                 console.log('-->', inspect(PC.value));
                 let targetBlock = this.getJumpTarget(PC.value);
@@ -348,7 +346,7 @@ let makeAnalyzer = arch => {
             if(!newPC.known) {
                 let isTailJump = !savesPC && this.SP0.length == 1 && this.SPdiff(valueof(SP)) == 0;
                 if(newPC == this.retPC) {
-                    this.emit('returnPoint', this);
+                    this.addReturnPoint(this);
                     return this.retPC;
                 } else if(newPC.fn == 'Function') { // HACK required for imported functions.
                     let target = newPC.block;
@@ -360,7 +358,7 @@ let makeAnalyzer = arch => {
                         console.error('Tail-jumping to function -> '+inspect(newPC));
                         // HACK this fakes a return following the current instruction.
                         this.returns = true;
-                        this.emit('returnPoint', this); // FIXME could cause problem with some deferred block processing.
+                        this.addReturnPoint(this);
                         // HACK this makes savesPC true in postOp().
                         this.PCnext = this.retPC;
                         return target;
@@ -370,7 +368,7 @@ let makeAnalyzer = arch => {
                     console.error('Unknown '+(savesPC?'call':'tail-jump')+', assuming arguments');
                     let target = new Block({returns: true});
                     target.SP.value = target.SP0[0].add(i8(sizeof(PC)));
-                    target.returnPoints.push(target);
+                    target.addReturnPoint(target);
 
                     let stack = this.stack[this.stack.length-1].down, i = this.SPdiff(valueof(SP)) + sizeof(PC), j = i, k = 0, pc = this.PC;
                     while(j < 0) {
@@ -395,7 +393,7 @@ let makeAnalyzer = arch => {
 
                         // HACK this fakes a return following the current instruction.
                         this.returns = true;
-                        this.emit('returnPoint', this); // FIXME could cause problem with some deferred block processing.
+                        this.addReturnPoint(this);
                         // HACK this makes savesPC true in postOp().
                         this.PCnext = this.retPC;
                         return target;
@@ -436,15 +434,15 @@ let makeAnalyzer = arch => {
             this.saveContext();
             if(savesPC)
                 console.group('0x'+newPC.toString(16).padLeft(8, '0'));
-            let target = new Block({start: newPC}), returnPoint = x => this.emit('returnPoint', x);
+            let target = new Block({start: newPC});
             if(savesPC) {
                 target.restoreContext();
                 target.op(valueof(Mov(returnPC, target.retPC)));
                 target.saveContext();
             } else {
-                target.on('returnPoint', returnPoint);
                 target.retPC = this.retPC;
                 target.SP0 = this.SP0.slice();
+                target.returnPoints = this.returnPoints;
                 target.stack = this.stack.map(x => ({down: x.down.slice(), up: x.up.slice()}));
                 for(let i in R) { // HACK forward the registers with a SP0-relative value (or things like function pointers).
                     if(this.SPdiffAll(this.R[i].value)[1] !== null || R[i] != SP && this.R[i].value == this.R0[i] || this.R[i].value.fn == 'Function')
@@ -456,19 +454,19 @@ let makeAnalyzer = arch => {
             let newTarget = analyzer.getBlock(target);
             if(savesPC)
                 console.groupEnd();
-            else {
-                target.removeListener('returnPoint', returnPoint);
-                if(newTarget != target)
-                    newTarget.returnPoints.forEach(returnPoint);
+            else if(newTarget !== target) {
+                if(newTarget.returnPoints !== this.returnPoints)
+                    for(let x in newTarget.returnPoints)
+                        this.addReturnPoint(x);
             }
             this.restoreContext();
             if(newTarget.inProgress && savesPC) {
                 console.error(`Got inProgress block, with ${newTarget.returnPoints.length} return points`);
                 if(!newTarget.returnPoints.length) {
-                    newTarget.once('returnPoint', ()=>{
+                    /*newTarget.once('returnPoint', ()=>{
                         if(this.decoder)
                             this.decoder();
-                    });
+                    });*/ // HACK
                     throw new AnalysisPauseError('no return points');
                 }
             }
@@ -734,7 +732,6 @@ let makeAnalyzer = arch => {
                 else
                     args = args.split(',').length*4; // HACK Assuming 32bit arguments.
                 x.block = new analyzer.Block({returns: true, stackMaxAccess: 4+args});
-                x.block.emit('returnPoint', x.block);
                 if(bin.arch == 'x86') {
                     let argVals = [];
                     for(let i = 0; i < args; i += 4) { // HACK Assuming 32bit arguments.
