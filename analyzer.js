@@ -108,12 +108,13 @@ let makeAnalyzer = arch => {
         }
 
         SPdiffAll(SP) {
-            for(let i = this.SP0.length-1; i >= 0; i--) {
-                let diff = this.SPdiff(SP, this.SP0[i]);
-                if(diff !== null)
-                    return [i, diff];
+            let diff = 0;
+            if(SP.op == '+' && SP.b.known && SP.b.bitsof <= 32) { // HACK
+                diff = SP.b._A;
+                SP = SP.a;
             }
-            return [-1, null];
+            let i = this.SP0.lastIndexOf(SP);
+            return [i, i === -1 ? null : diff];
         }
 
         readStack(pos, bits, stack=this.stack[this.stack.length-1], bytes=bits/8) {
