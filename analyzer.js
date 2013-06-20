@@ -13,23 +13,21 @@ String.prototype.padRight = function padRight(n, p) {
     return s;
 };
 
-Number.prototype.toSubString = function toSubString(...args) {
-    return this.toString(...args).replace(/[0-9]/g, function(x) {
-        return String.fromCharCode('₀'.charCodeAt()+(+x));
-    });
+Number.prototype.toSubString = function toSubString() {
+    if(this < 10)
+        return '₀₁₂₃₄₅₆₇₈₉'[this];
+    return this.toString().replace(/[0-9]/g, x => '₀₁₂₃₄₅₆₇₈₉'[x]);
 };
-Number.prototype.toSupString = function toSupString(...args) {
-    return this.toString(...args).replace(/1/g, '¹').replace(/2/g, '²').replace(/3/g, '³').replace(/[04-9]/g, function(x) {
-        return String.fromCharCode('⁰'.charCodeAt()+(+x));
-    }).replace(/[a-z]/g, function(x) {
+Number.prototype.toSupString = function toSupString(base) {
+    return this.toString(base).replace(/[0-9]/g, x => '⁰¹²³⁴⁵⁶⁷⁸⁹'[x]).replace(/[a-z]/g, function(x) {
         return 'ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖqʳˢᵗᵘᵛʷˣʸᶻ'[x.charCodeAt()-'a'.charCodeAt()];
     });
 };
 
 {
     let util = require('util'), oldFormat = util.format, indent = '';
-    util.format = function(...args) {
-        return oldFormat.apply(this, args).replace(/(?:^|\n)/g, '$&'+indent);
+    util.format = function() {
+        return oldFormat.apply(this, arguments).replace(/(?:^|\n)/g, '$&'+indent);
     };
 
     console.group = name => {
@@ -74,13 +72,14 @@ let makeAnalyzer = arch => {
             this.R0 = {};
             for(let i in R) {
                 this.R0[i] = new Unknown(R[i].bitsof);
-                this.R0[i].inspect = ()=>inspect(R[i])+'₀'/*+(this.start||0).toSupString(16)*/;
                 this.R[i] = {nthValue: 1, value: this.R0[i]};
 
                 if(R[i] == SP) {
                     this.SP0 = [this.R0[i]];
                     this.SP = this.R[i];
                 }
+                let name = inspect(R[i])+(0).toSubString()/*+(this.start||0).toSupString(16)*/;
+                this.R0[i].inspect = ()=>name;
             }
             this.retPC = new Unknown(PC.bitsof);
             this.retPC.inspect = ()=>'ret'+inspect(PC);
@@ -217,7 +216,7 @@ let makeAnalyzer = arch => {
                         throw new Error('Not returning from a function call'/*+inspect(targetBlock)*/);
 
                     // HACK mark touched args so they don't get reused.
-                    let {stackMaxAccess} = targetBlock.returnPoints.reduce((a, b)=>({stackMaxAccess: Math.max(a.stackMaxAccess, b.stackMaxAccess)}));
+                    let stackMaxAccess = targetBlock.returnPoints.reduce((a, b)=>Math.max(a, b.stackMaxAccess), 0);
                     for(let diff = this.SPdiff(SP), stack = this.stack[this.stack.length-1].down, i = diff; i < diff+stackMaxAccess; i++)
                         if(stack[~i] && stack[~i].canBeArg)
                             stack[~i].canBeArg = false;
@@ -227,10 +226,10 @@ let makeAnalyzer = arch => {
                     {
                         let initial = [];
                         for(let i in R) {
-                            if(R[i].value == this.R0[i])
-                                initial.push(inspect(R[i]));
-                            else
-                                /*console.log('->', R[i], '=', R[i].value)*/;
+                            //if(R[i].value == this.R0[i])
+                            //    initial.push(inspect(R[i]));
+                            //else
+                            //    /*console.log('->', R[i], '=', R[i].value)*/;
                             changedR0[i] = targetBlock.R0[i].value;
                             targetBlock.R0[i].value = R[i].value;
                         }
