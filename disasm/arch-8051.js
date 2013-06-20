@@ -520,11 +520,10 @@ u1.prototype.type = u1;
 u1.prototype._A = 0;
 u1.prototype.bitsof = 1;
 u1.prototype.signed = false;
-u1.prototype.inspect = function() {
+u1.prototype.inspect = function(_, p) {
     if(this.known)
-        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(process.env.DEBUG_INT ? 'ub' : '');
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'u1('+a+')' : a;
+        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 'ub' : '');
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== u1) ? 'u1('+inspect(this._A)+')' : inspect(this._A, p);
 };
 u1.prototype.not = function not() {
     if(!this.known) // Unknown#not
@@ -681,11 +680,10 @@ i1.prototype.type = i1;
 i1.prototype._A = 0;
 i1.prototype.bitsof = 1;
 i1.prototype.signed = true;
-i1.prototype.inspect = function() {
+i1.prototype.inspect = function(_, p) {
     if(this.known)
-        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(process.env.DEBUG_INT ? 'b' : '');
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'i1('+a+')' : a;
+        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 'b' : '');
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== i1) ? 'i1('+inspect(this._A)+')' : inspect(this._A, p);
 };
 i1.prototype.not = function not() {
     if(!this.known) // Unknown#not
@@ -842,11 +840,10 @@ u8.prototype.type = u8;
 u8.prototype._A = 0;
 u8.prototype.bitsof = 8;
 u8.prototype.signed = false;
-u8.prototype.inspect = function() {
+u8.prototype.inspect = function(_, p) {
     if(this.known)
-        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(process.env.DEBUG_INT ? 'uc' : '');
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'u8('+a+')' : a;
+        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 'uc' : '');
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== u8) ? 'u8('+inspect(this._A)+')' : inspect(this._A, p);
 };
 u8.prototype.not = function not() {
     if(!this.known) // Unknown#not
@@ -1003,11 +1000,10 @@ i8.prototype.type = i8;
 i8.prototype._A = 0;
 i8.prototype.bitsof = 8;
 i8.prototype.signed = true;
-i8.prototype.inspect = function() {
+i8.prototype.inspect = function(_, p) {
     if(this.known)
-        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(process.env.DEBUG_INT ? 'c' : '');
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'i8('+a+')' : a;
+        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 'c' : '');
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== i8) ? 'i8('+inspect(this._A)+')' : inspect(this._A, p);
 };
 i8.prototype.not = function not() {
     if(!this.known) // Unknown#not
@@ -1164,11 +1160,10 @@ u16.prototype.type = u16;
 u16.prototype._A = 0;
 u16.prototype.bitsof = 16;
 u16.prototype.signed = false;
-u16.prototype.inspect = function() {
+u16.prototype.inspect = function(_, p) {
     if(this.known)
-        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(process.env.DEBUG_INT ? 'us' : '');
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'u16('+a+')' : a;
+        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 'us' : '');
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== u16) ? 'u16('+inspect(this._A)+')' : inspect(this._A, p);
 };
 u16.prototype.not = function not() {
     if(!this.known) // Unknown#not
@@ -1325,11 +1320,10 @@ i16.prototype.type = i16;
 i16.prototype._A = 0;
 i16.prototype.bitsof = 16;
 i16.prototype.signed = true;
-i16.prototype.inspect = function() {
+i16.prototype.inspect = function(_, p) {
     if(this.known)
-        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(process.env.DEBUG_INT ? 's' : '');
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'i16('+a+')' : a;
+        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 's' : '');
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== i16) ? 'i16('+inspect(this._A)+')' : inspect(this._A, p);
 };
 i16.prototype.not = function not() {
     if(!this.known) // Unknown#not
@@ -1486,11 +1480,10 @@ u32.prototype.type = u32;
 u32.prototype._A = 0;
 u32.prototype.bitsof = 32;
 u32.prototype.signed = false;
-u32.prototype.inspect = function() {
+u32.prototype.inspect = function(_, p) {
     if(this.known)
-        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(process.env.DEBUG_INT ? 'u' : '');
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'u32('+a+')' : a;
+        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 'u' : '');
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== u32) ? 'u32('+inspect(this._A)+')' : inspect(this._A, p);
 };
 u32.prototype.not = function not() {
     if(!this.known) // Unknown#not
@@ -1647,11 +1640,10 @@ i32.prototype.type = i32;
 i32.prototype._A = 0;
 i32.prototype.bitsof = 32;
 i32.prototype.signed = true;
-i32.prototype.inspect = function() {
+i32.prototype.inspect = function(_, p) {
     if(this.known)
-        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(process.env.DEBUG_INT ? '' : '');
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'i32('+a+')' : a;
+        return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? '' : '');
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== i32) ? 'i32('+inspect(this._A)+')' : inspect(this._A, p);
 };
 i32.prototype.not = function not() {
     if(!this.known) // Unknown#not
@@ -1808,11 +1800,10 @@ u64.prototype.type = u64;
 u64.prototype._A = u64.prototype._B = 0;
 u64.prototype.bitsof = 64;
 u64.prototype.signed = false;
-u64.prototype.inspect = function() {
+u64.prototype.inspect = function(_, p) {
     if(this.known)
         return 'u64('+this._A+', '+this._B+')';
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'u64('+a+')' : a;
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== u64) ? 'u64('+inspect(this._A)+')' : inspect(this._A, p);
 };
 u64.prototype.not = Unknown.prototype.not;
 u64.prototype.neg = Unknown.prototype.neg;
@@ -1854,11 +1845,10 @@ i64.prototype.type = i64;
 i64.prototype._A = i64.prototype._B = 0;
 i64.prototype.bitsof = 64;
 i64.prototype.signed = true;
-i64.prototype.inspect = function() {
+i64.prototype.inspect = function(_, p) {
     if(this.known)
         return 'i64('+this._A+', '+this._B+')';
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'i64('+a+')' : a;
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== i64) ? 'i64('+inspect(this._A)+')' : inspect(this._A, p);
 };
 i64.prototype.not = Unknown.prototype.not;
 i64.prototype.neg = Unknown.prototype.neg;
@@ -1900,11 +1890,10 @@ u128.prototype.type = u128;
 u128.prototype._A = u128.prototype._B = u128.prototype._C = u128.prototype._D = 0;
 u128.prototype.bitsof = 128;
 u128.prototype.signed = false;
-u128.prototype.inspect = function() {
+u128.prototype.inspect = function(_, p) {
     if(this.known)
         return 'u128('+this._A+', '+this._B+', '+this._C+', '+this._D+')';
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'u128('+a+')' : a;
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== u128) ? 'u128('+inspect(this._A)+')' : inspect(this._A, p);
 };
 u128.prototype.not = Unknown.prototype.not;
 u128.prototype.neg = Unknown.prototype.neg;
@@ -1946,11 +1935,10 @@ i128.prototype.type = i128;
 i128.prototype._A = i128.prototype._B = i128.prototype._C = i128.prototype._D = 0;
 i128.prototype.bitsof = 128;
 i128.prototype.signed = true;
-i128.prototype.inspect = function() {
+i128.prototype.inspect = function(_, p) {
     if(this.known)
         return 'i128('+this._A+', '+this._B+', '+this._C+', '+this._D+')';
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'i128('+a+')' : a;
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== i128) ? 'i128('+inspect(this._A)+')' : inspect(this._A, p);
 };
 i128.prototype.not = Unknown.prototype.not;
 i128.prototype.neg = Unknown.prototype.neg;
@@ -1992,11 +1980,10 @@ u256.prototype.type = u256;
 u256.prototype._A = u256.prototype._B = u256.prototype._C = u256.prototype._D = u256.prototype._E = u256.prototype._F = u256.prototype._G = u256.prototype._H = 0;
 u256.prototype.bitsof = 256;
 u256.prototype.signed = false;
-u256.prototype.inspect = function() {
+u256.prototype.inspect = function(_, p) {
     if(this.known)
         return 'u256('+this._A+', '+this._B+', '+this._C+', '+this._D+', '+this._E+', '+this._F+', '+this._G+', '+this._H+')';
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'u256('+a+')' : a;
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== u256) ? 'u256('+inspect(this._A)+')' : inspect(this._A, p);
 };
 u256.prototype.not = Unknown.prototype.not;
 u256.prototype.neg = Unknown.prototype.neg;
@@ -2038,11 +2025,10 @@ i256.prototype.type = i256;
 i256.prototype._A = i256.prototype._B = i256.prototype._C = i256.prototype._D = i256.prototype._E = i256.prototype._F = i256.prototype._G = i256.prototype._H = 0;
 i256.prototype.bitsof = 256;
 i256.prototype.signed = true;
-i256.prototype.inspect = function() {
+i256.prototype.inspect = function(_, p) {
     if(this.known)
         return 'i256('+this._A+', '+this._B+', '+this._C+', '+this._D+', '+this._E+', '+this._F+', '+this._G+', '+this._H+')';
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? 'i256('+a+')' : a;
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== i256) ? 'i256('+inspect(this._A)+')' : inspect(this._A, p);
 };
 i256.prototype.not = Unknown.prototype.not;
 i256.prototype.neg = Unknown.prototype.neg;

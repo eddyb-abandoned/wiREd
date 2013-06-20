@@ -286,11 +286,10 @@ ${id}.prototype.type = ${id};
 ${dwords.map(x => id+'.prototype._'+x.toUpperCase()).join(' = ')} = 0;
 ${id}.prototype.bitsof = ${bits};
 ${id}.prototype.signed = ${signed};
-${id}.prototype.inspect = function() {
+${id}.prototype.inspect = function(_, p) {
     if(this.known)
-        return ${bits <= 32 ? (/*signed ? `this._A` : */`(this._A >= 48 ? '0x'+this._A.toString(16) : this._A)`)+`+(process.env.DEBUG_INT ? '${signed ? '' : 'u'}${suffix}' : '')` : `'${id}('+`+dwords.map(x => 'this._'+x.toUpperCase()).join(`+', '+`)+`+')'`};
-    var a = inspect(this._A);
-    return (process.env.DEBUG_INT || this._A instanceof Integer || this._A instanceof Unknown) ? '${id}('+a+')' : a;
+        return ${bits <= 32 ? (/*signed ? `this._A` : */`(this._A >= 48 ? '0x'+this._A.toString(16) : this._A)`)+`+(/*process.env.DEBUG_INT*/false ? '${signed ? '' : 'u'}${suffix}' : '')` : `'${id}('+`+dwords.map(x => 'this._'+x.toUpperCase()).join(`+', '+`)+`+')'`};
+    return (/*process.env.DEBUG_INT*/false || (this._A instanceof Integer || this._A instanceof Unknown) && this._A.type !== ${id}) ? '${id}('+inspect(this._A)+')' : inspect(this._A, p);
 };`;
 
         for(let fn in unaryOps) {
