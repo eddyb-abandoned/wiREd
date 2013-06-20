@@ -84,7 +84,7 @@ for(let fn in unaryOps) {
     }, code(bareRK=false) {
         if(this.a.runtimeKnown)
             return this.type.wrap(op+this.a.code(true), bareRK);
-        return this.a.code()+'.'+fn.toLowerCase()+'()';
+        return '(new '+fn+'('+this.a.code()+'))';
     }});
 }
 
@@ -102,7 +102,7 @@ for(let fn in binaryOps) {
                 return this.type.wrap(this.a.code(true)+' '+(op == '>>' && !this.signed ? '>>>' : op)+' '+(this.b.known ? this.b.and(u8(this.bitsof-1)).code(true) : '('+this.b.code(true)+' & 0x'+(this.bitsof-1).toString(16)+')'), bareRK);
             return this.type.wrap(this.a.code(true)+' '+op+' '+this.b.code(true), bareRK);
         }
-        return this.a.code()+'.'+fn.toLowerCase()+'('+this.b.code()+')';
+        return '(new '+fn+'('+this.a.code()+', '+this.b.code()+'))';
     }});
     if(op != '==' && op != '<')
         Object.defineProperties($[fn].prototype, {
