@@ -47,4 +47,4 @@ clean:
 
 # Platform.
 platform/windows.h: platform/windows.h.in
-	@${CC} -I/usr/include/wine/windows -Ideps/mingw-w64/mingw-w64-{crt/include,headers/{crt,include}} -m32 -E -P "$<" | sed 's/\s*#pragma.*//' > "$@"
+	@${CC} -I/usr/include/wine/windows -Ideps/mingw-w64/mingw-w64-{crt/include,headers/{crt,include}} -m32 -E -P -x c "$<" | sed 's/\s*#pragma.*//' > "$@"
