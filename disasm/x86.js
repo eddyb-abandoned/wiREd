@@ -1,14 +1,14 @@
 var fs = require('fs');
 
 import {Disasm, codegen} from 'Disasm.js';
-const {sizeof, Mov, Register, Mem, If, FnCall, Nop, Interrupt, int, uint, signed, unsigned, i8, i16, i32, i64, u1, u8, u32} = codegen.$;
+const {sizeof, Mov, Register, Mem, If, FnCall, Nop, Interrupt, int, uint, signed, unsigned, i8, i16, i32, i64, u1, u8, u32, f32, f64, f80} = codegen.$;
 
 const x86 = new Disasm, x86_pfxOperandSize = new Disasm;
 
 const R = (reg, bits=32, type)=>new Register[bits](type ? u8(R.offsets[type]).add(u8(reg)) : u8(reg));
 const F = f => R(f, 1);
-R.offsets = {S: 16, FLAGS: 32};
-x86.pushRuntime`var R = exports.R = {}, R1 = [], R8 = [], R16 = [], R32 = [];`;
+R.offsets = {S: 16, FLAGS: 32, x87: 48};
+x86.pushRuntime`var R = exports.R = {}, R1 = [], R8 = [], R16 = [], R32 = [], R80 = [];`;
 {
     let r = (name, reg, bits=32, type)=>{
         x86.pushRuntime`R.${name} = R${bits}[${type ? R.offsets[type]+reg : reg}] = new Register${bits}('${name}');`;
@@ -32,6 +32,24 @@ x86.pushRuntime`var R = exports.R = {}, R1 = [], R8 = [], R16 = [], R32 = [];`;
     'OCZSPVDI'.split('').forEach((x,i)=>{
         F[x] = r(x+'F', i, 1);
     });
+
+    // x87 register "stack".
+    for(let i = 0; i < 8; i++) {
+        r('ST'+i, i, 80);
+        R['ST'+i].type = f80; // HACK
+        x86.pushRuntime`R80[${i}].type = f80;`; // HACK
+    }
+    R.ST = i => {
+        let r = R(i, 80);
+        r.type = f80; // HACK
+        return r;
+    };
+    // x87 status word.
+    r('SW', 0, 16, 'x87');
+    for(let i = 0; i < 4; i++)
+        r('C'+i, i, 1, 'x87');
+    // x87 control word.
+    r('CW', 1, 16, 'x87');
 }
 
 const Cond = {
@@ -60,7 +78,7 @@ const _op = (b, extra, def, fn, pfxOperandSize=false, archBits=32)=>{
         if(name === 'reg')
             ctReg = true, reg = (+value).toBinary(3);
     var args = def.map(x => {
-        if(/^[RE]?([ABCD]X|[SBI]P|[SD]I)|[ABCD][HL]|[ECSDFSG]S$/.test(x))
+        if(/^([RE]?([ABCD]X|[SBI]P|[SD]I)|[ABCD][HL]|[ECSDFSG]S|ST[0-7])$/.test(x))
             return ()=>R[x];
         if(/^[re]([ABCD]X|[SBI]P|[SD]I)$/.test(x))
             return ()=>R[(archBits == 32 ? 'E' : (archBits == 64 ? x[0].toUpperCase() : '')) + x.slice(1)];
@@ -76,6 +94,9 @@ const _op = (b, extra, def, fn, pfxOperandSize=false, archBits=32)=>{
         switch(kind) {
         case 'E':
             hasModRM = 3;
+            return (...args)=>modRM(bits, ...args.slice(ctReg?0:1));
+        case 'M':
+            hasModRM = 1;
             return (...args)=>modRM(bits, ...args.slice(ctReg?0:1));
         case 'G':
             hasModRM = 3;
@@ -255,13 +276,100 @@ _`C9:`(()=>[Mov(R.ESP, R.EBP), ...POP(R.EBP)]);
 _`CC:`(()=>INT(u8(3)));
 _`CE:`(()=>If(F.O, INT(u8(4))));
 
-///\D0-DF
-// TODO more opcodes (escape to FPU).
+///\D0-D7
+// TODO more opcodes.
 [(a, b)=>a.rol(b), (a, b)=>a.ror(b), (a, b)=>a.rol(b)/*FIXME RCL*/, (a, b)=>a.ror(b)/*FIXME RCR*/, (a, b)=>a.shl(b), (a, b)=>unsigned(a).shr(b), (a, b)=>a.shl(b)/*WARNING UNDEFINED*/, (a, b)=>signed(a).shr(b)].forEach((fn, i)=>{
     _`C0:reg=${i}:Eb Ib;Ev Ib`(opMov(fn)); // FIXME out of place  ^^.
     _`D0:reg=${i}:Eb;Ev`(opMov(x => fn(x, u8(1))));
     _`D2:reg=${i}:Eb CL;Ev CL`(opMov(fn));
 });
+
+//BEGIN ESC/x87
+///\D8-DF (escape to floating-point coprocessor)
+let FPUSH = x => {
+    let r = [];
+    for(var i = 7; i; i--)
+        r.push(Mov(R.ST(i), R.ST(i-1)));
+    r.push(Mov(R.ST0, f80(x)));
+    return r;
+}, FPOP = (x, fn=x=>x)=>{
+    let t = new Register[80], r = [Mov(t, R.ST0)];
+    for(var i = 0; i < 7; i++)
+        r.push(Mov(R.ST(i), R.ST(i+1)));
+    r.push(Mov(R.ST7, t));
+    if(x)
+        r.push(Mov(x, fn(t)));
+    return r;
+}, FCOM = x => [Mov(R.C0, R.ST0.lt(x)), Mov(R.C3, R.ST0.eq(x))], // TODO Unordered.
+FCOMI = x => [Mov(F.C, R.ST0.lt(x)), Mov(F.Z, R.ST0.eq(x))]; // TODO Unordered.
+let STall = 'ST0;ST1;ST2;ST3;ST4;ST5;ST6;ST7';
+///\D8
+_`D8:reg=0:Md`(x => Mov(R.ST0, R.ST0.add(f32(x))));
+_`D8:reg=1:Md`(x => Mov(R.ST0, R.ST0.mul(f32(x))));
+_`D8C0:${STall}`(x => Mov(R.ST0, R.ST0.add(x)));
+_`D8C8:${STall}`(x => Mov(R.ST0, R.ST0.mul(x)));
+_`D8D0:${STall}`(FCOM);
+_`D8D8:${STall}`(x => [...FCOM(x), ...FPOP()]);
+_`D8E0:${STall}`(x => Mov(R.ST0, R.ST0.sub(x)));
+_`D8E8:${STall}`(x => Mov(R.ST0, x.sub(R.ST0)));
+_`D8F0:${STall}`(x => Mov(R.ST0, R.ST0.div(x)));
+_`D8F8:${STall}`(x => Mov(R.ST0, x.div(R.ST0)));
+///\D9
+_`D9:reg=0:Md`(x => FPUSH(f32(x)));
+_`D9:reg=2:Md`(x => Mov(x, f32(R.ST0)));
+_`D9:reg=3:Md`(x => FPOP(x, f32));
+_`D9:reg=5:Mw`(x => Mov(R.CW, x));
+_`D9:reg=7:Mw`(x => Mov(x, R.CW));
+_`D9C0:${STall}`(x => Mov(R.ST0, x));
+_`D9C8:${STall}`(x => XCHG(R.ST0, x));
+_`D9E0:`(()=>Mov(R.ST0, R.ST0.neg()));
+_`D9E8:`(()=>FPUSH(f80(1)));
+_`D9EE:`(()=>FPUSH(f80(0)));
+///\DA
+_`DA:reg=0:Md`(x => Mov(R.ST0, R.ST0.add(x))); // TODO wrap in i32.
+_`DA:reg=1:Md`(x => Mov(R.ST0, R.ST0.mul(x)));
+///\DB
+_`DB:reg=0:Md`(FPUSH);
+///\DC
+_`DC:reg=0:Mq`(x => Mov(R.ST0, R.ST0.add(f64(x))));
+_`DC:reg=1:Mq`(x => Mov(R.ST0, R.ST0.mul(f64(x))));
+_`DC:reg=2:Mq`(x => FCOM(f64(x)));
+_`DC:reg=3:Mq`(x => [...FCOM(f64(x)), ...FPOP()]);
+_`DC:reg=4:Mq`(x => Mov(R.ST0, R.ST0.sub(f64(x))));
+_`DC:reg=5:Mq`(x => Mov(R.ST0, f64(x).sub(R.ST0)));
+_`DC:reg=6:Mq`(x => Mov(R.ST0, R.ST0.div(f64(x))));
+_`DC:reg=7:Mq`(x => Mov(R.ST0, f64(x).div(R.ST0)));
+_`DCF0:${STall}`(x => Mov(x, R.ST0.div(x)));
+_`DCF8:${STall}`(x => Mov(x, x.div(R.ST0)));
+///\DD
+_`DD:reg=0:Mq`(x => FPUSH(f64(x)));
+_`DD:reg=2:Mq`(x => Mov(x, f64(R.ST0)));
+_`DD:reg=3:Mq`(x => FPOP(x, f64));
+_`DD:reg=7:Mw`(x => Mov(x, R.SW));
+_`DDD0:${STall}`(x => Mov(x, R.ST0));
+_`DDD8:${STall}`(FPOP);
+///\DE
+_`DE:reg=0:Mw`(x => Mov(R.ST0, R.ST0.add(i16(x))));
+_`DE:reg=1:Mw`(x => Mov(R.ST0, R.ST0.mul(i16(x))));
+_`DE:reg=2:Mw`(x => FCOM(i16(x)));
+_`DE:reg=3:Mw`(x => [...FCOM(i16(x)), ...FPOP()]);
+_`DEC0:${STall}`(x => [Mov(x, R.ST0.add(x)), ...FPOP()]);
+_`DEC8:${STall}`(x => [Mov(x, R.ST0.mul(x)), ...FPOP()]);
+_`DED9:`(()=>[...FCOM(R.ST1), ...FPOP(), ...FPOP()]);
+_`DEE0:${STall}`(x => [Mov(x, x.sub(R.ST0)), ...FPOP()]);
+_`DEE8:${STall}`(x => [Mov(x, R.ST0.sub(x)), ...FPOP()]);
+_`DEF0:${STall}`(x => [Mov(x, x.div(R.ST0)), ...FPOP()]);
+_`DEF8:${STall}`(x => [Mov(x, R.ST0.div(x)), ...FPOP()]);
+///\DF
+_`DF:reg=0:Mw`(FPUSH);
+_`DF:reg=2:Mw`(x => Mov(x, i16(R.ST0)));
+_`DF:reg=3:Mw`(x => FPOP(x, i16));
+_`DF:reg=5:Mq`(FPUSH);
+_`DF:reg=7:Mq`(x => FPOP(x, i64));
+_`DFE0:AX`(x => Mov(x, R.SW));
+_`DFE8:${STall}`(x => [...FCOMI(x), ...FPOP()]);
+_`DFF0:${STall}`(x => [...FCOMI(x), ...FPOP()]);
+//END ESC/x87
 
 ///\E0-EF
 // TODO more opcodes.
@@ -293,6 +401,7 @@ _`FC:`(()=>Mov(F.D, u1(0))); _`FD:`(()=>Mov(F.D, u1(1)));
 _`FF:reg=6:Ev`(PUSH);/*d64*/
 
 /// Two-byte opcodes.
+
 ///\0F40-0F4F
 Object.keys(Cond).map((x, i)=>_`Gv Ev`([0x0F, 0x40+i], (a, b)=>If(Cond[x], Mov(a, b))));
 
