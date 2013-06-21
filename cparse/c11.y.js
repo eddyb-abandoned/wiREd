@@ -53,7 +53,7 @@ R('attribute_specifier', /__attribute__\b/, _, '(', _, '(', _, R('attribute_list
 R('attribute_list', more(R('attribute')).sep(_, ',', _));
 R('attribute', or(and(R('IDENTIFIER'), _, '(', _, R('attribute_parameter_list'), _, ')'), R('IDENTIFIER')));
 R('attribute_parameter_list', more(R('attribute_parameter')).sep(_, ',', _));
-R('attribute_parameter', or(R('IDENTIFIER'), R('constant')));
+R('attribute_parameter', or(R('IDENTIFIER'), R('constant'), R('string')));
 R('declarator', or(and(R('pointer'), _, R('direct_declarator')), and(R('attribute_specifier'), _, R('declarator')), R('direct_declarator')));
 R('direct_declarator', or(R('IDENTIFIER'), and('(', _, R('declarator'), _, ')')), any(_, or(and(/(\[|<:)/, _, /(\]|:>)/), and(/(\[|<:)/, _, '*', _, /(\]|:>)/), and(/(\[|<:)/, _, /static\b/, _, R('type_qualifier_list'), _, R('assignment_expression'), _, /(\]|:>)/), and(/(\[|<:)/, _, /static\b/, _, R('assignment_expression'), _, /(\]|:>)/), and(/(\[|<:)/, _, R('type_qualifier_list'), _, '*', _, /(\]|:>)/), and(/(\[|<:)/, _, R('type_qualifier_list'), _, /static\b/, _, R('assignment_expression'), _, /(\]|:>)/), and(/(\[|<:)/, _, R('type_qualifier_list'), _, R('assignment_expression'), _, /(\]|:>)/), and(/(\[|<:)/, _, R('type_qualifier_list'), _, /(\]|:>)/), and(/(\[|<:)/, _, R('assignment_expression'), _, /(\]|:>)/), and('(', _, R('parameter_type_list'), _, ')'), and('(', _, ')'), and('(', _, R('identifier_list'), _, ')'), R('attribute_specifier'))));
 R('pointer', or(and('*', _, R('type_qualifier_list'), _, R('pointer')), and('*', _, R('type_qualifier_list')), and('*', _, R('pointer')), '*'));

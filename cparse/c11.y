@@ -374,9 +374,10 @@ attribute_parameter_list /* HACK(eddyb) */
     | attribute_parameter_list ',' attribute_parameter
     ;
 
-attribute_parameter
+attribute_parameter /* HACK(eddyb) */
     : IDENTIFIER
     | constant
+    | string
     ;
 
 declarator
