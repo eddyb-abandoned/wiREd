@@ -401,6 +401,8 @@ _`FC:`(()=>Mov(F.D, u1(0))); _`FD:`(()=>Mov(F.D, u1(1)));
 _`FF:reg=6:Ev`(PUSH);/*d64*/
 
 /// Two-byte opcodes.
+///\0F70-0F7F
+_`0F77:`(()=>FnCall('_mm_empty')); // TODO
 
 ///\0F40-0F4F
 Object.keys(Cond).map((x, i)=>_`Gv Ev`([0x0F, 0x40+i], (a, b)=>If(Cond[x], Mov(a, b))));
