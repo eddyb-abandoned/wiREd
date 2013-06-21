@@ -51,7 +51,8 @@ let makeAnalyzer = arch => {
 
     class AnalysisPauseError extends Error {
         constructor(reason='') {
-            super('Analysis paused: '+reason);
+            super('Analysis paused: '+reason); // NOTE returns a new object instead of augmenting this.
+            this.message = 'Analysis paused: '+reason;
         }
     }
 
