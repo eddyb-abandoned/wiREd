@@ -586,13 +586,14 @@ let makeAnalyzer = arch => {
                         console.log(arch.legacyDisasm(this.codeBase+i, this.codeBuffer.slice(i, i+16)).trim());
                 }
                 if(err) throw err;
-                if(!r) yield;
+                if(!r) return;
 
                 var bytes = r[0], slice = this.codeBuffer.slice(i, i+bytes), asm = '';
                 if(arch.legacyDisasm && process.env.DEBUG_ASM)
                     asm = ' // '+arch.legacyDisasm(this.codeBase+i, slice).trim();
                 r = r.slice(1).filter(x => x);
                 block.PCnext = block.PC+bytes;
+                this.emit('Block.preOp', block, r);
                 block.preOp(r);
                 for(var j = 0; j < r.length; j++) {
                     var x = r[j], s = inspect(x), v = valueof(x);
