@@ -601,9 +601,7 @@ let makeAnalyzer = arch => {
                         s += asm;
                     if(process.env.DEBUG_OP)
                         console.log(s);
-                    if(v.fn == 'If') {
-                        if(j != r.length-1 || v.then.op != '=' || v.then.a != PC)
-                            throw new Error('Cannot handle conditional '+inspect(v));
+                    if(v.fn === 'If' && j === r.length-1 && v.then.op === '=' && v.then.a === PC) {
                         var targetPC = valueof(v.then.b);
                         console.group('if('+inspect(v.cond)+') --> '+inspect(targetPC)+' /* '+s+' */');
                         block.linkCond = v.cond;
