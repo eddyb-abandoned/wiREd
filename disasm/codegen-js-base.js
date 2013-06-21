@@ -66,8 +66,6 @@ var lvalueof = exports.lvalueof = function lvalueof(x) {
 }
 
 var inspect = exports.inspect = function inspect(x, p) {
-    //if(typeof x === 'number')
-    //    throw new TypeError('Direct use of numbers is deprecated ('+x+' 0x'+x.toString(16)+')');
     if(typeof x === 'object' && x.inspect)
         return x.inspect(0, p || 16);
     return _inspect(x);
@@ -501,7 +499,7 @@ Object.defineProperties(Mem${bits}.prototype, {
     lvalue: {
         get: function() {
             var v = valueof(this.addr);
-            if(v !== this.addr) return Mem${bits}(v);
+            if(v !== this.addr) return new Mem${bits}(v);
         }
     },
     value: {
@@ -509,7 +507,7 @@ Object.defineProperties(Mem${bits}.prototype, {
             var v = valueof(this.addr), m = Mem.read(v, ${bits});
             if(m !== null && m !== void 0)
                 return m;
-            if(v !== this.addr) return Mem${bits}(v);
+            if(v !== this.addr) return new Mem${bits}(v);
         },
         set: function(v) {
             return Mem.write(this.addr, ${bits}, v);

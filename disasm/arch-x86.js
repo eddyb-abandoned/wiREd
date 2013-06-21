@@ -32,8 +32,6 @@ var lvalueof = exports.lvalueof = function lvalueof(x) {
 }
 
 var inspect = exports.inspect = function inspect(x, p) {
-    //if(typeof x === 'number')
-    //    throw new TypeError('Direct use of numbers is deprecated ('+x+' 0x'+x.toString(16)+')');
     if(typeof x === 'object' && x.inspect)
         return x.inspect(0, p || 16);
     return _inspect(x);
@@ -2585,7 +2583,7 @@ Object.defineProperties(Mem1.prototype, {
     lvalue: {
         get: function() {
             var v = valueof(this.addr);
-            if(v !== this.addr) return Mem1(v);
+            if(v !== this.addr) return new Mem1(v);
         }
     },
     value: {
@@ -2593,7 +2591,7 @@ Object.defineProperties(Mem1.prototype, {
             var v = valueof(this.addr), m = Mem.read(v, 1);
             if(m !== null && m !== void 0)
                 return m;
-            if(v !== this.addr) return Mem1(v);
+            if(v !== this.addr) return new Mem1(v);
         },
         set: function(v) {
             return Mem.write(this.addr, 1, v);
@@ -2616,7 +2614,7 @@ Object.defineProperties(Mem8.prototype, {
     lvalue: {
         get: function() {
             var v = valueof(this.addr);
-            if(v !== this.addr) return Mem8(v);
+            if(v !== this.addr) return new Mem8(v);
         }
     },
     value: {
@@ -2624,7 +2622,7 @@ Object.defineProperties(Mem8.prototype, {
             var v = valueof(this.addr), m = Mem.read(v, 8);
             if(m !== null && m !== void 0)
                 return m;
-            if(v !== this.addr) return Mem8(v);
+            if(v !== this.addr) return new Mem8(v);
         },
         set: function(v) {
             return Mem.write(this.addr, 8, v);
@@ -2647,7 +2645,7 @@ Object.defineProperties(Mem16.prototype, {
     lvalue: {
         get: function() {
             var v = valueof(this.addr);
-            if(v !== this.addr) return Mem16(v);
+            if(v !== this.addr) return new Mem16(v);
         }
     },
     value: {
@@ -2655,7 +2653,7 @@ Object.defineProperties(Mem16.prototype, {
             var v = valueof(this.addr), m = Mem.read(v, 16);
             if(m !== null && m !== void 0)
                 return m;
-            if(v !== this.addr) return Mem16(v);
+            if(v !== this.addr) return new Mem16(v);
         },
         set: function(v) {
             return Mem.write(this.addr, 16, v);
@@ -2678,7 +2676,7 @@ Object.defineProperties(Mem32.prototype, {
     lvalue: {
         get: function() {
             var v = valueof(this.addr);
-            if(v !== this.addr) return Mem32(v);
+            if(v !== this.addr) return new Mem32(v);
         }
     },
     value: {
@@ -2686,7 +2684,7 @@ Object.defineProperties(Mem32.prototype, {
             var v = valueof(this.addr), m = Mem.read(v, 32);
             if(m !== null && m !== void 0)
                 return m;
-            if(v !== this.addr) return Mem32(v);
+            if(v !== this.addr) return new Mem32(v);
         },
         set: function(v) {
             return Mem.write(this.addr, 32, v);
@@ -2709,7 +2707,7 @@ Object.defineProperties(Mem64.prototype, {
     lvalue: {
         get: function() {
             var v = valueof(this.addr);
-            if(v !== this.addr) return Mem64(v);
+            if(v !== this.addr) return new Mem64(v);
         }
     },
     value: {
@@ -2717,7 +2715,7 @@ Object.defineProperties(Mem64.prototype, {
             var v = valueof(this.addr), m = Mem.read(v, 64);
             if(m !== null && m !== void 0)
                 return m;
-            if(v !== this.addr) return Mem64(v);
+            if(v !== this.addr) return new Mem64(v);
         },
         set: function(v) {
             return Mem.write(this.addr, 64, v);
@@ -2740,7 +2738,7 @@ Object.defineProperties(Mem80.prototype, {
     lvalue: {
         get: function() {
             var v = valueof(this.addr);
-            if(v !== this.addr) return Mem80(v);
+            if(v !== this.addr) return new Mem80(v);
         }
     },
     value: {
@@ -2748,7 +2746,7 @@ Object.defineProperties(Mem80.prototype, {
             var v = valueof(this.addr), m = Mem.read(v, 80);
             if(m !== null && m !== void 0)
                 return m;
-            if(v !== this.addr) return Mem80(v);
+            if(v !== this.addr) return new Mem80(v);
         },
         set: function(v) {
             return Mem.write(this.addr, 80, v);
@@ -2771,7 +2769,7 @@ Object.defineProperties(Mem128.prototype, {
     lvalue: {
         get: function() {
             var v = valueof(this.addr);
-            if(v !== this.addr) return Mem128(v);
+            if(v !== this.addr) return new Mem128(v);
         }
     },
     value: {
@@ -2779,7 +2777,7 @@ Object.defineProperties(Mem128.prototype, {
             var v = valueof(this.addr), m = Mem.read(v, 128);
             if(m !== null && m !== void 0)
                 return m;
-            if(v !== this.addr) return Mem128(v);
+            if(v !== this.addr) return new Mem128(v);
         },
         set: function(v) {
             return Mem.write(this.addr, 128, v);
@@ -2802,7 +2800,7 @@ Object.defineProperties(Mem256.prototype, {
     lvalue: {
         get: function() {
             var v = valueof(this.addr);
-            if(v !== this.addr) return Mem256(v);
+            if(v !== this.addr) return new Mem256(v);
         }
     },
     value: {
@@ -2810,7 +2808,7 @@ Object.defineProperties(Mem256.prototype, {
             var v = valueof(this.addr), m = Mem.read(v, 256);
             if(m !== null && m !== void 0)
                 return m;
-            if(v !== this.addr) return Mem256(v);
+            if(v !== this.addr) return new Mem256(v);
         },
         set: function(v) {
             return Mem.write(this.addr, 256, v);
