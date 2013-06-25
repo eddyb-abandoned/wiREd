@@ -687,7 +687,7 @@ let makeAnalyzer = arch => {
         bin = {
             buffer, baseAddress: program.base || 0,
             arch: program.arch, bits: program.bits || 32,
-            sections: [{name: '.text', rva: 0, offset: 0, size: buffer.length, srwx: 5}],
+            sections: [{name: '.text', rva: 0, offset: 0, size: buffer.length, vsize: buffer.length, srwx: 5}],
             imports: [], symbols: [],
             entries: entries.length ? entries : [{rva: 0, offset: 0}]
         };
