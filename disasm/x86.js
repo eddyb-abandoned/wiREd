@@ -227,6 +227,8 @@ _`58:eAX;eCX;eDX;eBX;eSP;eBP;eSI;eDI`(POP);/*d64*/
 
 ///\60-6F
 // TODO more opcodes.
+_`60:eDI eSI eBP eBX eDX eAX eSP`((di, si, bp, bx, dx, ax, sp, t=new Register[sp.bitsof])=>[Mov(t, sp), ...[di, si, bp, t, bx, dx, ax].map(PUSH).flatten()]);/*i64*/
+_`61:eDI eSI eBP eBX eDX eAX eSP`((di, si, bp, bx, dx, ax, sp)=>[...[di, si, bp].map(POP).flatten(), Mov(sp, sp.add(u8(sizeof(sp)))), ...[bx, dx, ax].map(POP).flatten()]);/*i64*/
 _`68:Iz`(PUSH);/*d64*/
 _`69:Gv Ev Iz`((a, b, c)=>Mov(a, b.mul(c))); // FIXME IMUL (signed)
 _`6A:Ib`(x => PUSH(i32(x)));/*d64*/
@@ -274,6 +276,7 @@ _`C6:reg=0:Eb Ib;Ev Iz`(Mov);
 _`C8:Iw Ib`((a, b, lvl=b.and(u8(31)), t=new Register[R.ESP.bitsof])=>[...PUSH(R.EBP), Mov(t, R.ESP), If(lvl.lt(u8(2)).not(), FnCall('ENTER.loop', lvl /*TODO*/)), If(lvl.lt(u8(2)).not(), Mov(R.EBP, R.EBP.sub(lvl.sub(u8(2)).shl(u8(2))/*.mul(4)*/))), ...PUSH(t).map(x => If(bool(lvl), x)), Mov(R.EBP, t), Mov(R.ESP, R.ESP.sub(a))]);
 _`C9:`(()=>[Mov(R.ESP, R.EBP), ...POP(R.EBP)]);
 _`CC:`(()=>INT(u8(3)));
+_`CD:Ib`(x => INT(u8(x)));
 _`CE:`(()=>If(F.O, INT(u8(4))));
 
 ///\D0-D7

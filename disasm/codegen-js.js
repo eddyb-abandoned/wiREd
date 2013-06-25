@@ -25,6 +25,12 @@ let rk = (ctor, fn)=>Object.defineProperty(ctor.prototype, 'runtimeKnown', {
     }
 });
 
+Object.defineProperty(Array.prototype, 'flatten', {
+    value() {
+        return this.reduce((a, b)=>a.concat(b), []);
+    }
+});
+
 var vars = {keys: [], data: [], used: 0},  maxVarsUsed = 0, varStack = [];
 export const pushVars = ()=>{
     varStack.push(vars);
