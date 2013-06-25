@@ -653,7 +653,6 @@ let makeAnalyzer = arch => {
     });
 };
 
-{
     let r2 = require('radare2.js'), fs = require('fs'), path = require('path');
     let bin = new r2.RBin();
     let program = require('commander')
