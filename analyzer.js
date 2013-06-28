@@ -537,6 +537,7 @@ let makeAnalyzer = arch => {
             if(!(block instanceof Block))
                 block = new Block(block);
             this.blocksVisited[start] = block;
+            this.emit('Block.start', block);
             block.inProgress = true;
 
             block.decoderGenerator = this.decodeBlock(block);
@@ -826,7 +827,7 @@ let makeAnalyzer = arch => {
         console.error('No usable symbols'), process.exit(1);
 
     analyzer.blocks = [];
-    Array.prototype.binarySearch = function binarySearch(compare, left=0, right=this.length-1) {//TRACE;
+    Array.prototype.binarySearch = function binarySearch(compare, left=0, right=this.length-1) {
         if(left > right)
             return left;
         var mid = (left + right) >>> 1, c = compare(this[mid]);
