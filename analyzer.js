@@ -525,14 +525,25 @@ let makeAnalyzer = arch => {
             return (this.showAddress ? 2 + 8 + 1 : 0) + (this.showBytes ? this.showBytesPadding : 0);
         }
 
-        getBlock(block) {
-            let {start} = block;
+        getBlockFromCache(start) {
             if(typeof start !== 'number' || start < this.codeBase || start >= this.codeBase+this.codeBuffer.length)
                 throw new Error('Block starting outside of codeBuffer bounds');
 
             start -= this.codeBase;
             if(this.blocksVisited[start])
                 return this.blocksVisited[start];
+        }
+
+        getBlock(block) {
+            let {start} = block;
+            if(typeof start !== 'number' || start < this.codeBase || start >= this.codeBase+this.codeBuffer.length)
+                throw new Error('Block starting outside of codeBuffer bounds');
+
+            let cached = this.getBlockFromCache(start);
+            if(cached)
+                return cached;
+
+            start -= this.codeBase;
 
             if(!(block instanceof Block))
                 block = new Block(block);
