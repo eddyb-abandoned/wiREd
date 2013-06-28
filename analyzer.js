@@ -36,7 +36,7 @@ Number.prototype.toSupString = function toSupString(base) {
     };
 
     console.groupEnd = ()=>{
-        if(indent == '')
+        if(indent === '')
             return false;
         indent = indent.slice(0, -4);
         console.log('}');
@@ -81,7 +81,7 @@ let makeAnalyzer = arch => {
                 this.R0[i] = new Unknown(R[i].bitsof);
                 this.R[i] = {nthValue: 1, value: this.R0[i]};
 
-                if(R[i] == SP) {
+                if(R[i] === SP) {
                     this.SP0 = [this.R0[i]];
                     this.SP = this.R[i];
                 }
@@ -154,7 +154,7 @@ let makeAnalyzer = arch => {
         saveContext() {
             for(let i in R) {
                 this.R[i] = {nthValue: R[i].nthValue, value: R[i].value};
-                if(R[i] == SP)
+                if(R[i] === SP)
                     this.SP = this.R[i];
             }
 
@@ -162,16 +162,16 @@ let makeAnalyzer = arch => {
         }
 
         SPdiff(SP, SP0=this.SP0[this.SP0.length-1]) {
-            if(SP == SP0)
+            if(SP === SP0)
                 return 0;
-            if(SP.op == '+' && SP.a == SP0 && SP.b.known && SP.b.bitsof <= 32) // HACK
+            if(SP.op === '+' && SP.a === SP0 && SP.b.known && SP.b.bitsof <= 32) // HACK
                 return SP.b._A;
             return null;
         }
 
         SPdiffAll(SP) {
             let diff = 0;
-            if(SP.op == '+' && SP.b.known && SP.b.bitsof <= 32) { // HACK
+            if(SP.op === '+' && SP.b.known && SP.b.bitsof <= 32) { // HACK
                 diff = SP.b._A;
                 SP = SP.a;
             }
@@ -180,7 +180,7 @@ let makeAnalyzer = arch => {
         }
 
         readStack(pos, bits, stack=this.stack[this.stack.length-1], bytes=bits/8) {
-            if(stack == this.stack[0])
+            if(stack === this.stack[0])
                 this.stackMaxAccess = Math.max(this.stackMaxAccess, pos+bytes);
             if(pos < 0) {
                 pos = ~pos; // HACK -pos-1.
@@ -199,7 +199,7 @@ let makeAnalyzer = arch => {
 
         writeStack(pos, bits, v, stack=this.stack[this.stack.length-1], bytes=bits/8) {
             let canBeArg = false; // HACK should be true only for pushes/calls.
-            if(stack == this.stack[this.stack.length-1] && pos == this.SPdiff(valueof(SP)))
+            if(stack === this.stack[this.stack.length-1] && pos === this.SPdiff(valueof(SP)))
                 canBeArg = true;
             let originalPos = pos;
             if(pos < 0) {
@@ -241,15 +241,15 @@ let makeAnalyzer = arch => {
         }
 
         op(x) {
-            if(x.op == '=') {
-                if(x.a == PC.lvalue) // HACK
+            if(x.op === '=') {
+                if(x.a === PC.lvalue)
                     this.PCwritten = true;
-                else if(x.a == SP.lvalue) {
+                else if(x.a === SP.lvalue) {
                     if(x.b.known)
                         return console.error('Ignoring known SP = '+inspect(x.b));
                     let [i, diff] = this.SPdiffAll(x.b);
                     if(diff === null) {
-                        if(x.b.op == '+' && x.b.b.known)
+                        if(x.b.op === '+' && x.b.b.known)
                             this.SP0.push(x.b.a);
                         else
                             this.SP0.push(x.b);
@@ -319,7 +319,7 @@ let makeAnalyzer = arch => {
                     }
 
                     // Process the stack.
-                    if(targetBlock.returnPoints.length == 1) {
+                    if(targetBlock.returnPoints.length === 1) {
                         let {SP0: [{value: SP0}], stack: [stack]} = targetBlock.returnPoints[0];
                         if(SP0) {
                             let [j, diff] = this.SPdiffAll(SP0);
@@ -344,7 +344,7 @@ let makeAnalyzer = arch => {
                         console.log('Changes', changes.join(', '));
                     for(let i in changedR0)
                         targetBlock.R0[i].value = changedR0[i];
-                } else if(targetBlock == this.retPC)
+                } else if(targetBlock === this.retPC)
                     this.returns = true;
                 else
                     this.link = targetBlock;
@@ -355,11 +355,11 @@ let makeAnalyzer = arch => {
             let savesPC = eq(valueof(returnPC), this.PCnext);
 
             if(!newPC.known) {
-                let isTailJump = !savesPC && this.SP0.length == 1 && this.SPdiff(valueof(SP)) == 0;
-                if(newPC == this.retPC) {
+                let isTailJump = !savesPC && this.SP0.length === 1 && this.SPdiff(valueof(SP)) === 0;
+                if(newPC === this.retPC) {
                     this.addReturnPoint(this);
                     return this.retPC;
-                } else if(newPC.fn == 'Function') { // HACK required for imported functions.
+                } else if(newPC.fn === 'Function') { // HACK required for imported functions.
                     let target = newPC.block;
                     if(!target)
                         throw new Error('Cannot '+(savesPC?'call':'jump to')+' unknown function -> '+inspect(newPC));
@@ -412,9 +412,9 @@ let makeAnalyzer = arch => {
 
                     this.once('preOp', x => {
                         for(let op of x) { // HACK detect whether the caller cleans the stack or not.
-                            if(op.op == '=' && op.b.fn == 'Mem' && op.b.addr == SP && (op.a == PC || op.a == SP || op.a == FP))
+                            if(op.op === '=' && op.b.fn === 'Mem' && op.b.addr === SP && (op.a === PC || op.a === SP || op.a === FP))
                                 break; // HACK Ignore pop PC/SP/FP, they tend to not remove arguments from the stack.
-                            if(op.op == '=' && op.a == SP)
+                            if(op.op === '=' && op.a === SP)
                                 return;
                         }
                         console.error('Assuming callee cleans the stack ('+(j-i)+')');
@@ -792,7 +792,7 @@ let makeAnalyzer = arch => {
     arch.Mem.read = (_addr, bits)=>{
         if(_addr.known && _addr.bitsof <= 32) { // HACK
             let addr = _addr._A;
-            if(bits == 32) {
+            if(bits === 32) {
                 let imp = importsByAddr[addr];
                 if(imp)
                     return {fn: 'Function', block: imp.block, inspect: ()=>imp.name+('args' in imp ? '('+imp.args+')' : '')};
@@ -813,7 +813,7 @@ let makeAnalyzer = arch => {
         console.log('%s: fw=%s bind=%s type=%s addr=%s offset=%s size=%d ordinal=%d',
             x.name, x.forwarder, x.bind, x.type, (bin.baseAddress+x.rva).toString(16),
             x.offset.toString(16), x.size, x.ordinal);
-        if(x.type == 'FUNC')
+        if(x.type === 'FUNC')
             symbols.push({name: x.name, addr: bin.baseAddress+x.rva});
     });
     console.groupEnd();
