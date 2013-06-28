@@ -99,6 +99,58 @@ let makeAnalyzer = arch => {
             if(this.returnPoints.indexOf(x) === -1)
                 this.returnPoints.push(x);
         }
+
+        linkFrom(...sources) {
+            // HACK some usages of same should be more like deep compares.
+            let same = (f, fn=typeof f === 'string' ? (a, b)=>a[f]===b[f] : f) => sources.slice(1).every(x => fn(x, sources[0]));
+            let equalArray = (a, b) => {
+                if(a.length !== b.length)
+                    return false;
+                for(let i = 0; i < a.length; i++)
+                    if(a[i] !== b[i])
+                        return false;
+                return true;
+            };
+            let equalStack = (a, b) => {
+                a = a.stack;
+                b = b.stack;
+                if(a.length !== b.length)
+                    return false;
+                for(let i = 0; i < a.length; i++)
+                    if(!equalArray(a[i].down, b[i].down) || !equalArray(a[i].up, b[i].up))
+                        return false;
+                return true;
+            };
+
+            if(same('retPC'))
+                this.retPC = sources[0].retPC;
+            if(same('returnPoints'))
+                this.returnPoints = sources[0].returnPoints;
+            if(same('functionBlocks')) {
+                this.functionBlocks = sources[0].functionBlocks;
+                this.functionBlocks.push(this);
+            }
+            this.linkedFrom.push(...sources);
+
+            if(same((a, b) => equalArray(a.SP0, b.SP0)))
+                this.SP0 = sources[0].SP0.slice();
+            if(same(equalStack))
+                this.stack = sources[0].stack.map(x => ({down: x.down.slice(), up: x.up.slice()}));
+
+            for(let i in R) {
+                if(same((a, b) => a.R[i].value === b.R[i].value)) {
+                    this.R[i].value = sources[0].R[i].value;
+                    this.R[i].nthValue = sources.map(x => x.R[i].nthValue).reduce(Math.max);
+                } else {
+                    // TODO use Phi/Any/Choice/whatever in case values differ.
+                    this.R[i].nthValue = sources.map(x => x.R[i].nthValue).reduce(Math.max);
+                }
+                if(R[i] !== SP && same((a, b) => a.R0[i] === b.R0[i]))
+                    this.R0[i] = sources[0].R0[i];
+            }
+            return this;
+        }
+
         saveContext() {
             for(let i in R) {
                 this.R[i] = {nthValue: R[i].nthValue, value: R[i].value};
@@ -378,27 +430,15 @@ let makeAnalyzer = arch => {
             this.saveContext();
             if(savesPC)
                 console.group('0x'+newPC.toString(16).padLeft(8, '0'));
+
             let target = new Block({start: newPC});
             if(savesPC) {
                 target.restoreContext();
                 target.op(valueof(Mov(returnPC, target.retPC)));
                 target.saveContext();
-            } else {
-                target.retPC = this.retPC;
-                target.SP0 = this.SP0.slice();
-                target.returnPoints = this.returnPoints;
-                target.functionBlocks = this.functionBlocks;
-                target.functionBlocks.push(target);
-                target.linkedFrom.push(this);
-                target.stack = this.stack.map(x => ({down: x.down.slice(), up: x.up.slice()}));
-                for(let i in R) { // HACK forward the registers with a SP0-relative value (or things like function pointers).
-                    // HACK forward everything, fix later if required.
-                    //if(this.SPdiffAll(this.R[i].value)[1] !== null || R[i] != SP && this.R[i].value == this.R0[i] || this.R[i].value.fn == 'Function')
-                        ({value: target.R[i].value, nthValue: target.R[i].nthValue}) = this.R[i];
-                    if(R[i] !== SP)
-                        target.R0[i] = this.R0[i];
-                }
-            }
+            } else
+                target.linkFrom(this);
+
             let newTarget = analyzer.getBlock(target);
             if(savesPC)
                 console.groupEnd();
