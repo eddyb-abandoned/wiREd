@@ -250,32 +250,14 @@ let makeAnalyzer = arch => {
                                 v = v.frozenValue;
                             v = valueof(v);
                             let [j, diff] = this.SPdiffAll(v);
-                            if(diff === null) {
-                                if(R[i] != SP && v == this.R0[i] && R[i].value != this.R0[i]) { // HACK allows the callee to restore caller's saved registers (used in SEH's alloca).
-                                    if(!SP0) {
-                                        SP0 = v;
-                                        SPdiff = 0;
-                                        continue;
-                                    } else if(v != SP0 || SPdiff)
-                                        throw new Error(inspect(R[i])+' differs '+inspect(v)+' vs '+inspect(SP0)+' + '+SPdiff);
-                                } else if(R[i] == SP) {
-                                    if(targetBlock.returnPoints.length == 1) {
-                                        console.error('Using strange SP '+j+' '+diff+' '+inspect(x.R[i].value)+' '+inspect(v));
-                                        SP0 = v;
-                                        SPdiff = 0;
-                                        break;
-                                    } else
-                                        throw new Error('SP is strange '+j+' '+diff+' '+inspect(x.R[i].value)+' '+inspect(v));
-                                } else {
-                                    SP0 = null;
-                                    break;
-                                }
-                            }
                             if(!SP0) {
                                 SP0 = this.SP0[j];
                                 SPdiff = diff;
-                            } else if(this.SP0[j] != SP0 || diff != SPdiff)
-                                throw new Error(inspect(R[i])+' differs '+inspect(x.SP0[j])+' + '+diff+' ('+inspect(x.start)+') vs '+inspect(SP0)+' + '+SPdiff+', from '+inspect(this.start)+' for '+inspect(targetBlock.start));
+                            } else if(this.SP0[j] !== SP0 || diff !== SPdiff) {
+                                console.error('Warning: '+inspect(R[i])+' differs '+inspect(x.SP0[j])+' + '+diff+' ('+inspect(x.start)+') vs '+inspect(SP0)+' + '+SPdiff+', from '+inspect(this.start)+' for '+inspect(targetBlock.start));
+                                SP0 = null;
+                                break;
+                            }
                         }
                         if(SP0) {
                             this.op(valueof(Mov(R[i], SP0.add(new SP.type(SPdiff)))));
