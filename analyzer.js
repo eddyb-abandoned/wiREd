@@ -540,6 +540,15 @@ let makeAnalyzer = arch => {
                 }
                 return write(addr, bits, v);
             };
+
+            this.showAddress = true;
+            this.showBytes = true;
+            this.showBytesPadding = 20;
+            this.showOriginal = true;
+        }
+
+        get showTotalPadding() {
+            return (this.showAddress ? 2 + 8 + 1 : 0) + (this.showBytes ? this.showBytesPadding : 0);
         }
 
         getBlock(block) {
@@ -596,9 +605,23 @@ let makeAnalyzer = arch => {
                 this.emit('Block.preOp', block, r);
                 block.preOp(r);
                 for(var j = 0; j < r.length; j++) {
-                    var x = r[j], s = inspect(x), v = valueof(x);
+                    var x = r[j], s = '';
+
+                    if(this.showOriginal)
+                        s = ' // '+inspect(x);
+
+                    var v = valueof(x);
+                    s = inspect(v)+s;
+
                     if(!j)
                         s += asm;
+
+                    if(this.showBytes)
+                        s = (j ? (j === r.length-1 ? '└' : '├').padLeft(2 + bytes*2) : '0x'+slice.toString('hex')).padRight(this.showBytesPadding, j ? '─' : ' ') + s;
+
+                    if(this.showAddress)
+                        s = (j ? ''.padLeft(2 + 8) : '0x'+block.PC.toString(16).padLeft(8, '0')) + ' ' + s;
+
                     if(process.env.DEBUG_OP)
                         console.log(s);
                     if(v.fn === 'If' && j === r.length-1 && v.then.op === '=' && v.then.a === PC) {
@@ -616,15 +639,9 @@ let makeAnalyzer = arch => {
                         block.inProgress = false;
                         return;
                     }
-
-                    s = inspect(v)+' // '+s;
-                    block.op(v);
-
-                    if(j)
-                        s = (j==r.length-1?'└':'├').padLeft(13+bytes*2).padRight(31, '─')+s;
-                    else
-                        s = '0x'+block.PC.toString(16).padLeft(8, '0')+' 0x'+slice.toString('hex').padRight(18)+s;
                     console.log(s);
+
+                    block.op(v);
                 }
 
                 for(;;) {
