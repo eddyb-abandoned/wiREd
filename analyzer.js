@@ -235,16 +235,9 @@ let makeAnalyzer = arch => {
                     {
                         let initial = [];
                         for(let i in R) {
-                            //if(R[i].value == this.R0[i])
-                            //    initial.push(inspect(R[i]));
-                            //else
-                            //    /*console.log('->', R[i], '=', R[i].value)*/;
                             changedR0[i] = targetBlock.R0[i].value;
                             targetBlock.R0[i].value = R[i].value;
                         }
-                        //if(initial.length)
-                        //    console.log('->₀', initial.join(', '));
-                    }
 
                     // HACK apply SP-relative changes to registers.
                     let updatedR = [];
@@ -290,45 +283,17 @@ let makeAnalyzer = arch => {
                         }
                     }
 
-                    // Dump the stack.
+                    // Process the stack.
                     if(targetBlock.returnPoints.length == 1) {
-                        //console.log('Callee:');
                         let {SP0: [{value: SP0}], stack: [stack]} = targetBlock.returnPoints[0];
                         if(SP0) {
                             let [j, diff] = this.SPdiffAll(SP0);
-                            //let r = '';
                             stack.up.forEach((x, i)=>{
-                                if(x && !x.invalid) {
-                                    //let saved = false;
-                                    if(i && diff !== null) { // HACK Save values written over the caller's stack (used in SEH's alloca).
-                                        this.writeStack(diff+i, x.bitsof, valueof(x.value), this.stack[j]);
-                                        //saved = true;
-                                    }
-                                    //r = ',\n  '+i+': '+inspect(x.value)+(saved?' // Saved':'')+r;
-                                }
+                                if(x && !x.invalid && i && diff !== null) // HACK Save values written over the caller's stack (used in SEH's alloca).
+                                    this.writeStack(diff+i, x.bitsof, valueof(x.value), this.stack[j]);
                             });
-                            /*r = '[:'+inspect(targetBlock.returnPoints[0].SP0[i])+r;
-                            stack.down.forEach((x, i)=>{
-                                if(x && !x.invalid)
-                                    r += ',\n  '+~i+': '+inspect(x.value);
-                            });
-                            console.log(r+']');*/
                         }
                     }
-                    //console.log('Caller:');
-                    /*console.log(this.stack.map((x, i)=>{
-                        let r = '';
-                        x.up.forEach((x, i)=>{
-                            if(x && !x.invalid)
-                                r = ',\n  '+i+': '+inspect(x.value)+r;
-                        });
-                        r = '[:'+inspect(this.SP0[i])+r;
-                        x.down.forEach((x, i)=>{
-                            if(x && !x.invalid)
-                                r += ',\n  '+~i+': '+inspect(x.value);
-                        });
-                        return r+']';
-                    }).join(',\n'));*/
                     let changes = [];
                     for(let i in R)
                         if(R[i] != PC && updatedR.indexOf(i) === -1 && targetBlock.returnPoints.some(x => x.R[i].value != x.R0[i])) {
@@ -422,23 +387,8 @@ let makeAnalyzer = arch => {
                     });
 
                     return target;
-                } else {
-                    // Dump the stack.
-                    /*console.log(this.stack.map((x, i)=>{
-                        let r = '';
-                        x.up.forEach((x, i)=>{
-                            if(x && !x.invalid)
-                                r = ',\n  '+i+': '+inspect(x.value)+r;
-                        });
-                        r = '[:'+inspect(this.SP0[i])+r;
-                        x.down.forEach((x, i)=>{
-                            if(x && !x.invalid)
-                                r += ',\n  '+~i+': '+inspect(x.value);
-                        });
-                        return r+']';
-                    }).join(',\n'));*/
+                } else
                     throw new Error('Unknown jump -> '+inspect(newPC));
-                }
             }
 
             newPC = newPC._A; // HACK
