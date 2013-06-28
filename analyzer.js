@@ -378,7 +378,8 @@ let makeAnalyzer = arch => {
                 } else if(savesPC || isTailJump) {
                     console.error('Unknown '+(savesPC?'call':'tail-jump')+', assuming arguments');
                     let target = new Block({returns: true});
-                    target.SP.value = target.SP0[0].add(i8(sizeof(PC)));
+                    if(returnPC.fn === 'Mem' && returnPC.addr === SP) // HACK
+                        target.SP.value = target.SP0[0].add(u8(sizeof(returnPC)));
                     target.addReturnPoint(target);
 
                     let stack = this.stack[this.stack.length-1].down, i = this.SPdiff(valueof(SP)) + sizeof(PC), j = i, k = 0, pc = this.PC;
