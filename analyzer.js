@@ -238,6 +238,7 @@ let makeAnalyzer = arch => {
                             changedR0[i] = targetBlock.R0[i].value;
                             targetBlock.R0[i].value = R[i].value;
                         }
+                    }
 
                     // HACK apply SP-relative changes to registers.
                     let updatedR = [];
