@@ -404,6 +404,9 @@ _`FC:`(()=>Mov(F.D, u1(0))); _`FD:`(()=>Mov(F.D, u1(1)));
 _`FF:reg=6:Ev`(PUSH);/*d64*/
 
 /// Two-byte opcodes.
+///\0F10-0F1F
+_`0F1F:Ev`(Nop);
+
 ///\0F70-0F7F
 _`0F77:`(()=>FnCall('_mm_empty')); // TODO
 
