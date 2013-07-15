@@ -452,7 +452,7 @@ var Register${bits} = Register[${bits}] = exports.Register${bits} = function Reg
         name = this.name;
     this.lvalue = {
         inspect: function() {
-            return name + self.nthValue.toSubString();
+            return name + (self.nthValue ? self.nthValue.toSubString() : '');
         },
         freeze: function(v) {
             self.value = new RegisterFrozen${bits}(name + (self.nthValue++).toSubString(), v, self.type);
@@ -468,7 +468,7 @@ var Register${bits} = Register[${bits}] = exports.Register${bits} = function Reg
 Register${bits}.prototype = new Unknown(${bits});
 Register${bits}.prototype.constructor = Register${bits};
 Register${bits}.prototype.name = '<${bits}>';
-Register${bits}.prototype.nthValue = -1;
+Register${bits}.prototype.nthValue = 0;
 Register${bits}.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };`;
