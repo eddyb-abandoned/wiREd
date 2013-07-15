@@ -45,10 +45,10 @@ export const pushVars = ()=>{
         s += ', $'+i;
     return s+';\n';
 }, makeResult = res => {
-    codegen.pushVars();
+    pushVars();
     res.forEach(x => x.touch && x.touch());
     let code = '['+[res[0].code(true), ...res.slice(1).map(x => x.code())].join(', ')+']';
-    codegen.popVars();
+    popVars();
     return code;
 };
 let methods = (ctor, methods)=>{
