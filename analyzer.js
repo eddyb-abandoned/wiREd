@@ -190,8 +190,8 @@ let makeAnalyzer = arch => {
             var v = stack[pos];
             if(!v)
                 return;
-            if(v.invalid)
-                throw new Error('Reading invalid stack value '+inspect(v));
+            if(v === null)
+                throw new Error('Reading invalid stack value');
             if(v.bitsof != bits)
                 return console.error('Reading differently sized stack value '+v.bitsof+' vs '+bits+' '+inspect(v.value)), null;
             return v.value;
@@ -208,13 +208,12 @@ let makeAnalyzer = arch => {
             } else
                 stack = stack.up;
             stack[pos] = {bitsof: bits, canBeArg, value: v, parent: this, PC: this.PC, PCnext: this.PCnext};
-            let invalid = {invalid: true, parent: stack[pos]};
             if(originalPos < 0)
                 for(let i = pos-1; i > pos-bytes; i--)
-                    stack[i] = invalid;
+                    stack[i] = null;
             else
                 for(let i = pos+1; i < pos+bytes; i++)
-                    stack[i] = invalid;
+                    stack[i] = null;
         }
 
         restoreContext() {
@@ -324,7 +323,7 @@ let makeAnalyzer = arch => {
                         if(SP0) {
                             let [j, diff] = this.SPdiffAll(SP0);
                             stack.up.forEach((x, i)=>{
-                                if(x && !x.invalid && i && diff !== null) // HACK Save values written over the caller's stack (used in SEH's alloca).
+                                if(x && i && diff !== null) // HACK Save values written over the caller's stack (used in SEH's alloca).
                                     this.writeStack(diff+i, x.bitsof, valueof(x.value), this.stack[j]);
                             });
                         }
@@ -385,7 +384,7 @@ let makeAnalyzer = arch => {
                     let stack = this.stack[this.stack.length-1].down, i = this.SPdiff(valueof(SP)) + sizeof(PC), j = i, k = 0, pc = this.PC;
                     while(j < 0) {
                         let v = stack[~j];
-                        if(!v || v.invalid || v.parent != this || !v.canBeArg)
+                        if(!v || v.parent != this || !v.canBeArg)
                             break;
                         if(pc > v.PCnext)
                             k += pc - v.PCnext;
