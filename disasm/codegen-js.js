@@ -119,7 +119,7 @@ for(let fn in binaryOps) {
                 return op == '+' && this.b.fn == 'Neg' ? this.a.lt(this.b.a) : this.lt(new this.type(0));
             }},
             CF: {get() {
-                return op == '+' && this.b.fn == 'Neg' ? unsigned(this.a).lt(unsigned(this.b.a)) : $.u1(0);
+                return op == '+' && this.b.fn == 'Neg' ? unsigned(this.a).lt(unsigned(this.b.a)).not() : $.u1(0);
             }}
         });
 }
