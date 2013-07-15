@@ -164,7 +164,7 @@ Object.defineProperty(Not.prototype, 'value', {get: function() {
 Not.prototype.inspect = function(_, p) {
     if(this.bitsof === 1) {
         if(this.a.op === '==') {
-            var expr = inspect(this.a.a, 7)+' !== '+inspect(this.a.b, 7);
+            var expr = inspect(this.a.a, 7)+' != '+inspect(this.a.b, 7);
             return 7 <= p ? expr : '('+expr+')'
         }
         if(this.a.op === '<') {

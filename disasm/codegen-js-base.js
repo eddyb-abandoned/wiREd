@@ -149,7 +149,7 @@ Object.defineProperty(${fn}.prototype, 'value', {get: function() {
 ${fn}.prototype.inspect = function(_, p) {
     ${op === '~' ? `if(this.bitsof === 1) {
         if(this.a.op === '==') {
-            var expr = inspect(this.a.a, ${precendence['==']})+' !== '+inspect(this.a.b, ${precendence['==']});
+            var expr = inspect(this.a.a, ${precendence['==']})+' != '+inspect(this.a.b, ${precendence['==']});
             return ${precendence['==']} <= p ? expr : '('+expr+')'
         }
         if(this.a.op === '<') {
