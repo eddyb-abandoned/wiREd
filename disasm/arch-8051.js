@@ -2999,7 +2999,7 @@ R.SFR_7F = R8[127] = new Register8('SFR_7F');
 R.PC = R32[0] = new Register32('PC');
 R.CF = R1[0] = new Register1('CF');
 exports.dis = function _8051dis(b, i) {
-    var $0, $1, $2;
+    var $0, $1, $2, $3;
 
     if((b[i] & 0xff) === 0x85)
     switch(((((((b[i+1] & 128) & 0xffff) >>> 7) & 0xffff) | ((b[i+2] << 1) & 0xffff)) & 0xffff) & 0x101) {
@@ -3012,7 +3012,7 @@ exports.dis = function _8051dis(b, i) {
     if((((((b[i] & 8) & 0xff) >>> 3) & 0xff) & 0x1) === 0x0)
     switch(((b[i] | ((b[i+1] << 8) & 0xffff)) & 0xffff) & 0x80f7) {
         case 0x5: return [2, new Mov(($0 = new Mem8(new i8(new u8(b[i+1] & 127)))), (new Add($0, new i8(1))))];
-        case 0x10: return [3, new Mov(($1 = (new Register1)), (new Not((new Eq((new And(new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)), ($0 = new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32))))), new i8(0)))))), new Mov($0, (new And(new u8(~((1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)) & 0xff)), $0))), new If($1, new Mov(($2 = R32[0]), (new Add($2, new i8(((b[i+2]) << 24 >> 24) + 3)))))];
+        case 0x10: return [3, new Mov(($2 = (new Register1)), (new Not((new Eq((new And(new u8(1 << (($1 = ((((b[i+1] & 7) & 0xff)) << 24 >> 24)) & 0x7)), ($0 = new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32))))), new i8(0)))))), new Mov($0, (new And(new u8(~((1 << ($1 & 0x7)) & 0xff)), $0))), new If($2, new Mov(($3 = R32[0]), (new Add($3, new i8(((b[i+2]) << 24 >> 24) + 3)))))];
         case 0x15: return [2, new Mov(($0 = new Mem8(new i8(new u8(b[i+1] & 127)))), (new Add($0, new i8(-1))))];
         case 0x20: return [3, new If((new Not((new Eq((new And(new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)), new Mem8(new i8(((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) + 32)))), new i8(0))))), new Mov(($0 = R32[0]), (new Add($0, new i8(((b[i+2]) << 24 >> 24) + 3)))))];
         case 0x25: return [2, new Mov(($0 = R8[96]), (new Add($0, new Mem8(new i8(new u8(b[i+1] & 127))))))];
@@ -3050,7 +3050,7 @@ exports.dis = function _8051dis(b, i) {
         case 0xe5: return [2, new Mov(R8[96], new Mem8(new i8(new u8(b[i+1] & 127))))];
         case 0xf5: return [2, new Mov(new Mem8(new i8(new u8(b[i+1] & 127))), R8[96])];
         case 0x8005: return [2, new Mov(($0 = R8[((((b[i+1] & 127) & 0xff)) & 0xff)]), (new Add($0, new i8(1))))];
-        case 0x8010: return [3, new Mov(($1 = (new Register1)), (new Not((new Eq((new And(new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)), ($0 = R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]))), new i8(0)))))), new Mov($0, (new And(new u8(~((1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)) & 0xff)), $0))), new If($1, new Mov(($2 = R32[0]), (new Add($2, new i8(((b[i+2]) << 24 >> 24) + 3)))))];
+        case 0x8010: return [3, new Mov(($2 = (new Register1)), (new Not((new Eq((new And(new u8(1 << (($1 = ((((b[i+1] & 7) & 0xff)) << 24 >> 24)) & 0x7)), ($0 = R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)]))), new i8(0)))))), new Mov($0, (new And(new u8(~((1 << ($1 & 0x7)) & 0xff)), $0))), new If($2, new Mov(($3 = R32[0]), (new Add($3, new i8(((b[i+2]) << 24 >> 24) + 3)))))];
         case 0x8015: return [2, new Mov(($0 = R8[((((b[i+1] & 127) & 0xff)) & 0xff)]), (new Add($0, new i8(-1))))];
         case 0x8020: return [3, new If((new Not((new Eq((new And(new u8(1 << (((((b[i+1] & 7) & 0xff)) << 24 >> 24) & 0x7)), R8[((((((((((b[i+1] & 120) & 0xff) >>> 3) & 0xff)) << 24 >> 24) << 3) << 24 >> 24)) & 0xff)])), new i8(0))))), new Mov(($0 = R32[0]), (new Add($0, new i8(((b[i+2]) << 24 >> 24) + 3)))))];
         case 0x8025: return [2, new Mov(($0 = R8[96]), (new Add($0, R8[((((b[i+1] & 127) & 0xff)) & 0xff)])))];

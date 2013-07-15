@@ -53,32 +53,31 @@ export const pushVars = ()=>{
 };
 let methods = (ctor, methods)=>{
     ctor.prototype.touch = function touch(noCreate, ...args) {
-        if(!this.runtimeKnown) {
-            let i = vars.keys.indexOf(this);
-            if(i === -1) {
-                if(!noCreate) {
-                    i = vars.keys.push(this)-1;
-                    vars.data[i] = {generated: 0};
-                }
-                if(methods.touch)
-                    methods.touch.apply(this, arguments);
-            } else if(!vars.data[i].name) {
-                vars.data[i].name = '$'+(vars.used++);
-                if(vars.used > maxVarsUsed)
-                    maxVarsUsed = vars.used;
+        let i = vars.keys.indexOf(this);
+        if(i === -1) {
+            if(!noCreate) {
+                i = vars.keys.push(this)-1;
+                vars.data[i] = {generated: 0};
             }
+            if(methods.touch)
+                methods.touch.apply(this, arguments);
+        } else if(!vars.data[i].name) {
+            vars.data[i].name = '$'+(vars.used++);
+            if(vars.used > maxVarsUsed)
+                maxVarsUsed = vars.used;
         }
     };
-    ctor.prototype.code = function code(...args) {
-        if(!this.runtimeKnown) {
-            let data = vars.data[vars.keys.indexOf(this)];
-            if(data && data.name) {
-                if(!data.generated++)
-                    return '('+data.name+' = '+methods.code.call(this, ...args)+')';
-                return data.name;
-            }
+    ctor.prototype.code = function code(bareRK, ...args) {
+        let data = vars.data[vars.keys.indexOf(this)];
+        if(data && data.name) {
+            let r = data.name;
+            if(!data.generated++)
+                r = '('+data.name+' = '+methods.code.call(this, this.runtimeKnown, ...args)+')'
+            if(this.runtimeKnown && !bareRK)
+                return this.type.wrap(r);
+            return r;
         }
-        return methods.code.call(this, ...args);
+        return methods.code.call(this, bareRK, ...args);
     };
 };
 
