@@ -566,7 +566,7 @@ let makeAnalyzer = arch => {
 
         *decodeBlock(block, start=block.start-this.codeBase) {
             block.restoreContext();
-            for(var i = start; i < this.codeBuffer.length;) {
+            for(var i = start; i < this.codeBuffer.length && !block.link && !block.returns;) {
                 block.PC = this.codeBase+i;
                 var r = null, err = null;
                 try {
@@ -609,20 +609,68 @@ let makeAnalyzer = arch => {
 
                     if(process.env.DEBUG_OP)
                         console.log(s);
-                    if(v.fn === 'If' && j === r.length-1 && v.then.op === '=' && v.then.a === PC) {
-                        var targetPC = valueof(v.then.b);
-                        console.group('if('+inspect(v.cond)+') --> '+inspect(targetPC)+' /* '+s+' */');
-                        block.linkCond = v.cond;
-                        block.linkIf = block.getJumpTarget(targetPC);
-                        console.groupEnd();
-                        console.group('else');
-                        block.link = block.getJumpTarget(new PC.type(block.PCnext));
-                        console.groupEnd();
-                        this.decoder = this.decoderGenerator = null;
-                        block.saveContext();
-                        block.finalize();
-                        block.inProgress = false;
-                        return;
+                    if(v.fn === 'If' && j === r.length-1) {
+                        if(v.cond.bitsof === 1 && v.cond.known && !v.cond._A)
+                            console.error('Warning: skipping if with always false condition');
+                        else {
+                            var wrapIf = v.then.length > 1 || v.then[0].op === '=' && v.then[0].a === PC;
+                            console.group('if('+inspect(v.cond)+')', wrapIf);
+                            block.linkCond = v.cond;
+                            var elseSources = [block];
+                            if(v.then.length === 1 && v.then[0].op === '=' && v.then[0].a === PC) // HACK special conditional jump case.
+                                block.linkIf = block.getJumpTarget(valueof(v.then[0].b));
+                            else { // HACK clean this up.
+                                block.saveContext();
+                                var target = new Block;
+                                target.linkFrom(block);
+                                target.restoreContext();
+                                target.PC = block.PC;
+                                target.PCnext = block.PCnext;
+                                target.preOp(v.then);
+                                for(var op of v.then) {
+                                    var opVal = valueof(op);
+                                    console.log(''.padLeft(this.showTotalPadding) + inspect(opVal) + (this.showOriginal ? ' // ' + inspect(op) : ''));
+                                    target.op(opVal);
+                                }
+                                var err = null;
+                                try {
+                                    target.postOp();
+                                } catch(e) {
+                                    if(!(e instanceof AnalysisPauseError))
+                                        throw e;
+                                    err = e;
+                                    console.error(e.toString());
+                                }
+                                target.saveContext();
+                                block.linkIf = target;
+                                if(!err && !target.returns && !target.link)
+                                    elseSources.push(target);
+                                block.restoreContext();
+                            }
+                            console.groupEnd(wrapIf);
+
+                            var cachedElse = this.getBlockFromCache(block.PCnext);
+                            if(elseSources.length === 1 || cachedElse) {
+                                if(!block.linkIf.returns)
+                                    console.group('else');
+                                if(elseSources.length > 1)
+                                    console.error('Warning: if/else fallthrough goes to already-analyzed block');
+                                block.link = block.getJumpTarget(new PC.type(block.PCnext));
+                                if(!block.linkIf.returns)
+                                    console.groupEnd();
+                            } else {
+                                block.saveContext();
+                                var target = new Block({start: block.PCnext});
+                                target.linkFrom(...elseSources);
+                                block.link = this.getBlock(target);
+                                block.restoreContext();
+                            }
+                            //block.decoder = block.decoderGenerator = null;
+                            block.saveContext();
+                            block.finalize();
+                            block.inProgress = false;
+                            return;
+                        }
                     }
                     console.log(s);
 
@@ -643,8 +691,6 @@ let makeAnalyzer = arch => {
                         block.restoreContext();
                     }
                 }
-                if(block.link || block.returns)
-                    break;
                 i += bytes;
             }
             this.decoder = this.decoderGenerator = null;

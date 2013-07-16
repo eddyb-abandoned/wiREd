@@ -47,7 +47,7 @@ export const pushVars = ()=>{
 }, makeResult = res => {
     pushVars();
     res.forEach(x => x.touch && x.touch());
-    let code = '['+[res[0].code(true), ...res.slice(1).map(x => x.code())].join(', ')+']';
+    let code = '['+[res[0].code(true), ...res.slice(1).map(x => x.code()).flatten()].join(', ')+']';
     popVars();
     return code;
 };
@@ -145,11 +145,19 @@ for(let bits of storageBitSizes) {
 
 methods($.If, {touch(noCreate, ...args) {
     this.cond.touch && this.cond.touch(noCreate, ...args);
-    this.then.touch && this.then.touch(noCreate || this.cond.runtimeKnown, ...args);
+    noCreate = noCreate || this.cond.runtimeKnown;
+    for(let x of this.then)
+        x.touch && x.touch(noCreate, ...args);
 }, code() {
-    if(this.cond.runtimeKnown)
-        return '('+this.cond.code(true)+'?'+this.then.code()+':null)';
-    return 'new If('+this.cond.code()+', '+this.then.code()+')';
+    if(this.cond.runtimeKnown) {
+        pushVars();
+        for(let x of this.then)
+            x.touch && x.touch();
+        let then = this.then.map(x => x.code()).flatten();
+        popVars();
+        return then.map(x => '('+this.cond.code(true)+'?'+x+':null)');
+    }
+    return 'new If('+this.cond.code()+', ['+this.then.map(x => x.code()).flatten().join(', ')+'])';
 }});
 
 methods($.FnCall, {touch(...args) {

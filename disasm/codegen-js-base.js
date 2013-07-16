@@ -528,6 +528,10 @@ var If = exports.If = function If(cond, then) {
         return new If(cond, then);
     //if(cond.known && cond.bitsof <= 32) // HACK doesn't work > 32bits.
     //    return cond._A ? then : Nop(); // HACK Nop was null.
+    if(!Array.isArray(then)) // HACK allow the old usage of If.
+        then = [then];
+    else
+        then = then.filter(function(x) {return !!x;}); // HACK this could be too slow.
     this.cond = cond;
     this.then = then;
 };
@@ -539,7 +543,13 @@ If.prototype = {
             return new If(cond, this.then);
     },
     inspect: function() {
-        return 'if('+inspect(this.cond)+') '+inspect(this.then)+';';
+        var s = 'if('+inspect(this.cond)+') ';
+        if(this.then.length === 1)
+            return s+inspect(this.then[0])+';';
+        s += '{';
+        for(var i = 0; i < this.then.length; i++)
+            s += (i ? '; ' : '')+inspect(this.then[i]);
+        return s + '}';
     }
 };
 
