@@ -756,6 +756,7 @@ let makeAnalyzer = arch => {
 
     let analyzer = makeAnalyzer(require('./disasm/arch-'+bin.arch));
     let {arch} = analyzer;
+    arch.name = bin.arch;
 
     let asm = new r2.RAsm();
     if(asm.use(bin.arch) && asm.set_bits(bin.bits))
@@ -790,61 +791,45 @@ let makeAnalyzer = arch => {
         x.rva -= bin.baseAddress;
     }
 
-    let isWin = /\.(dll|exe)$/i.test(fileName), importHeaders = [];
-    if(isWin)
-        importHeaders.push(fs.readFileSync('windows.h', 'utf8'));
-    let imports = [], importsByAddr = [];
+    import {load: loadPlatform} from './platform/platform.js';
+    let platform = {T: {}, globals: {}, base: {}};
+    try {
+        platform = loadPlatform(arch, analyzer, bin.os);
+    } catch(e) {
+        console.error(e && e.stack || e || 'Failed to load platform for '+bin.os+'_'+arch.name);
+    }
+
+    let imports = [], importsByOrdinal = [], importsByAddr = [];
     console.group('Imports');
     bin.imports.forEach(x => {
-        x = importsByAddr[bin.baseAddress+x.rva] = {name: x.name, addr: bin.baseAddress+x.rva, bind: x.bind, type: x.type};
+        x = {name: x.name, addr: bin.baseAddress+x.rva, bind: x.bind, type: x.type, ordinal: x.ordinal};
+        if(x.ordinal)
+            importsByOrdinal[x.ordinal] = x;
         imports.push(x);
 
-        var fn = x.name;
-        if(isWin)
-            fn = fn.replace(/^[a-z0-9]+\.(dll|drv)_/i, '');
-        var args, fnRE = new RegExp('(__cdecl\\s+|)\\b'+fn.replace(/[?*+]/g, '\\$&')+'\\b\\s*\\(');
-        for(let header of importHeaders)
-            if(args = fnRE.exec(header)) {
-                let matchParens = i => {
-                    for(let j = i, c; j < header.length; j++) {
-                        c = header[j];
-                        if(c == ')')
-                            return [i, j];
-                        if(c == '(')
-                            [, j] = matchParens(j+1);
-                    }
-                    let before = header.slice(0, i), line = 1+before.replace(/[^\n]/g, '').length, col = 1+/(\n[^\n]*|)$/.exec(before)[0].trim().length;
-                    throw new SyntaxError('Unmatched paren starting at '+line+':'+col);
-                };
-                let conv = args[1].trim();
-                args = header.slice(...matchParens(args.index+args[0].length)).trim();
-                console.log(`Import ${x.name}(${args})@${analyzer.arch.inspect(analyzer.arch.u32(x.addr))}`);
-                x.args = args;
-                if(!args || args == 'void')
-                    args = 0;
-                else
-                    args = args.split(',').length*4; // HACK Assuming 32bit arguments.
-                x.block = new analyzer.Block({returns: true, stackMaxAccess: 4+args});
-                if(bin.arch == 'x86') {
-                    let argVals = [];
-                    for(let i = 0; i < args; i += 4) { // HACK Assuming 32bit arguments.
-                        let arg = analyzer.arch.Mem32(x.block.SP0[0].add(x.block.SP0[0].type(4+i)));
-                        argVals.push(arg);
-                    }
-                    // HACK Assuming stdcall (return in EAX).
-                    x.block.R.EAX.value = {args: argVals, inspect: ()=>x.name, get value() {
-                        let args = argVals.map(a => analyzer.arch.valueof(a));
-                        return {args, inspect: ()=>x.name+'('+args.map(a => analyzer.arch.inspect(a)).join(', ')+')'};
-                    }};
-                    if(conv == '__cdecl')
-                        args = 0;
-                    x.block.SP.value = x.block.SP0[0].add(x.block.SP0[0].type(args+4)); // HACK Assuming stdcall by default (callee cleans the stack).
-                }
-                return;
-            }
-        console.error('Unknown import '+x.name);
+        var fnName = x.name;
+        if(bin.os === 'windows') // HACK this is too specific.
+            fnName = fnName.replace(/^[a-z0-9]+\.(dll|drv)_/i, '');
+        var fn = platform.globals[fnName];
+        if(fn && fn instanceof platform.base.FnBase) {
+            console.log(`Import ${arch.inspect(fn)}@${arch.inspect(arch.u32(x.addr))}`);
+            x.fn = fn;
+        } else {
+            console.error(`Unknown import ${fnName}@${arch.inspect(arch.u32(x.addr))}`);
+            x.fn = new arch.Unknown;
+            x.fn.inspect = () => fnName;
+        }
     });
     console.groupEnd();
+
+    if(bin.relocs)
+        bin.relocs.forEach(x => {
+            if(bin.relocIsImport(x))
+                importsByAddr[bin.baseAddress + x.rva] = importsByOrdinal[x.sym];
+        });
+    else
+        for(let x of imports)
+            importsByAddr[x.addr] = x;
 
     let {read, write} = arch.Mem;
     arch.Mem.read = (_addr, bits)=>{
@@ -852,8 +837,8 @@ let makeAnalyzer = arch => {
             let addr = _addr._A;
             if(bits === 32) {
                 let imp = importsByAddr[addr];
-                if(imp)
-                    return {fn: 'Function', block: imp.block, inspect: ()=>imp.name+('args' in imp ? '('+imp.args+')' : '')};
+                if(imp && imp.fn)
+                    return imp.fn;
             }
             for(let x of sections)
                 if(x.addr <= addr && addr < x.addr+x.size) {

@@ -4,7 +4,7 @@ ARCH_LIST:=8051 x86
 ARCH_JS:=$(ARCH_LIST:%=disasm/arch-%.js)
 
 PLATFORM_LIST:=windows
-PLATFORM_JS:=$(PLATFORM_LIST:%=platform/%.h.js)
+PLATFORM_JS:=platform/platform.js $(PLATFORM_LIST:%=platform/%.h.js)
 
 all: node_modules ${ARCH_JS} ${PLATFORM_JS}
 
