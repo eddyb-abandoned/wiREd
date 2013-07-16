@@ -859,7 +859,13 @@ let makeAnalyzer = arch => {
                 if(x.addr <= addr && addr < x.addr+x.size) {
                     if(x.srwx & 2) // Writable, not good.
                         return;
-                    return arch.int[bits](bin.buffer['readInt'+bits+(bits==8?'':'LE')](addr-x.addr+x.offset));
+                    // FIXME Use the right endianness!
+                    let offset = addr-x.addr+x.offset;
+                    if(bits === 64)
+                        return arch.int[64](bin.buffer.readInt32LE(offset), bin.buffer.readInt32LE(offset+4));
+                    if(bits > 64)
+                        throw new TypeError('TODO: implement '+bits+'bit constant reads');
+                    return arch.int[bits](bin.buffer['readInt'+bits+(bits === 8 ? '' : 'LE')](offset));
                 }
         }
         return read(_addr, bits);
