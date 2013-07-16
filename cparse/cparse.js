@@ -314,7 +314,8 @@ R('external_declaration').filter((_, ctx)=>{
 
     var {type, storageClass, attr} = r._0;
     for(var {name, filter, attr: extraAttr} of r._2) {
-        var finalType = filter(type), finalAttr = [...attr, ...(extraAttr || [])];
+        // TODO const (and possibly other attributes) apply to the base type, not the filtered type. pointers complicate things.
+        var finalAttr = [...attr, ...(extraAttr || [])], finalType = Attr(filter(type), finalAttr);
         if(storageClass === 'typedef')
             ctx.types[name] = finalType;
         else
@@ -325,6 +326,8 @@ R('external_declaration').filter((_, ctx)=>{
 });
 //END rule filters
 
+// TODO apply attributes even to already defined types, not just filtered ones.
+var Attr = (T, attr) => attr && attr.length ? T.replace(/^(\w+\([\s\S]*)\)$/, '$1, ['+attr.map(x => '['+x.map(x => typeof x === 'string' ? `'${x}'` : JSON.stringify(x)).join(', ')+']').join(', ')+'])') : T;
 var Pointer = T => `Pointer(${T})`;
 var ArrayType = (T, N)=>`ArrayType(${T}, ${N})`;
 var Fn = (ret=null, args=[])=>`Fn(${ret}, [${args.map(x => Array.isArray(x) ? '['+x.map((x, i)=>i?`'${x}'`:x).join(', ')+']' : `'${x}'`).join(', ')}])`;
@@ -332,8 +335,8 @@ var Fielded = type => (name='', fields=null)=>`${type}('${name}', ${fields && ('
 var Struct = Fielded('Struct'), Union = Fielded('Union'), Enum = Fielded('Enum');
 
 R('__c_code', _, R('translation_unit'), _).filter((_, ctx)=>{
-    var types = Object.keys(ctx.types).map(i => 'T.'+i+' = '+ctx.types[i]+';').join('\n');
-    var globals = Object.keys(ctx.globals).map(i => i+': '+ctx.globals[i]).join(',\n').replace(/^/gm, '    ');
+    var types = Object.keys(ctx.types).map(i => 'T.'+i+' = function() {return '+ctx.types[i]+';};').join('\n');
+    var globals = Object.keys(ctx.globals).map(i => i+': function() {return ('+ctx.globals[i]+')(\''+i+'\');}').join(',\n').replace(/^/gm, '    ');
     return `${process.env.DEBUG_AST ? prettyPrint(_) : ''}${types}\nvar globals = {\n${globals}\n};`;
 });
 p.topRule = '__c_code';
