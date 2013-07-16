@@ -22,10 +22,10 @@ disasm/arch-%.js: disasm/%.js disasm/Disasm.js disasm/codegen-js.js disasm/codeg
 .PRECIOUS: %.analyzed
 
 %.analyzed.html: %.analyzed deps/highlight.html
-	@echo "<pre lang=js>" > "$@"
-	@cat "$<" >> "$@"
+	@cat deps/highlight.html > "$@"
+	@echo "<pre lang=js>" >> "$@"
+	@cat "$<" | sed 's/</\&lt;/g' >> "$@"
 	@echo "</pre>" >> "$@"
-	@cat deps/highlight.html >> "$@"
 
 Password.dll:
 	@wget -O "$@" http://eu.depot.battle.net:1119/8f52906a2c85b416a595702251570f96d3522f39237603115f2f1ab24962043c.auth

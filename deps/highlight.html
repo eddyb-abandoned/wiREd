@@ -1,5 +1,5 @@
 <!-- As per https://github.com/eddyb/KateSyntax.js#usage -->
-<style>
+<head><style>
 body {
     padding: 20px;
 }
@@ -41,7 +41,7 @@ body {
 .highlighted .dsFunction {color: #452886}
 .highlighted .dsAlert {font-weight: bold; background: #F7E6E6}
 .highlighted .dsRegionMarker {color: #0057AE; background: #E0E9F8}
-.highlighted .dsError {text-decoration: underline}​
+.highlighted .dsError {text-decoration: underline}
 </style>
 <script>
 window.KateSyntax = {
@@ -49,7 +49,7 @@ window.KateSyntax = {
     debugTime: false,
     debugTrace: false
 };
-(function() {
+document.addEventListener('DOMContentLoaded', function() {
     var script = document.createElement('script');
     script.src = KateSyntax.base+'/KateSyntax.js';
     script.onload = function() {
@@ -64,5 +64,7 @@ window.KateSyntax = {
         });
     };
     document.head.appendChild(script);
-})();
+});
 </script>
+</head>
+<body>
