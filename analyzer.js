@@ -702,6 +702,13 @@ let makeAnalyzer = arch => {
                     console.log(s);
 
                     block.op(v);
+                    if(v.fn === 'FnCall' && v.name === 'UD') { // HACK for ARM
+                        block.decoder = block.decoderGenerator = null;
+                        block.saveContext();
+                        block.finalize();
+                        block.inProgress = false;
+                        return;
+                    }
                 }
 
                 for(;;) {

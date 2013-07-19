@@ -1,6 +1,6 @@
 TRACEUR:=node --stack_trace_limit=64 `npm bin`/traceur --experimental --trap-member-lookup=false --private-names=false
 
-ARCH_LIST:=8051 x86
+ARCH_LIST:=8051 arm x86
 ARCH_JS:=$(ARCH_LIST:%=disasm/arch-%.js)
 
 PLATFORM_LIST:=windows
