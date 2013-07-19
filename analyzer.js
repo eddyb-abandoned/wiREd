@@ -765,6 +765,13 @@ let makeAnalyzer = arch => {
     let sections = [], codeSections = [];
     bin.sections.forEach(x => {
         x = {name: x.name, addr: bin.baseAddress+x.rva, end: bin.baseAddress+x.rva+x.vsize, offset: x.offset, size: x.size, srwx: x.srwx};
+
+        if(bin.os === 'darwin') {
+            // HACK Mach-O binaries have sections that are read/write only for the convinience of the dynamic linker.
+            if(/^(\d+\.)?__(nl_symbol_ptr|objc_selrefs|mod_init_func)$/.test(x.name))
+                x.srwx &= ~2;
+        }
+
         sections.push(x);
         if(x.srwx & 1) {
             if(codeSections.length && codeSections[codeSections.length - 1] !== sections[sections.length - 2]) {
