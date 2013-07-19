@@ -428,8 +428,10 @@ let makeAnalyzer = arch => {
 
             newPC = newPC._A; // HACK
             this.saveContext();
-            if(savesPC)
-                console.group('0x'+newPC.toString(16).padLeft(8, '0'));
+            if(savesPC) {
+                let fnName = analyzer.namedFunctions[newPC];
+                console.group('0x'+newPC.toString(16).padLeft(8, '0') + (fnName ? ` (${fnName})` : ''));
+            }
 
             let target = new Block({start: newPC});
             if(savesPC) {
@@ -493,6 +495,7 @@ let makeAnalyzer = arch => {
             super();
 
             this.blocksVisited = [];
+            this.namedFunctions = [];
             this.arch = arch;
             this.Block = Block;
 
@@ -876,8 +879,10 @@ let makeAnalyzer = arch => {
         console.log('%s: fw=%s bind=%s type=%s addr=%s offset=%s size=%d ordinal=%d',
             x.name, x.forwarder, x.bind, x.type, (bin.baseAddress+x.rva).toString(16),
             x.offset.toString(16), x.size, x.ordinal);
+        x = {name: x.name, type: x.type, addr: bin.baseAddress+x.rva};
         if(x.type === 'FUNC')
-            symbols.push({name: x.name, addr: bin.baseAddress+x.rva});
+            symbols.push(x);
+        analyzer.namedFunctions[x.addr] = x.name;
     });
     console.groupEnd();
     bin.entries.forEach(x => {
