@@ -99,6 +99,14 @@ let makeAnalyzer = arch => {
             if(this.returnPoints.indexOf(x) === -1)
                 this.returnPoints.push(x);
         }
+        addFunctionCall(x) {
+            for(var i = 0; i < this.functionCalls.length; i++) {
+                var j = this.functionCalls[i];
+                if(j === x || j.original === x.original) // HACK skip repeated calls to the same end-point, trying to avoid exponential growth.
+                    return;
+            }
+            this.functionCalls.push(x);
+        }
 
         linkFrom(...sources) {
             // HACK some usages of same should be more like deep compares.
@@ -126,6 +134,8 @@ let makeAnalyzer = arch => {
                 this.retPC = sources[0].retPC;
             if(same('returnPoints'))
                 this.returnPoints = sources[0].returnPoints;
+            if(same('functionCalls'))
+                this.functionCalls = sources[0].functionCalls;
             if(same('functionBlocks')) {
                 this.functionBlocks = sources[0].functionBlocks;
                 this.functionBlocks.push(this);
@@ -328,6 +338,16 @@ let makeAnalyzer = arch => {
                             });
                         }
                     }
+                    if(targetBlock.functionCalls !== this.functionCalls)
+                        for(let {fn, original=fn, calls} of targetBlock.functionCalls) {
+                            let functionCall = {fn: valueof(fn), original, calls: []};
+                            if(functionCall.fn === fn)
+                                continue;
+                            functionCall.PC = this.PC;
+                            calls.push(functionCall);
+                            this.addFunctionCall(functionCall);
+                        }
+
                     let changes = [];
                     for(let i in R)
                         if(R[i] != PC && updatedR.indexOf(i) === -1 && targetBlock.returnPoints.some(x => x.R[i].value != x.R0[i])) {
@@ -448,11 +468,15 @@ let makeAnalyzer = arch => {
                 if(newTarget.returnPoints !== this.returnPoints)
                     for(let x in newTarget.returnPoints)
                         this.addReturnPoint(x);
+                if(newTarget.functionCalls !== this.functionCalls)
+                    for(let x in newTarget.functionCalls)
+                        this.addFunctionCall(x);
                 if(newTarget.functionBlocks !== this.functionBlocks)
                     console.error('Warning: jumped to block of different function');
                 else
                     newTarget.linkedFrom.push(this);
             }
+
             this.restoreContext();
             if(newTarget.inProgress && savesPC) {
                 console.error(`Got inProgress block, with ${newTarget.returnPoints.length} return points`);
@@ -798,6 +822,12 @@ let makeAnalyzer = arch => {
         x.rva -= bin.baseAddress;
     }
 
+    analyzer.functionCalls = [];
+    analyzer.on('Block.functionCall', x => {
+        if(analyzer.functionCalls.indexOf(x) === -1)
+            analyzer.functionCalls.push(x);
+    });
+
     import {load: loadPlatform} from './platform/platform.js';
     let platform = {T: {}, globals: {}, base: {}};
     try {
@@ -919,6 +949,17 @@ let makeAnalyzer = arch => {
         t = process.hrtime(t);
         var ts = t[0]+t[1]/1e9;
         console.log(`Decoded ${decodedInstructions} instructions (${(decodedBytes/1024).toFixed(2)}kB) in ${ts.toFixed(6)}s / ${(analyzer.codeBuffer.length/decodedBytes*ts).toFixed(6)}s`);
+        let f = ({fn, PC, calls}, t='', so=null, shown=[])=>{
+            if(PC) {
+                if(shown.indexOf(t+PC) !== -1) // HACK doesn't repeat fn calls from the same PC and with the same depth, usually caused by overlapping blocks.
+                    return;
+                shown.push(t+PC);
+            }
+            var s = arch.inspect(fn);
+            console.log((PC ? '0x'+PC.toString(16).padLeft(8, '0') : ''.padLeft(10))+t+(s === so ? '...' : s));
+            calls.forEach(x => f(x, t+'    ', s, shown));
+        };
+        analyzer.functionCalls.forEach(x => x.calls.length && f(x));
     });
 
     let analyzeSymbol = symbol => {
