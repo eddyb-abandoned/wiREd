@@ -708,10 +708,7 @@ let makeAnalyzer = arch => {
         .option('-b, --base <ADDRESS>', 'base address', parseInt)
         .option('-e, --entry <ADDRESS>', 'entry point', parseInt);
     let entries = [];
-    program.on('entry', x => {
-        x = parseInt(x);
-        entries.push({rva: x, offset: x});
-    });
+    program.on('entry', x => entries.push({rva: parseInt(x)}));
     program.parse(process.argv);
 
     let fileName = program.args[0];
