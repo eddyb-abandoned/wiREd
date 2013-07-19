@@ -736,7 +736,7 @@ let makeAnalyzer = arch => {
             buffer, baseAddress: program.base || 0,
             arch: program.arch, bits: program.bits || 32,
             sections: [{name: '.text', rva: 0, offset: 0, size: buffer.length, vsize: buffer.length, srwx: 5}],
-            imports: [], symbols: [],
+            imports: [], relocs: [], symbols: [],
             entries: entries.length ? entries : [{rva: 0, offset: 0}]
         };
     } else {
@@ -749,7 +749,7 @@ let makeAnalyzer = arch => {
         bin = {
             buffer, baseAddress: rbin.get_baddr(),
             arch: binInfo.arch, bits: binInfo.bits, os: binInfo.os,
-            sections: rbin.get_sections(), imports: rbin.get_imports(),
+            sections: rbin.get_sections(), imports: rbin.get_imports(), relocs: rbin.get_relocs(),
             symbols: rbin.get_symbols(), entries: {forEach(...args) {rbin.get_entries().forEach(...args); entries.forEach(...args);}}
         };
     }
@@ -799,47 +799,57 @@ let makeAnalyzer = arch => {
         console.error(e && e.stack || e || 'Failed to load platform for '+bin.os+'_'+arch.name);
     }
 
-    let imports = [], importsByOrdinal = [], importsByAddr = [];
+    let imports = [], importsByName = [];
     console.group('Imports');
     bin.imports.forEach(x => {
-        x = {name: x.name, addr: bin.baseAddress+x.rva, bind: x.bind, type: x.type, ordinal: x.ordinal};
-        if(x.ordinal)
-            importsByOrdinal[x.ordinal] = x;
-        imports.push(x);
+        x = {name: x.name, type: x.type};
 
-        var fnName = x.name;
+        var name = x.name;
         if(bin.os === 'windows') // HACK this is too specific.
-            fnName = fnName.replace(/^[a-z0-9]+\.(dll|drv)_/i, '');
-        var fn = platform.globals[fnName];
-        if(fn && fn instanceof platform.base.FnBase) {
-            console.log(`Import ${arch.inspect(fn)}@${arch.inspect(arch.u32(x.addr))}`);
-            x.fn = fn;
-        } else {
-            console.error(`Unknown import ${fnName}@${arch.inspect(arch.u32(x.addr))}`);
-            x.fn = new arch.Unknown;
-            x.fn.inspect = () => fnName;
+            name = name.replace(/^[a-z0-9]+\.(dll|drv)_/i, '');
+        var imp = platform.globals[name];
+        if(imp)
+            console.log(`Import ${arch.inspect(imp)}`);
+        else {
+            console.error(`Unknown import ${name}`);
+            imp = new arch.Unknown(arch.SP.bitsof);
+            imp.inspect = () => name;
         }
+        x.import = imp;
+        imports.push(x);
+        importsByName[x.type + ':' + x.name] = imp;
+    });
+
+    let relocsByAddr = [], relocSizeByType = [];
+    relocSizeByType[r2.RBin.RelocType._8] = 8;
+    relocSizeByType[r2.RBin.RelocType._16] = 16;
+    relocSizeByType[r2.RBin.RelocType._32] = 32;
+    relocSizeByType[r2.RBin.RelocType._64] = 64;
+    bin.relocs.forEach(x => {
+        x = {addr: bin.baseAddress + x.rva, type: x.type, additive: x.additive, addend: x.addend, import: x.import};
+        x.import = x.import && importsByName[x.import.type + ':' + x.import.name];
+        x.bits = relocSizeByType[x.type] || 0;
+        var addend = x.addend;
+        if(x.additive && x.bits && x.bits <= 32) // HACK doesn't work > 32bits.
+            for(let x of sections)
+                if(x.addr <= addr && addr < x.addr+x.size) {
+                    // FIXME Use the right endianness!
+                    addend += arch.int[x.bits](bin.buffer['readInt'+bits+(bits === 8 ? '' : 'LE')](offset-x.addr+x.offset));
+                    break;
+                }
+        if(x.import && x.bits && !addend)
+            relocsByAddr[x.addr] = x;
+        else // TODO constant relocs.
+            console.error('Unhandled reloc:', x.import, arch.i32(x.addend), 'at', arch.u32(x.address));
     });
     console.groupEnd();
 
-    if(bin.relocs)
-        bin.relocs.forEach(x => {
-            if(bin.relocIsImport(x))
-                importsByAddr[bin.baseAddress + x.rva] = importsByOrdinal[x.sym];
-        });
-    else
-        for(let x of imports)
-            importsByAddr[x.addr] = x;
-
     let {read, write} = arch.Mem;
     arch.Mem.read = (_addr, bits)=>{
-        if(_addr.known && _addr.bitsof <= 32) { // HACK
-            let addr = _addr._A;
-            if(bits === 32) {
-                let imp = importsByAddr[addr];
-                if(imp && imp.fn)
-                    return imp.fn;
-            }
+        if(_addr.known && _addr.bitsof <= 32) { // HACK doesn't work > 32bits.
+            let addr = _addr._A, rel = relocsByAddr[addr];
+            if(rel && bits === rel.bits)
+                return rel.import; // TODO constant relocs.
             for(let x of sections)
                 if(x.addr <= addr && addr < x.addr+x.size) {
                     if(x.srwx & 2) // Writable, not good.
