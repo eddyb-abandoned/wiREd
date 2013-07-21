@@ -212,7 +212,7 @@ _`000PU1W0Rn__T__0Hi__11S1Lo__`((P, U, W, Rn, T, Hi, S, Lo, off=u8(Hi).shl(u8(4)
 _`0001001011111111111100L1Rm__`((L, Rm)=>[L&&Mov(R.LR, R.PC.add(i32(4))), Mov(R.PC, Rm)]);
 
 // clz TODO
-_`000101101111Rd__11110001Rm__`((Rd, Rm)=>[Mov(Rd, FnCall('clz', Rm))]);
+_`000101101111Rd__11110001Rm__`((Rd, Rm)=>[Mov(Rd, u8(FnCall('clz', Rm)))]);
 
 // movw
 _`00110000Imm_Rd__Imm_________`((imm4, Rd, imm12)=>[Mov(Rd, u16(imm4).shl(u8(12)).or(imm12))]);
