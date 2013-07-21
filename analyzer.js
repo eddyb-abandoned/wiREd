@@ -491,14 +491,10 @@ let makeAnalyzer = arch => {
 
             this.restoreContext();
             if(newTarget.inProgress && savesPC) {
-                console.error(`Got inProgress block, with ${newTarget.returnPoints.length} return points`);
-                if(!newTarget.returnPoints.length) {
-                    /*newTarget.once('returnPoint', ()=>{
-                        if(this.decoder)
-                            this.decoder();
-                    });*/ // HACK
+                if(!newTarget.returnPoints.length)
                     throw new AnalysisPauseError('no return points');
-                }
+                else
+                    console.error(`Got inProgress block, with ${newTarget.returnPoints.length} return points`);
             }
             return newTarget;
         }
@@ -589,21 +585,15 @@ let makeAnalyzer = arch => {
             this.emit('Block.start', block);
             block.inProgress = true;
 
-            block.decoderGenerator = this.decodeBlock(block);
-            block.decoder = block.decoderGenerator.next.bind(block.decoderGenerator);
             try {
-                block.decoder();
+                this.decodeBlock(block);
             } catch(e) {
-                if(e.stack)
-                    console.error(e.stack);
-                else
-                    throw e;
+                console.error(''+e || e.stack);
             }
-
             return block;
         }
 
-        *decodeBlock(block, start=block.start-this.codeBase) {
+        decodeBlock(block, start=block.start-this.codeBase) {
             block.restoreContext();
             for(var i = start; i < this.codeBuffer.length && !block.link && !block.returns;) {
                 block.PC = this.codeBase+i;
@@ -675,8 +665,6 @@ let makeAnalyzer = arch => {
                                 try {
                                     target.postOp();
                                 } catch(e) {
-                                    if(!(e instanceof AnalysisPauseError))
-                                        throw e;
                                     err = e;
                                     console.error(e.toString());
                                 }
@@ -704,7 +692,6 @@ let makeAnalyzer = arch => {
                                 block.link = this.getBlock(target);
                                 block.restoreContext();
                             }
-                            //block.decoder = block.decoderGenerator = null;
                             block.saveContext();
                             block.finalize();
                             block.inProgress = false;
@@ -715,7 +702,6 @@ let makeAnalyzer = arch => {
 
                     block.op(v);
                     if(v.fn === 'FnCall' && v.name === 'UD') { // HACK for ARM
-                        block.decoder = block.decoderGenerator = null;
                         block.saveContext();
                         block.finalize();
                         block.inProgress = false;
@@ -723,23 +709,10 @@ let makeAnalyzer = arch => {
                     }
                 }
 
-                for(;;) {
-                    try {
-                        this.emit('Block.postOp', block);
-                        block.postOp();
-                        break;
-                    } catch(e) {
-                        if(!(e instanceof AnalysisPauseError))
-                            throw e;
-                        console.error(e.toString());
-                        block.saveContext();
-                        yield;
-                        block.restoreContext();
-                    }
-                }
+                this.emit('Block.postOp', block);
+                block.postOp();
                 i += bytes;
             }
-            this.decoder = this.decoderGenerator = null;
             block.saveContext();
             block.finalize();
             block.inProgress = false;
@@ -991,9 +964,7 @@ let makeAnalyzer = arch => {
         try {
             analyzer.getBlock(mainBlock);
         } catch(e) {
-            if(typeof e === 'object')
-                e = e.stack;
-            console.error(e);
+            console.error(''+e || e.stack);
         }
         while(console.groupEnd() !== false);
     };
