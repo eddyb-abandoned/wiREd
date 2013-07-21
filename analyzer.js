@@ -119,15 +119,24 @@ let makeAnalyzer = arch => {
                         return false;
                 return true;
             };
-            let equalStack = (a, b) => {
-                a = a.stack;
-                b = b.stack;
-                if(a.length !== b.length)
-                    return false;
-                for(let i = 0; i < a.length; i++)
-                    if(!equalArray(a[i].down, b[i].down) || !equalArray(a[i].up, b[i].up))
-                        return false;
-                return true;
+            let commonArray = arrays => {
+                let minLength = arrays.map(x => x.length).reduce((a, b) => Math.min(a, b)), r = [];
+                for(let i = 0; i < minLength; i++) {
+                    if(!arrays.slice(1).every(x => x[i] === arrays[0][i]))
+                        break;
+                    r.push(arrays[0][i]);
+                }
+                return r;
+            };
+            let commonStack = (arrays, minLength) => {
+                let r = [];
+                minLength = Math.min(minLength, arrays.map(x => x.length).reduce((a, b) => Math.min(a, b)));
+                for(let i = 0; i < minLength; i++) {
+                    if(!arrays.slice(1).every(x => equalArray(x[i].down, arrays[0][i].down) && equalArray(x[i].up, arrays[0][i].up)))
+                        break;
+                    r.push({down: arrays[0][i].down.slice(), up: arrays[0][i].up.slice()});
+                }
+                return r;
             };
 
             if(same('retPC'))
@@ -142,10 +151,13 @@ let makeAnalyzer = arch => {
             }
             this.linkedFrom.push(...sources);
 
-            if(same((a, b) => equalArray(a.SP0, b.SP0)))
-                this.SP0 = sources[0].SP0.slice();
-            if(same(equalStack))
-                this.stack = sources[0].stack.map(x => ({down: x.down.slice(), up: x.up.slice()}));
+            let SP0common = commonArray(sources.map(x => x.SP0));
+            if(SP0common.length) {
+                this.SP0 = SP0common;
+                let stackCommon = commonStack(sources.map(x => x.stack), SP0common.length);
+                if(stackCommon.length)
+                    this.stack = stackCommon;
+            }
 
             for(let i in R) {
                 if(same((a, b) => a.R[i].value === b.R[i].value)) {
