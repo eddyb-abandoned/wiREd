@@ -223,8 +223,8 @@ _`00110100Imm_Rd__Imm_________`((imm4, Rd, imm12)=>[Mov(Rd, i32(u16(Rd)).or(i32(
 _`01IPUBWLRn__Rd__Imm$regshift`((I, P, U, B, W, L, Rn, Rd, src, a=Rn.add(U ? src : src.neg()), m=(B ? unsigned : signed)(Mem[B ? 8 : 32](P?a:Rn)))=>
     (P||!W) && [L?Mov(Rd, m):Mov(m, Rd), (W||!P)&&Mov(Rn, a)]);
 
-// sxtb utxb
-_`01101U101111Rd__Im000111Rm__`((U, Rd, imm, Rm)=>[Mov(Rd, (U ? u8 : i8)(Rm.ror(u8(imm).shl(u8(3)))))]);
+// sxtb utxb sxth utxh
+_`01101U1H1111Rd__Im000111Rm__`((U, H, Rd, imm, Rm)=>[Mov(Rd, (U ? uint : int)[H ? 16 : 8](Rm.ror(u8(imm).shl(u8(3)))))]);
 // bfi
 _`0111110Msb__Rd__Lsb__001Rn__`((msb, Rd, lsb, Rn, mask=i32(2).shl(u8(msb).sub(u8(lsb))).sub(i32(1)))=>[Mov(Rd, Rd.and(mask.shl(lsb).not()).or(Rn.and(mask).shl(lsb)))]);
 // bfc
