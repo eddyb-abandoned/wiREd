@@ -588,7 +588,7 @@ let makeAnalyzer = arch => {
             try {
                 this.decodeBlock(block);
             } catch(e) {
-                console.error(''+e || e.stack);
+                console.error(process.env.DEBUG_TRACE ? e.stack : ''+e);
             }
             return block;
         }
