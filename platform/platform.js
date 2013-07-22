@@ -363,7 +363,7 @@ var base = (arch, analyzer, platform)=>{ // HACK HACK HACK having arch there is 
 
                     offset = conv.calleeCleansStack ? offset : conv.stackOffset;
                     if(offset)
-                        this.block.SP.value = this.block.SP0[0].add(intptr_t(offset));
+                        this.block.Rvalue[arch.R.indexOf(arch.SP)/*HACK clean this up*/] = this.block.SP0[0].add(intptr_t(offset));
                 }
 
                 inspect() {
