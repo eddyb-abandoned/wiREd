@@ -316,8 +316,9 @@ let makeAnalyzer = arch => {
                         let SP0, SPdiff;
                         for(let x of targetBlock.returnPoints) {
                             let v = x.R[i].value;
-                            if(v.frozenValue) // HACK allows the callee to access the caller's stack (used in SEH's alloca).
-                                v = v.frozenValue;
+                            // TODO treat this special case like function arguments.
+                            //if(v.frozenValue) // HACK allows the callee to access the caller's stack (used in SEH's alloca).
+                            //    v = v.frozenValue;
                             v = valueof(v);
                             let [j, diff] = this.SPdiffAll(v);
                             if(!SP0) {

@@ -432,9 +432,8 @@ code += `
 var Register = exports.Register = [];`;
 for(let bits of storageBitSizes) {
     code += `
-function RegisterFrozen${bits}(name, value, type) {
+function RegisterFrozen${bits}(name, type) {
     this.name = name;
-    this.frozenValue = value;
     this.type = type;
 }
 RegisterFrozen${bits}.prototype = new Unknown(${bits});
@@ -454,8 +453,8 @@ var Register${bits} = Register[${bits}] = exports.Register${bits} = function Reg
         inspect: function() {
             return name + (self.nthValue ? self.nthValue.toSubString() : '');
         },
-        freeze: function(v) {
-            self.value = new RegisterFrozen${bits}(name + (self.nthValue++).toSubString(), v, self.type);
+        freeze: function() {
+            self.value = new RegisterFrozen${bits}(name + (self.nthValue++).toSubString(), self.type);
         },
         get value() {
             return self.value;
