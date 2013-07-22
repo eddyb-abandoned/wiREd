@@ -305,12 +305,9 @@ let makeAnalyzer = arch => {
 
                     // HACK pass current register values to the called function.
                     let changedR0 = {};
-                    {
-                        let initial = [];
-                        for(let i in R) {
-                            changedR0[i] = targetBlock.R0[i].value;
-                            targetBlock.R0[i].value = R[i].value;
-                        }
+                    for(let i in R) {
+                        changedR0[i] = targetBlock.R0[i].value;
+                        targetBlock.R0[i].value = R[i].value;
                     }
 
                     // HACK apply SP-relative changes to registers.
