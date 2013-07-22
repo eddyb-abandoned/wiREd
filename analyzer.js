@@ -312,6 +312,8 @@ let makeAnalyzer = arch => {
                     // HACK apply SP-relative changes to registers.
                     let updatedR = [];
                     for(let i in R) {
+                        if(targetBlock.returnPoints.every(x => x.R[i].value === targetBlock.R0[i]))
+                            continue;
                         let SP0, SPdiff;
                         for(let x of targetBlock.returnPoints) {
                             let v = x.R[i].value;
@@ -320,6 +322,10 @@ let makeAnalyzer = arch => {
                             //    v = v.frozenValue;
                             v = valueof(v);
                             let [j, diff] = this.SPdiffAll(v);
+                            if(diff === null) {
+                                SP0 = null;
+                                break;
+                            }
                             if(!SP0) {
                                 SP0 = this.SP0[j];
                                 SPdiff = diff;
@@ -359,7 +365,7 @@ let makeAnalyzer = arch => {
 
                     let changes = [];
                     for(let i in R)
-                        if(R[i] != PC && updatedR.indexOf(i) === -1 && targetBlock.returnPoints.some(x => x.R[i].value != x.R0[i])) {
+                        if(R[i] !== PC && updatedR.indexOf(i) === -1 && targetBlock.returnPoints.some(x => x.R[i].value !== targetBlock.R0[i])) {
                             changes.push(`${inspect(R[i])} <- {${targetBlock.returnPoints.map(x => inspect(valueof(x.R[i].value))).join(', ')}}`);
                             let lvalue = lvalueof(R[i]);
                             // TODO use return values from functions with multiple return points.
