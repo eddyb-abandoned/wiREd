@@ -8,12 +8,13 @@ _8051.bigEndian = true;
 
 const R = (reg, bits=8)=>new Register[bits](u8(reg));
 const F = f => R(f, 1);
-_8051.pushRuntime`var R = exports.R = {}, R1 = [], R8 = [], R16 = [], R32 = [];`;
+_8051.pushRuntime`var R = exports.R = [], R1 = [], R8 = [], R16 = [], R32 = [];
+Object.defineProperty(R, 'byName', {value: {}});`;
 {
     let sfr8 = [], r = (reg, name, bits=8)=>{
         if(bits == 8)
             sfr8[reg] = true;
-        _8051.pushRuntime`R.${name} = R${bits}[${reg}] = new Register${bits}('${name}');`;
+        _8051.pushRuntime`R.push(R.byName.${name} = R${bits}[${reg}] = new Register${bits}('${name}'));`;
         return R[name] = R(reg, bits);
     };
 
@@ -225,8 +226,8 @@ ${_8051.runtime}
 exports.dis = function _8051dis(b, i) {
 ${_8051.code().replace(/^(?=.)/gm, '\t').replace(/\t/g, '    ')}
 }
-exports.PC = R.PC;
-exports.SP = R.SP;
+exports.PC = R.byName.PC;
+exports.SP = R.byName.SP;
 exports.returnPC = Mem32(exports.SP); // FIXME proper stack handling, returnPC should be 16-bit.
 
 exports.paddingLength = function(b, i) {

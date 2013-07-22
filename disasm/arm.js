@@ -8,10 +8,11 @@ const arm = new Disasm;
 const R = (reg, bits=32, type)=>new Register[bits](type ? u8(R.offsets[type]).add(u8(reg)) : u8(reg));
 const F = f => R(f, 1);
 R.offsets = {CC: 16, VFP: 32};
-arm.pushRuntime`var R = exports.R = {}, R1 = [], R32 = [], R64 = [];`;
+arm.pushRuntime`var R = exports.R = [], R1 = [], R32 = [], R64 = [];
+Object.defineProperty(R, 'byName', {value: {}});`;
 {
     let r = (name, reg, bits=32, type)=>{
-        arm.pushRuntime`R.${name} = R${bits}[${type ? R.offsets[type]+reg : reg}] = new Register${bits}('${name}');`;
+        arm.pushRuntime`R.push(R.byName.${name} = R${bits}[${type ? R.offsets[type]+reg : reg}] = new Register${bits}('${name}'));`;
         return R[name] = R(reg, bits, type);
     };
 
@@ -275,8 +276,8 @@ ${arm.runtime}
 exports.dis = function armdis(b, i) {
 ${arm.code().replace(/^(?=.)/gm, '\t').replace(/\t/g, '    ')}
 }
-exports.PC = R.PC;
-exports.SP = R.SP;
-exports.FP = R.FP;
-exports.returnPC = R.LR;
+exports.PC = R.byName.PC;
+exports.SP = R.byName.SP;
+exports.FP = R.byName.FP;
+exports.returnPC = R.byName.LR;
 `);

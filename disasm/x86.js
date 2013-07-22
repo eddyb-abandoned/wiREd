@@ -8,10 +8,11 @@ const x86 = new Disasm, x86_pfxOperandSize = new Disasm;
 const R = (reg, bits=32, type)=>new Register[bits](type ? u8(R.offsets[type]).add(u8(reg)) : u8(reg));
 const F = f => R(f, 1);
 R.offsets = {S: 16, FLAGS: 32, x87: 48};
-x86.pushRuntime`var R = exports.R = {}, R1 = [], R8 = [], R16 = [], R32 = [], R80 = [];`;
+x86.pushRuntime`var R = exports.R = [], R1 = [], R8 = [], R16 = [], R32 = [], R80 = [];
+Object.defineProperty(R, 'byName', {value: {}});`;
 {
     let r = (name, reg, bits=32, type)=>{
-        x86.pushRuntime`R.${name} = R${bits}[${type ? R.offsets[type]+reg : reg}] = new Register${bits}('${name}');`;
+        x86.pushRuntime`R.push(R.byName.${name} = R${bits}[${type ? R.offsets[type]+reg : reg}] = new Register${bits}('${name}'));`;
         return R[name] = R(reg, bits, type);
     };
     'ACDB'.split('').forEach((x,i)=>{
@@ -35,8 +36,7 @@ x86.pushRuntime`var R = exports.R = {}, R1 = [], R8 = [], R16 = [], R32 = [], R8
 
     // x87 register "stack".
     for(let i = 0; i < 8; i++) {
-        r('ST'+i, i, 80);
-        R['ST'+i].type = f80; // HACK
+        r('ST'+i, i, 80).type = f80; // HACK
         x86.pushRuntime`R80[${i}].type = f80;`; // HACK
     }
     R.ST = i => {
@@ -451,9 +451,9 @@ ${x86_pfxOperandSize.code().replace(/^(?=.)/gm, '\t\t').replace(/\t/g, '    ')}
     }
 ${x86.code().replace(/^(?=.)/gm, '\t').replace(/\t/g, '    ')}
 }
-exports.PC = R.EIP;
-exports.SP = R.ESP;
-exports.FP = R.EBP;
+exports.PC = R.byName.EIP;
+exports.SP = R.byName.ESP;
+exports.FP = R.byName.EBP;
 exports.returnPC = Mem32(exports.SP);
 
 exports.paddingLength = function(b, i) {

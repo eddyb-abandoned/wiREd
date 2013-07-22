@@ -77,16 +77,16 @@ let makeAnalyzer = arch => {
             this.functionCalls = [];
             this.functionBlocks = [this];
             this.linkedFrom = [];
-            this.R = {};
-            this.R0 = {};
-            for(let i in R) {
+            this.RnthValue = [];
+            this.Rvalue = [];
+            this.R0 = [];
+            for(let i = 0; i < R.length; i++) {
                 this.R0[i] = new Unknown(R[i].bitsof);
-                this.R[i] = {nthValue: 1, value: this.R0[i]};
+                this.RnthValue[i] = 1;
+                this.Rvalue[i] = this.R0[i];
 
-                if(R[i] === SP) {
+                if(R[i] === SP)
                     this.SP0 = [this.R0[i]];
-                    this.SP = this.R[i];
-                }
                 let name = inspect(R[i])+(0).toSubString()/*+(this.start||0).toSupString(16)*/;
                 this.R0[i].inspect = ()=>name;
             }
@@ -111,7 +111,7 @@ let makeAnalyzer = arch => {
         }
 
         linkFrom(...sources) {
-            // HACK some usages of same should be more like deep compares.
+            // FIXME some usages of same should be more like deep compares.
             let same = (f, fn=typeof f === 'string' ? (a, b)=>a[f]===b[f] : f) => sources.slice(1).every(x => fn(x, sources[0]));
             let equalArray = (a, b) => {
                 if(a.length !== b.length)
@@ -161,25 +161,24 @@ let makeAnalyzer = arch => {
                     this.stack = stackCommon;
             }
 
-            for(let i in R) {
-                if(same((a, b) => a.R[i].value === b.R[i].value)) {
-                    this.R[i].value = sources[0].R[i].value;
-                    this.R[i].nthValue = sources.map(x => x.R[i].nthValue).reduce(Math.max);
-                } else {
+            for(let i = 0; i < R.length; i++) {
+                this.RnthValue[i] = sources.map(x => x.RnthValue[i]).reduce((a, b) => Math.max(a, b));
+                if(same((a, b) => a.Rvalue[i] === b.Rvalue[i]))
+                    this.Rvalue[i] = sources[0].Rvalue[i];
+                else {
                     // TODO use Phi/Any/Choice/whatever in case values differ.
-                    this.R[i].nthValue = sources.map(x => x.R[i].nthValue).reduce(Math.max);
+                    this.RnthValue[i]++;
                 }
-                if(R[i] !== SP && same((a, b) => a.R0[i] === b.R0[i]))
+                if(same((a, b) => a.R0[i] === b.R0[i]))
                     this.R0[i] = sources[0].R0[i];
             }
             return this;
         }
 
         saveContext() {
-            for(let i in R) {
-                this.R[i] = {nthValue: R[i].nthValue, value: R[i].value};
-                if(R[i] === SP)
-                    this.SP = this.R[i];
+            for(let i = 0; i < R.length; i++) {
+                this.RnthValue[i] = R[i].nthValue;
+                this.Rvalue[i] = R[i].value;
             }
 
             analyzer.memRead = analyzer.memWrite = null;
@@ -241,8 +240,10 @@ let makeAnalyzer = arch => {
         }
 
         restoreContext() {
-            for(let i in R)
-                ({nthValue: R[i].nthValue, value: R[i].value} = this.R[i]);
+            for(let i = 0; i < R.length; i++) {
+                R[i].nthValue = this.RnthValue[i];
+                R[i].value = this.Rvalue[i];
+            }
 
             analyzer.memRead = (addr, bits)=>{
                 let [i, diff] = this.SPdiffAll(addr);
@@ -306,19 +307,19 @@ let makeAnalyzer = arch => {
 
                     // HACK pass current register values to the called function.
                     let changedR0 = {};
-                    for(let i in R) {
+                    for(let i = 0; i < R.length; i++) {
                         changedR0[i] = targetBlock.R0[i].value;
                         targetBlock.R0[i].value = R[i].value;
                     }
 
                     // HACK apply SP-relative changes to registers.
                     let updatedR = [];
-                    for(let i in R) {
-                        if(targetBlock.returnPoints.every(x => x.R[i].value === targetBlock.R0[i]))
+                    for(let i = 0; i < R.length; i++) {
+                        if(targetBlock.returnPoints.every(x => x.Rvalue[i] === targetBlock.R0[i]))
                             continue;
                         let SP0, SPdiff;
                         for(let x of targetBlock.returnPoints) {
-                            let v = x.R[i].value;
+                            let v = x.Rvalue[i];
                             // TODO treat this special case like function arguments.
                             //if(v.frozenValue) // HACK allows the callee to access the caller's stack (used in SEH's alloca).
                             //    v = v.frozenValue;
@@ -340,7 +341,7 @@ let makeAnalyzer = arch => {
                         if(SP0) {
                             this.op(valueof(Mov(R[i], SP0.add(new SP.type(SPdiff)))));
                             updatedR.push(i);
-                            //console.log('<-', R[i], '=', R[i].value, '//', inspect(targetBlock.returnPoints[0].R[i].value));
+                            //console.log('<-', R[i], '=', R[i].value, '//', inspect(targetBlock.returnPoints[0].Rvalue[i]));
                         }
                     }
 
@@ -366,13 +367,13 @@ let makeAnalyzer = arch => {
                         }
 
                     let changes = [];
-                    for(let i in R)
-                        if(R[i] !== PC && updatedR.indexOf(i) === -1 && targetBlock.returnPoints.some(x => x.R[i].value !== targetBlock.R0[i])) {
-                            changes.push(`${inspect(R[i])} <- {${targetBlock.returnPoints.map(x => inspect(valueof(x.R[i].value))).join(', ')}}`);
+                    for(let i = 0; i < R.length; i++)
+                        if(R[i] !== PC && updatedR.indexOf(i) === -1 && targetBlock.returnPoints.some(x => x.Rvalue[i] !== targetBlock.R0[i])) {
+                            changes.push(`${inspect(R[i])} <- {${targetBlock.returnPoints.map(x => inspect(valueof(x.Rvalue[i]))).join(', ')}}`);
                             let lvalue = lvalueof(R[i]);
                             // TODO use return values from functions with multiple return points.
                             if(targetBlock.returnPoints.length === 1)
-                                this.op(Mov(lvalue, valueof(targetBlock.returnPoints[0].R[i].value)));
+                                this.op(Mov(lvalue, valueof(targetBlock.returnPoints[0].Rvalue[i])));
                             else if(lvalue.freeze)
                                 lvalue.freeze();
                         }
@@ -418,7 +419,7 @@ let makeAnalyzer = arch => {
                     console.error('Unknown '+(savesPC?'call':'tail-jump')+', assuming arguments');
                     let target = new Block({returns: true});
                     if(returnPC.fn === 'Mem' && returnPC.addr === SP) // HACK
-                        target.SP.value = target.SP0[0].add(u8(sizeof(returnPC)));
+                        target.Rvalue[R.indexOf(SP)/*HACK clean this up*/] = target.SP0[0].add(u8(sizeof(returnPC)));
                     target.addReturnPoint(target);
 
                     let stack = this.stack[this.stack.length-1].down, i = this.SPdiff(valueof(SP)) + sizeof(PC), j = i, k = 0, pc = this.PC;
@@ -440,7 +441,7 @@ let makeAnalyzer = arch => {
 
                     if(isTailJump) { // FIXME duplicated code.
                         console.error('Assuming callee cleans the stack ('+(j-i)+')');
-                        target.SP.value = target.SP.value.add(new SP.type(j-i));
+                        target.Rvalue[R.indexOf(SP)/*HACK clean this up*/] = target.Rvalue[R.indexOf(SP)/*HACK clean this up*/].add(new SP.type(j-i));
 
                         // HACK this fakes a return following the current instruction.
                         this.returns = true;
@@ -531,7 +532,8 @@ let makeAnalyzer = arch => {
                 if(this.returnPoints.indexOf(block) === -1) {
                     if(block !== this)
                         ;//delete block.SP0;
-                    //delete block.R;
+                    //delete block.RnthValue;
+                    //delete block.Rvalue;
                     //delete block.stack;
                 } else {
                     //block.SP0 = [block.SP0[0]];

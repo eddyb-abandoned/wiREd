@@ -344,7 +344,7 @@ var base = (arch, analyzer, platform)=>{ // HACK HACK HACK having arch there is 
                         this.block.addReturnPoint(this.block);
                     }
 
-                    let argVals = args.slice(0, conv.args.length).map(([type], i) => type ? type(this.block.R0[conv.args[i]]) : new arch.Unknown);
+                    let argVals = args.slice(0, conv.args.length).map(([type], i) => type ? type(this.block.R0[arch.R.indexOf(arch.R.byName[conv.args[i]])/*HACK clean this up*/]) : new arch.Unknown);
                     let offset = conv.stackOffset;
                     for(let [type] of args.slice(conv.args.length)) {
                         argVals.push(type && type.fromMem ? type.fromMem(this.block.SP0[0].add(intptr_t(offset))) : new arch.Unknown);
@@ -359,7 +359,7 @@ var base = (arch, analyzer, platform)=>{ // HACK HACK HACK having arch there is 
                     analyzer.emit('Block.functionCall', functionCall);
 
                     if(retType)
-                        this.block.R[conv.retValue].value = retType(new ReturnValue(name, ...argVals)); // HACK Duplicate of FnCall.
+                        this.block.Rvalue[arch.R.indexOf(arch.R.byName[conv.retValue])/*HACK clean this up*/] = retType(new ReturnValue(name, ...argVals)); // HACK Duplicate of FnCall.
 
                     offset = conv.calleeCleansStack ? offset : conv.stackOffset;
                     if(offset)
