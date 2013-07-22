@@ -396,9 +396,11 @@ let makeAnalyzer = arch => {
                         return target;
                     if(isTailJump) {
                         console.error('Tail-jumping to function -> '+inspect(newPC));
-                        // HACK this fakes a return following the current instruction.
-                        this.returns = true;
-                        this.addReturnPoint(this);
+                        if(target.returnPoints.length) {
+                            // HACK this fakes a return following the current instruction.
+                            this.returns = true;
+                            this.addReturnPoint(this);
+                        }
                         // HACK this makes savesPC true in postOp().
                         this.PCnext = this.retPC;
                         return target;
