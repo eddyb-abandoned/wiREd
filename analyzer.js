@@ -290,7 +290,6 @@ let makeAnalyzer = arch => {
 
         postOp() {
             if(this.PCwritten && !eq(PC.value, this.PCnext)) {
-                console.log('-->', inspect(PC.value));
                 let targetBlock = this.getJumpTarget(PC.value);
                 let savesPC = eq(valueof(returnPC), this.PCnext);
                 if(savesPC) {
@@ -386,6 +385,7 @@ let makeAnalyzer = arch => {
             if(!newPC.known) {
                 let isTailJump = !savesPC && this.SP0.length === 1 && this.SPdiff(valueof(SP)) === 0;
                 if(newPC === this.retPC) {
+                    console.log('return;');
                     this.addReturnPoint(this);
                     return this.retPC;
                 } else if(newPC.fn === 'Function') { // HACK required for imported functions.
@@ -460,43 +460,54 @@ let makeAnalyzer = arch => {
 
             newPC = newPC._A; // HACK
             this.saveContext();
-            if(savesPC) {
-                let fnName = analyzer.namedFunctions[newPC];
-                console.group('0x'+newPC.toString(16).padLeft(8, '0') + (fnName ? ` (${fnName})` : ''));
-            }
 
-            let target = new Block({start: newPC});
-            if(savesPC) {
-                target.restoreContext();
-                target.op(valueof(Mov(returnPC, target.retPC)));
-                target.saveContext();
-            } else
-                target.linkFrom(this);
+            let target = analyzer.getBlockFromCache(newPC);
+            let addr = '0x'+newPC.toString(16).padLeft(8, '0');
+            let fnName = analyzer.namedFunctions[newPC];
+            if(fnName)
+                addr += ` (${fnName})`;
+            if(!savesPC)
+                console.log('=> '+addr);
 
-            let newTarget = analyzer.getBlock(target);
-            if(savesPC)
-                console.groupEnd();
-            else if(newTarget !== target) {
-                if(newTarget.returnPoints !== this.returnPoints)
-                    for(let x of newTarget.returnPoints)
-                        this.addReturnPoint(x);
-                if(newTarget.functionCalls !== this.functionCalls)
-                    for(let x of newTarget.functionCalls)
-                        this.addFunctionCall(x);
-                if(newTarget.functionBlocks !== this.functionBlocks)
-                    console.error('Warning: jumped to block of different function');
-                else
-                    newTarget.linkedFrom.push(this);
+            if(target) {
+                if(!savesPC) {
+                    if(target.functionBlocks !== this.functionBlocks)
+                        console.error('Warning: jumped to block of different function (maybe tail-jump/call?)');
+                    else
+                        target.linkedFrom.push(this);
+                    if(target.returnPoints !== this.returnPoints)
+                        for(let x of target.returnPoints)
+                            this.addReturnPoint(x);
+                        if(target.functionCalls !== this.functionCalls)
+                            for(let x of target.functionCalls)
+                                this.addFunctionCall(x);
+                } else
+                    console.log(addr + ' {}');
+            } else {
+                target = new Block({start: newPC});
+                if(savesPC) {
+                    console.group(addr);
+                    target.restoreContext();
+                    target.op(valueof(Mov(returnPC, target.retPC)));
+                    target.saveContext();
+                } else
+                    target.linkFrom(this);
+                let newTarget = analyzer.getBlock(target);
+                if(newTarget !== target)
+                    throw new Error('Got different block even though it wasn\'t cached');
+                if(savesPC)
+                    console.groupEnd();
             }
 
             this.restoreContext();
-            if(newTarget.inProgress && savesPC) {
-                if(!newTarget.returnPoints.length)
+
+            if(target.inProgress && savesPC) {
+                if(!target.returnPoints.length)
                     throw new AnalysisPauseError('no return points');
                 else
-                    console.error(`Got inProgress block, with ${newTarget.returnPoints.length} return points`);
+                    console.error(`Got inProgress block, with ${target.returnPoints.length} return points`);
             }
-            return newTarget;
+            return target;
         }
 
         finalize() {
