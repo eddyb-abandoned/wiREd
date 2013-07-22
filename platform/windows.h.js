@@ -394,7 +394,7 @@ T.EXCEPTION_REGISTRATION_RECORD = function() {return Struct('_EXCEPTION_REGISTRA
     Prev: Pointer(Struct('_EXCEPTION_REGISTRATION_RECORD', null)),
     Handler: T.PEXCEPTION_HANDLER
 });};
-T.PVECTORED_EXCEPTION_HANDLER = function() {return Pointer(Fn(T.LONG, [[T.PEXCEPTION_POINTERS, 'ExceptionInfo']]));};
+T.PVECTORED_EXCEPTION_HANDLER = function() {return Pointer(Fn(T.LONG, [[T.PEXCEPTION_POINTERS, 'ExceptionInfo']]), [['stdcall']]);};
 T.NT_TIB = function() {return Struct('_NT_TIB', {
     ExceptionList: Pointer(Struct('_EXCEPTION_REGISTRATION_RECORD', null)),
     StackBase: T.PVOID,
@@ -1168,7 +1168,7 @@ T.PIMAGE_RESOURCE_DATA_ENTRY = function() {return Pointer(Struct('_IMAGE_RESOURC
     CodePage: T.DWORD,
     Reserved: T.DWORD
 }));};
-T.PIMAGE_TLS_CALLBACK = function() {return Pointer(Fn(null, [[T.LPVOID, 'DllHandle'], [T.DWORD, 'Reason'], [T.LPVOID, 'Reserved']]));};
+T.PIMAGE_TLS_CALLBACK = function() {return Pointer(Fn(null, [[T.LPVOID, 'DllHandle'], [T.DWORD, 'Reason'], [T.LPVOID, 'Reserved']]), [['stdcall']]);};
 T.IMAGE_TLS_DIRECTORY64 = function() {return Struct('_IMAGE_TLS_DIRECTORY64', {
     StartAddressOfRawData: T.ULONGLONG,
     EndAddressOfRawData: T.ULONGLONG,
@@ -2614,8 +2614,8 @@ T.PRTL_CRITICAL_SECTION = function() {return Pointer(Struct('_RTL_CRITICAL_SECTI
     LockSemaphore: T.HANDLE,
     SpinCount: T.ULONG_PTR
 }));};
-T.WAITORTIMERCALLBACKFUNC = function() {return Pointer(Fn(null, [[T.PVOID], [T.BOOLEAN]]));};
-T.PFLS_CALLBACK_FUNCTION = function() {return Pointer(Fn(null, [[T.PVOID]]));};
+T.WAITORTIMERCALLBACKFUNC = function() {return Pointer(Fn(null, [[T.PVOID], [T.BOOLEAN]]), [['stdcall']]);};
+T.PFLS_CALLBACK_FUNCTION = function() {return Pointer(Fn(null, [[T.PVOID]]), [['stdcall']]);};
 T.IO_COUNTERS = function() {return Struct('_IO_COUNTERS', {
     ReadOperationCount: T.ULONGLONG,
     WriteOperationCount: T.ULONGLONG,
@@ -3160,9 +3160,9 @@ T.HLOCAL = function() {return T.HANDLE;};
 T.GLOBALHANDLE = function() {return T.HANDLE;};
 T.LOCALHANDLE = function() {return T.HANDLE;};
 T.HCURSOR = function() {return T.HICON;};
-T.FARPROC = function() {return Pointer(Fn(T.INT_PTR, []));};
-T.NEARPROC = function() {return Pointer(Fn(T.INT_PTR, []));};
-T.PROC = function() {return Pointer(Fn(T.INT_PTR, []));};
+T.FARPROC = function() {return Pointer(Fn(T.INT_PTR, []), [['stdcall']]);};
+T.NEARPROC = function() {return Pointer(Fn(T.INT_PTR, []), [['stdcall']]);};
+T.PROC = function() {return Pointer(Fn(T.INT_PTR, []), [['stdcall']]);};
 T.SIZE = function() {return Struct('tagSIZE', {
     cx: T.LONG,
     cy: T.LONG
@@ -3260,8 +3260,8 @@ T.LPRECTL = function() {return Pointer(Struct('_RECTL', {
     bottom: T.LONG
 }));};
 T.LPCRECTL = function() {return Pointer(T.RECTL, [['const']]);};
-T.LPTHREAD_START_ROUTINE = function() {return Pointer(Fn(T.DWORD, [[T.LPVOID]]));};
-T.PFIBER_START_ROUTINE = function() {return Pointer(Fn(null, [[T.LPVOID, 'lpFiberParameter']]));};
+T.LPTHREAD_START_ROUTINE = function() {return Pointer(Fn(T.DWORD, [[T.LPVOID]]), [['stdcall']]);};
+T.PFIBER_START_ROUTINE = function() {return Pointer(Fn(null, [[T.LPVOID, 'lpFiberParameter']]), [['stdcall']]);};
 T.LPFIBER_START_ROUTINE = function() {return T.PFIBER_START_ROUTINE;};
 T.CRITICAL_SECTION = function() {return T.RTL_CRITICAL_SECTION;};
 T.PCRITICAL_SECTION = function() {return T.PRTL_CRITICAL_SECTION;};
@@ -3352,7 +3352,7 @@ T.LPDEBUG_EVENT = function() {return Pointer(Struct('_DEBUG_EVENT', {
 T.LPCONTEXT = function() {return T.PCONTEXT;};
 T.LPEXCEPTION_RECORD = function() {return T.PEXCEPTION_RECORD;};
 T.LPEXCEPTION_POINTERS = function() {return T.PEXCEPTION_POINTERS;};
-T.PTOP_LEVEL_EXCEPTION_FILTER = function() {return Pointer(Fn(T.LONG, [[T.PEXCEPTION_POINTERS]]));};
+T.PTOP_LEVEL_EXCEPTION_FILTER = function() {return Pointer(Fn(T.LONG, [[T.PEXCEPTION_POINTERS]]), [['stdcall']]);};
 T.LPTOP_LEVEL_EXCEPTION_FILTER = function() {return T.PTOP_LEVEL_EXCEPTION_FILTER;};
 T.OFSTRUCT = function() {return Struct('_OFSTRUCT', {
     cBytes: T.BYTE,
@@ -3635,7 +3635,7 @@ T.LPOVERLAPPED = function() {return Pointer(Struct('_OVERLAPPED', {
     }),
     hEvent: T.HANDLE
 }));};
-T.LPOVERLAPPED_COMPLETION_ROUTINE = function() {return Pointer(Fn(null, [[T.DWORD], [T.DWORD], [T.LPOVERLAPPED]]));};
+T.LPOVERLAPPED_COMPLETION_ROUTINE = function() {return Pointer(Fn(null, [[T.DWORD], [T.DWORD], [T.LPOVERLAPPED]]), [['stdcall']]);};
 T.STARTUPINFOA = function() {return Struct('_STARTUPINFOA', {
     cb: T.DWORD,
     lpReserved: T.LPSTR,
@@ -3873,12 +3873,12 @@ T.LPSYSTEM_INFO = function() {return Pointer(Struct('_SYSTEM_INFO', {
     wProcessorLevel: T.WORD,
     wProcessorRevision: T.WORD
 }));};
-T.ENUMRESTYPEPROCA = function() {return Pointer(Fn(T.BOOL, [[T.HMODULE], [T.LPSTR], [T.LONG_PTR]]));};
-T.ENUMRESTYPEPROCW = function() {return Pointer(Fn(T.BOOL, [[T.HMODULE], [T.LPWSTR], [T.LONG_PTR]]));};
-T.ENUMRESNAMEPROCA = function() {return Pointer(Fn(T.BOOL, [[T.HMODULE], [T.LPCSTR], [T.LPSTR], [T.LONG_PTR]]));};
-T.ENUMRESNAMEPROCW = function() {return Pointer(Fn(T.BOOL, [[T.HMODULE], [T.LPCWSTR], [T.LPWSTR], [T.LONG_PTR]]));};
-T.ENUMRESLANGPROCA = function() {return Pointer(Fn(T.BOOL, [[T.HMODULE], [T.LPCSTR], [T.LPCSTR], [T.WORD], [T.LONG_PTR]]));};
-T.ENUMRESLANGPROCW = function() {return Pointer(Fn(T.BOOL, [[T.HMODULE], [T.LPCWSTR], [T.LPCWSTR], [T.WORD], [T.LONG_PTR]]));};
+T.ENUMRESTYPEPROCA = function() {return Pointer(Fn(T.BOOL, [[T.HMODULE], [T.LPSTR], [T.LONG_PTR]]), [['stdcall']]);};
+T.ENUMRESTYPEPROCW = function() {return Pointer(Fn(T.BOOL, [[T.HMODULE], [T.LPWSTR], [T.LONG_PTR]]), [['stdcall']]);};
+T.ENUMRESNAMEPROCA = function() {return Pointer(Fn(T.BOOL, [[T.HMODULE], [T.LPCSTR], [T.LPSTR], [T.LONG_PTR]]), [['stdcall']]);};
+T.ENUMRESNAMEPROCW = function() {return Pointer(Fn(T.BOOL, [[T.HMODULE], [T.LPCWSTR], [T.LPWSTR], [T.LONG_PTR]]), [['stdcall']]);};
+T.ENUMRESLANGPROCA = function() {return Pointer(Fn(T.BOOL, [[T.HMODULE], [T.LPCSTR], [T.LPCSTR], [T.WORD], [T.LONG_PTR]]), [['stdcall']]);};
+T.ENUMRESLANGPROCW = function() {return Pointer(Fn(T.BOOL, [[T.HMODULE], [T.LPCWSTR], [T.LPCWSTR], [T.WORD], [T.LONG_PTR]]), [['stdcall']]);};
 T.ENUMRESTYPEPROC = function() {return T.ENUMRESTYPEPROCA;};
 T.ENUMRESNAMEPROC = function() {return T.ENUMRESNAMEPROCA;};
 T.ENUMRESLANGPROC = function() {return T.ENUMRESLANGPROCA;};
@@ -3902,7 +3902,7 @@ T.LPWIN32_FILE_ATTRIBUTE_DATA = function() {return Pointer(Struct('_WIN32_FILE_A
     nFileSizeHigh: T.DWORD,
     nFileSizeLow: T.DWORD
 }));};
-T.LPPROGRESS_ROUTINE = function() {return Pointer(Fn(T.DWORD, [[T.LARGE_INTEGER], [T.LARGE_INTEGER], [T.LARGE_INTEGER], [T.LARGE_INTEGER], [T.DWORD], [T.DWORD], [T.HANDLE], [T.HANDLE], [T.LPVOID]]));};
+T.LPPROGRESS_ROUTINE = function() {return Pointer(Fn(T.DWORD, [[T.LARGE_INTEGER], [T.LARGE_INTEGER], [T.LARGE_INTEGER], [T.LARGE_INTEGER], [T.DWORD], [T.DWORD], [T.HANDLE], [T.HANDLE], [T.LPVOID]]), [['stdcall']]);};
 T.ACTCTXA = function() {return Struct('tagACTCTXA', {
     cbSize: T.ULONG,
     dwFlags: T.DWORD,
@@ -4029,7 +4029,7 @@ T.PACTIVATION_CONTEXT_BASIC_INFORMATION = function() {return Pointer(Struct('_AC
     hActCtx: T.HANDLE,
     dwFlags: T.DWORD
 }));};
-T.PQUERYACTCTXW_FUNC = function() {return Pointer(Fn(T.BOOL, [[T.DWORD], [T.HANDLE], [T.PVOID], [T.ULONG], [T.PVOID], [T.SIZE_T], [Pointer(T.SIZE_T)]]));};
+T.PQUERYACTCTXW_FUNC = function() {return Pointer(Fn(T.BOOL, [[T.DWORD], [T.HANDLE], [T.PVOID], [T.ULONG], [T.PVOID], [T.SIZE_T], [Pointer(T.SIZE_T)]]), [['stdcall']]);};
 T.COMSTAT = function() {return Struct('tagCOMSTAT', {
     fCtsHold: [T.DWORD, 1],
     fDsrHold: [T.DWORD, 1],
@@ -4188,8 +4188,8 @@ T.LPCOMMTIMEOUTS = function() {return Pointer(Struct('tagCOMMTIMEOUTS', {
     WriteTotalTimeoutMultiplier: T.DWORD,
     WriteTotalTimeoutConstant: T.DWORD
 }));};
-T.PAPCFUNC = function() {return Pointer(Fn(null, [[T.ULONG_PTR]]));};
-T.PTIMERAPCROUTINE = function() {return Pointer(Fn(null, [[T.LPVOID], [T.DWORD], [T.DWORD]]));};
+T.PAPCFUNC = function() {return Pointer(Fn(null, [[T.ULONG_PTR]]), [['stdcall']]);};
+T.PTIMERAPCROUTINE = function() {return Pointer(Fn(null, [[T.LPVOID], [T.DWORD], [T.DWORD]]), [['stdcall']]);};
 T.COMPUTER_NAME_FORMAT = function() {return Enum('ComputerNameMax', {
     ComputerNameNetBIOS: 0,
     ComputerNameDnsHostname: 1,
@@ -4476,8 +4476,8 @@ T.LPLOGCOLORSPACEW = function() {return Pointer(Struct('tagLOGCOLORSPACEW', {
 }));};
 T.LPLOGCOLORSPACE = function() {return T.LPLOGCOLORSPACEA;};
 T.LOGCOLORSPACE = function() {return T.LOGCOLORSPACEA;};
-T.ICMENUMPROCA = function() {return Pointer(Fn(T.INT, [[T.LPSTR, 'lpszFilename'], [T.LPARAM, 'lParam']]));};
-T.ICMENUMPROCW = function() {return Pointer(Fn(T.INT, [[T.LPWSTR, 'lpszFilename'], [T.LPARAM, 'lParam']]));};
+T.ICMENUMPROCA = function() {return Pointer(Fn(T.INT, [[T.LPSTR, 'lpszFilename'], [T.LPARAM, 'lParam']]), [['stdcall']]);};
+T.ICMENUMPROCW = function() {return Pointer(Fn(T.INT, [[T.LPWSTR, 'lpszFilename'], [T.LPARAM, 'lParam']]), [['stdcall']]);};
 T.ICMENUMPROC = function() {return T.ICMENUMPROCA;};
 T.PELARRAY = function() {return Struct('', {
     paXCount: T.LONG,
@@ -5467,14 +5467,14 @@ T.NEWTEXTMETRICEXW = function() {return Struct('', {
     ntmFontSig: T.FONTSIGNATURE
 });};
 T.NEWTEXTMETRICEX = function() {return T.NEWTEXTMETRICEXA;};
-T.OLDFONTENUMPROCA = function() {return Pointer(Fn(T.i32, [[Pointer(T.LOGFONTA)], [Pointer(T.TEXTMETRICA)], [T.DWORD], [T.LPARAM]]));};
-T.OLDFONTENUMPROCW = function() {return Pointer(Fn(T.i32, [[Pointer(T.LOGFONTW)], [Pointer(T.TEXTMETRICW)], [T.DWORD], [T.LPARAM]]));};
+T.OLDFONTENUMPROCA = function() {return Pointer(Fn(T.i32, [[Pointer(T.LOGFONTA)], [Pointer(T.TEXTMETRICA)], [T.DWORD], [T.LPARAM]]), [['stdcall']]);};
+T.OLDFONTENUMPROCW = function() {return Pointer(Fn(T.i32, [[Pointer(T.LOGFONTW)], [Pointer(T.TEXTMETRICW)], [T.DWORD], [T.LPARAM]]), [['stdcall']]);};
 T.OLDFONTENUMPROC = function() {return T.OLDFONTENUMPROCA;};
 T.FONTENUMPROCA = function() {return T.OLDFONTENUMPROCA;};
 T.FONTENUMPROCW = function() {return T.OLDFONTENUMPROCW;};
 T.FONTENUMPROC = function() {return T.FONTENUMPROCA;};
-T.GOBJENUMPROC = function() {return Pointer(Fn(T.INT, [[T.LPVOID], [T.LPARAM]]));};
-T.LINEDDAPROC = function() {return Pointer(Fn(null, [[T.INT], [T.INT], [T.LPARAM]]));};
+T.GOBJENUMPROC = function() {return Pointer(Fn(T.INT, [[T.LPVOID], [T.LPARAM]]), [['stdcall']]);};
+T.LINEDDAPROC = function() {return Pointer(Fn(null, [[T.INT], [T.INT], [T.LPARAM]]), [['stdcall']]);};
 T.GLYPHMETRICS = function() {return Struct('', {
     gmBlackBoxX: T.UINT,
     gmBlackBoxY: T.UINT,
@@ -6123,7 +6123,7 @@ T.LPMETAFILEPICT = function() {return Pointer(Struct('', {
     yExt: T.LONG,
     hMF: T.HMETAFILE
 }));};
-T.MFENUMPROC = function() {return Pointer(Fn(T.INT, [[T.HDC], [Pointer(T.HANDLETABLE)], [Pointer(T.METARECORD)], [T.INT], [T.LPARAM]]));};
+T.MFENUMPROC = function() {return Pointer(Fn(T.INT, [[T.HDC], [Pointer(T.HANDLETABLE)], [Pointer(T.METARECORD)], [T.INT], [T.LPARAM]]), [['stdcall']]);};
 T.ENHMETAHEADER = function() {return Struct('', {
     iType: T.DWORD,
     nSize: T.DWORD,
@@ -7547,7 +7547,7 @@ T.PEMRGLSBOUNDEDRECORD = function() {return Pointer(Struct('', {
     cbData: T.DWORD,
     Data: ArrayType(T.BYTE, 1)
 }));};
-T.ENHMFENUMPROC = function() {return Pointer(Fn(T.INT, [[T.HDC], [Pointer(T.HANDLETABLE)], [Pointer(T.ENHMETARECORD)], [T.INT], [T.LPARAM]]));};
+T.ENHMFENUMPROC = function() {return Pointer(Fn(T.INT, [[T.HDC], [Pointer(T.HANDLETABLE)], [Pointer(T.ENHMETARECORD)], [T.INT], [T.LPARAM]]), [['stdcall']]);};
 T.DEVMODEA = function() {return Struct('', {
     dmDeviceName: ArrayType(T.BYTE, 32),
     dmSpecVersion: T.WORD,
@@ -7895,7 +7895,7 @@ T.LPRGNDATA = function() {return Pointer(Struct('_RGNDATA', {
     rdh: T.RGNDATAHEADER,
     Buffer: ArrayType(T.char, 1)
 }));};
-T.ABORTPROC = function() {return Pointer(Fn(T.BOOL, [[T.HDC], [T.INT]]));};
+T.ABORTPROC = function() {return Pointer(Fn(T.BOOL, [[T.HDC], [T.INT]]), [['stdcall']]);};
 T.DISPLAY_DEVICEA = function() {return Struct('', {
     cb: T.DWORD,
     DeviceName: ArrayType(T.CHAR, 32),
@@ -8056,27 +8056,27 @@ T.LPGLYPHSET = function() {return Pointer(Struct('tagGLYPHSET', {
     cRanges: T.DWORD,
     ranges: ArrayType(T.WCRANGE, 1)
 }));};
-T.DLGPROC = function() {return Pointer(Fn(T.INT_PTR, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]));};
-T.DRAWSTATEPROC = function() {return Pointer(Fn(T.BOOL, [[T.HDC], [T.LPARAM], [T.WPARAM], [T.i32], [T.i32]]));};
-T.EDITWORDBREAKPROCA = function() {return Pointer(Fn(T.INT, [[T.LPSTR], [T.INT], [T.INT], [T.INT]]));};
-T.EDITWORDBREAKPROCW = function() {return Pointer(Fn(T.INT, [[T.LPWSTR], [T.INT], [T.INT], [T.INT]]));};
-T.GRAYSTRINGPROC = function() {return Pointer(Fn(T.BOOL, [[T.HDC], [T.LPARAM], [T.INT]]));};
-T.HOOKPROC = function() {return Pointer(Fn(T.LRESULT, [[T.INT], [T.WPARAM], [T.LPARAM]]));};
-T.NAMEENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR], [T.LPARAM]]));};
-T.NAMEENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR], [T.LPARAM]]));};
-T.PROPENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.HWND], [T.LPCSTR], [T.HANDLE]]));};
-T.PROPENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.HWND], [T.LPCWSTR], [T.HANDLE]]));};
-T.PROPENUMPROCEXA = function() {return Pointer(Fn(T.BOOL, [[T.HWND], [T.LPSTR], [T.HANDLE], [T.ULONG_PTR]]));};
-T.PROPENUMPROCEXW = function() {return Pointer(Fn(T.BOOL, [[T.HWND], [T.LPWSTR], [T.HANDLE], [T.ULONG_PTR]]));};
-T.SENDASYNCPROC = function() {return Pointer(Fn(null, [[T.HWND], [T.UINT], [T.ULONG_PTR], [T.LRESULT]]));};
-T.TIMERPROC = function() {return Pointer(Fn(null, [[T.HWND], [T.UINT], [T.UINT_PTR], [T.DWORD]]));};
-T.WINEVENTPROC = function() {return Pointer(Fn(null, [[T.HWINEVENTHOOK], [T.DWORD], [T.HWND], [T.LONG], [T.LONG], [T.DWORD], [T.DWORD]]));};
-T.WNDENUMPROC = function() {return Pointer(Fn(T.BOOL, [[T.HWND], [T.LPARAM]]));};
+T.DLGPROC = function() {return Pointer(Fn(T.INT_PTR, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]), [['stdcall']]);};
+T.DRAWSTATEPROC = function() {return Pointer(Fn(T.BOOL, [[T.HDC], [T.LPARAM], [T.WPARAM], [T.i32], [T.i32]]), [['stdcall']]);};
+T.EDITWORDBREAKPROCA = function() {return Pointer(Fn(T.INT, [[T.LPSTR], [T.INT], [T.INT], [T.INT]]), [['stdcall']]);};
+T.EDITWORDBREAKPROCW = function() {return Pointer(Fn(T.INT, [[T.LPWSTR], [T.INT], [T.INT], [T.INT]]), [['stdcall']]);};
+T.GRAYSTRINGPROC = function() {return Pointer(Fn(T.BOOL, [[T.HDC], [T.LPARAM], [T.INT]]), [['stdcall']]);};
+T.HOOKPROC = function() {return Pointer(Fn(T.LRESULT, [[T.INT], [T.WPARAM], [T.LPARAM]]), [['stdcall']]);};
+T.NAMEENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR], [T.LPARAM]]), [['stdcall']]);};
+T.NAMEENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR], [T.LPARAM]]), [['stdcall']]);};
+T.PROPENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.HWND], [T.LPCSTR], [T.HANDLE]]), [['stdcall']]);};
+T.PROPENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.HWND], [T.LPCWSTR], [T.HANDLE]]), [['stdcall']]);};
+T.PROPENUMPROCEXA = function() {return Pointer(Fn(T.BOOL, [[T.HWND], [T.LPSTR], [T.HANDLE], [T.ULONG_PTR]]), [['stdcall']]);};
+T.PROPENUMPROCEXW = function() {return Pointer(Fn(T.BOOL, [[T.HWND], [T.LPWSTR], [T.HANDLE], [T.ULONG_PTR]]), [['stdcall']]);};
+T.SENDASYNCPROC = function() {return Pointer(Fn(null, [[T.HWND], [T.UINT], [T.ULONG_PTR], [T.LRESULT]]), [['stdcall']]);};
+T.TIMERPROC = function() {return Pointer(Fn(null, [[T.HWND], [T.UINT], [T.UINT_PTR], [T.DWORD]]), [['stdcall']]);};
+T.WINEVENTPROC = function() {return Pointer(Fn(null, [[T.HWINEVENTHOOK], [T.DWORD], [T.HWND], [T.LONG], [T.LONG], [T.DWORD], [T.DWORD]]), [['stdcall']]);};
+T.WNDENUMPROC = function() {return Pointer(Fn(T.BOOL, [[T.HWND], [T.LPARAM]]), [['stdcall']]);};
 T.WINSTAENUMPROCA = function() {return T.NAMEENUMPROCA;};
 T.DESKTOPENUMPROCA = function() {return T.NAMEENUMPROCA;};
 T.WINSTAENUMPROCW = function() {return T.NAMEENUMPROCW;};
 T.DESKTOPENUMPROCW = function() {return T.NAMEENUMPROCW;};
-T.WNDPROC = function() {return Pointer(Fn(T.LRESULT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]));};
+T.WNDPROC = function() {return Pointer(Fn(T.LRESULT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]), [['stdcall']]);};
 T.DESKTOPENUMPROC = function() {return T.DESKTOPENUMPROCA;};
 T.EDITWORDBREAKPROC = function() {return T.EDITWORDBREAKPROCA;};
 T.NAMEENUMPROC = function() {return T.NAMEENUMPROCA;};
@@ -9696,7 +9696,7 @@ T.LPHELPINFO = function() {return Pointer(Struct('tagHELPINFO', {
     dwContextId: T.DWORD_PTR,
     MousePos: T.POINT
 }));};
-T.MSGBOXCALLBACK = function() {return Pointer(Fn(null, [[T.LPHELPINFO, 'lpHelpInfo']]));};
+T.MSGBOXCALLBACK = function() {return Pointer(Fn(null, [[T.LPHELPINFO, 'lpHelpInfo']]), [['stdcall']]);};
 T.MSGBOXPARAMSA = function() {return Struct('tagMSGBOXPARAMSA', {
     cbSize: T.UINT,
     hwndOwner: T.HWND,
@@ -9814,7 +9814,7 @@ T.LPMONITORINFOEXW = function() {return Pointer(Struct('tagMONITORINFOEXW', {
 }));};
 T.MONITORINFOEX = function() {return T.MONITORINFOEXA;};
 T.LPMONITORINFOEX = function() {return T.LPMONITORINFOEXA;};
-T.MONITORENUMPROC = function() {return Pointer(Fn(T.BOOL, [[T.HMONITOR], [T.HDC], [T.LPRECT], [T.LPARAM]]));};
+T.MONITORENUMPROC = function() {return Pointer(Fn(T.BOOL, [[T.HMONITOR], [T.HDC], [T.LPRECT], [T.LPARAM]]), [['stdcall']]);};
 T.DLGTEMPLATE = function() {return Struct('tagDLGTEMPLATE', {
     style: T.DWORD,
     dwExtendedStyle: T.DWORD,
@@ -10470,28 +10470,28 @@ T.LPCURRENCYFMTW = function() {return Pointer(Struct('_currencyfmtW', {
 }));};
 T.CURRENCYFMT = function() {return T.CURRENCYFMTA;};
 T.LPCURRENCYFMT = function() {return T.LPCURRENCYFMTA;};
-T.CALINFO_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR]]));};
-T.CALINFO_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR]]));};
-T.CALINFO_ENUMPROCEXA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR], [T.CALID]]));};
-T.CALINFO_ENUMPROCEXW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR], [T.CALID]]));};
-T.CODEPAGE_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR]]));};
-T.CODEPAGE_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR]]));};
-T.DATEFMT_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR]]));};
-T.DATEFMT_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR]]));};
-T.DATEFMT_ENUMPROCEXA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR], [T.CALID]]));};
-T.DATEFMT_ENUMPROCEXW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR], [T.CALID]]));};
-T.GEO_ENUMPROC = function() {return Pointer(Fn(T.BOOL, [[T.GEOID]]));};
-T.LANGGROUPLOCALE_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LGRPID], [T.LCID], [T.LPSTR], [T.LONG_PTR]]));};
-T.LANGGROUPLOCALE_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LGRPID], [T.LCID], [T.LPWSTR], [T.LONG_PTR]]));};
-T.LANGUAGEGROUP_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LGRPID], [T.LPSTR], [T.LPSTR], [T.DWORD], [T.LONG_PTR]]));};
-T.LANGUAGEGROUP_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LGRPID], [T.LPWSTR], [T.LPWSTR], [T.DWORD], [T.LONG_PTR]]));};
-T.LOCALE_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR]]));};
-T.LOCALE_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR]]));};
-T.LOCALE_ENUMPROCEX = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR], [T.DWORD], [T.LPARAM]]));};
-T.TIMEFMT_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR]]));};
-T.TIMEFMT_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR]]));};
-T.UILANGUAGE_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR], [T.LONG_PTR]]));};
-T.UILANGUAGE_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR], [T.LONG_PTR]]));};
+T.CALINFO_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR]]), [['stdcall']]);};
+T.CALINFO_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR]]), [['stdcall']]);};
+T.CALINFO_ENUMPROCEXA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR], [T.CALID]]), [['stdcall']]);};
+T.CALINFO_ENUMPROCEXW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR], [T.CALID]]), [['stdcall']]);};
+T.CODEPAGE_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR]]), [['stdcall']]);};
+T.CODEPAGE_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR]]), [['stdcall']]);};
+T.DATEFMT_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR]]), [['stdcall']]);};
+T.DATEFMT_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR]]), [['stdcall']]);};
+T.DATEFMT_ENUMPROCEXA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR], [T.CALID]]), [['stdcall']]);};
+T.DATEFMT_ENUMPROCEXW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR], [T.CALID]]), [['stdcall']]);};
+T.GEO_ENUMPROC = function() {return Pointer(Fn(T.BOOL, [[T.GEOID]]), [['stdcall']]);};
+T.LANGGROUPLOCALE_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LGRPID], [T.LCID], [T.LPSTR], [T.LONG_PTR]]), [['stdcall']]);};
+T.LANGGROUPLOCALE_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LGRPID], [T.LCID], [T.LPWSTR], [T.LONG_PTR]]), [['stdcall']]);};
+T.LANGUAGEGROUP_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LGRPID], [T.LPSTR], [T.LPSTR], [T.DWORD], [T.LONG_PTR]]), [['stdcall']]);};
+T.LANGUAGEGROUP_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LGRPID], [T.LPWSTR], [T.LPWSTR], [T.DWORD], [T.LONG_PTR]]), [['stdcall']]);};
+T.LOCALE_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR]]), [['stdcall']]);};
+T.LOCALE_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR]]), [['stdcall']]);};
+T.LOCALE_ENUMPROCEX = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR], [T.DWORD], [T.LPARAM]]), [['stdcall']]);};
+T.TIMEFMT_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR]]), [['stdcall']]);};
+T.TIMEFMT_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR]]), [['stdcall']]);};
+T.UILANGUAGE_ENUMPROCA = function() {return Pointer(Fn(T.BOOL, [[T.LPSTR], [T.LONG_PTR]]), [['stdcall']]);};
+T.UILANGUAGE_ENUMPROCW = function() {return Pointer(Fn(T.BOOL, [[T.LPWSTR], [T.LONG_PTR]]), [['stdcall']]);};
 T.CALINFO_ENUMPROC = function() {return T.CALINFO_ENUMPROCA;};
 T.CALINFO_ENUMPROCEX = function() {return T.CALINFO_ENUMPROCEXA;};
 T.CODEPAGE_ENUMPROC = function() {return T.CODEPAGE_ENUMPROCA;};
@@ -10502,7 +10502,7 @@ T.LANGUAGEGROUP_ENUMPROC = function() {return T.LANGUAGEGROUP_ENUMPROCA;};
 T.LOCALE_ENUMPROC = function() {return T.LOCALE_ENUMPROCA;};
 T.TIMEFMT_ENUMPROC = function() {return T.TIMEFMT_ENUMPROCA;};
 T.UILANGUAGE_ENUMPROC = function() {return T.UILANGUAGE_ENUMPROCA;};
-T.PHANDLER_ROUTINE = function() {return Pointer(Fn(T.BOOL, [[T.DWORD, 'dwCtrlType']]));};
+T.PHANDLER_ROUTINE = function() {return Pointer(Fn(T.BOOL, [[T.DWORD, 'dwCtrlType']]), [['stdcall']]);};
 T.CONSOLE_CURSOR_INFO = function() {return Struct('_CONSOLE_CURSOR_INFO', {
     dwSize: T.DWORD,
     bVisible: T.BOOL
@@ -10932,7 +10932,7 @@ T.PASSWORD_CACHE_ENTRY = function() {return Struct('tagPASSWORD_CACHE_ENTRY', {
     nType: T.BYTE,
     abResource: ArrayType(T.BYTE, 1)
 });};
-T.ENUMPASSWORDPROC = function() {return Pointer(Fn(T.BOOL, [[Pointer(T.PASSWORD_CACHE_ENTRY)], [T.DWORD]]));};
+T.ENUMPASSWORDPROC = function() {return Pointer(Fn(T.BOOL, [[Pointer(T.PASSWORD_CACHE_ENTRY)], [T.DWORD]]), [['stdcall']]);};
 T.DDEACK = function() {return Struct('', {
     bAppReturnCode: [T.u16, 8],
     reserved: [T.u16, 6],
@@ -10973,7 +10973,7 @@ T.HSZ = function() {return Pointer(Struct('HSZ__', {
 T.HDDEDATA = function() {return Pointer(Struct('HDDEDATA__', {
     unused: T.i32
 }));};
-T.PFNCALLBACK = function() {return Pointer(Fn(T.HDDEDATA, [[T.UINT], [T.UINT], [T.HCONV], [T.HSZ], [T.HSZ], [T.HDDEDATA], [T.ULONG_PTR], [T.ULONG_PTR]]));};
+T.PFNCALLBACK = function() {return Pointer(Fn(T.HDDEDATA, [[T.UINT], [T.UINT], [T.HCONV], [T.HSZ], [T.HSZ], [T.HDDEDATA], [T.ULONG_PTR], [T.ULONG_PTR]]), [['stdcall']]);};
 T.HSZPAIR = function() {return Struct('tagHSZPAIR', {
     hszSvc: T.HSZ,
     hszTopic: T.HSZ
@@ -11080,7 +11080,7 @@ T.LPHMIXER = function() {return Pointer(T.HMIXER);};
 T.LPHMIXEROBJ = function() {return Pointer(T.HMIXEROBJ);};
 T.LPHWAVEIN = function() {return Pointer(T.HWAVEIN);};
 T.LPHWAVEOUT = function() {return Pointer(T.HWAVEOUT);};
-T.DRIVERPROC = function() {return Pointer(Fn(T.LRESULT, [[T.DWORD_PTR], [T.HDRVR], [T.UINT], [T.LPARAM], [T.LPARAM]]));};
+T.DRIVERPROC = function() {return Pointer(Fn(T.LRESULT, [[T.DWORD_PTR], [T.HDRVR], [T.UINT], [T.LPARAM], [T.LPARAM]]), [['stdcall']]);};
 T.MCIERROR = function() {return T.DWORD;};
 T.MMVERSION = function() {return T.UINT;};
 T.MCIDEVICEID = function() {return T.UINT;};
@@ -11158,7 +11158,7 @@ T.LPDRVCONFIGINFO = function() {return Pointer(Struct('tagDRVCONFIGINFO', {
     lpszDCISectionName: T.LPCWSTR,
     lpszDCIAliasName: T.LPCWSTR
 }));};
-T.LPDRVCALLBACK = function() {return Pointer(Fn(null, [[T.HDRVR], [T.UINT], [T.DWORD_PTR], [T.DWORD_PTR], [T.DWORD_PTR]]));};
+T.LPDRVCALLBACK = function() {return Pointer(Fn(null, [[T.HDRVR], [T.UINT], [T.DWORD_PTR], [T.DWORD_PTR], [T.DWORD_PTR]]), [['stdcall']]);};
 T.LPWAVECALLBACK = function() {return T.LPDRVCALLBACK;};
 T.WAVEHDR = function() {return Struct('wavehdr_tag', {
     lpData: T.LPSTR,
@@ -11762,7 +11762,7 @@ T.LPAUXCAPS2W = function() {return Pointer(Struct('tagAUXCAPS2W', {
 }));};
 T.AUXCAPS2 = function() {return T.AUXCAPS2A;};
 T.LPAUXCAPS2 = function() {return T.LPAUXCAPS2A;};
-T.LPTIMECALLBACK = function() {return Pointer(Fn(null, [[T.UINT], [T.UINT], [T.DWORD_PTR], [T.DWORD_PTR], [T.DWORD_PTR]]));};
+T.LPTIMECALLBACK = function() {return Pointer(Fn(null, [[T.UINT], [T.UINT], [T.DWORD_PTR], [T.DWORD_PTR], [T.DWORD_PTR]]), [['stdcall']]);};
 T.TIMECAPS = function() {return Struct('timecaps_tag', {
     wPeriodMin: T.UINT,
     wPeriodMax: T.UINT
@@ -12418,7 +12418,7 @@ T.LPMIXERCONTROLDETAILS_UNSIGNED = function() {return Pointer(Struct('', {
     dwValue: T.DWORD
 }));};
 T.FOURCC = function() {return T.DWORD;};
-T.LPMMIOPROC = function() {return Pointer(Fn(T.LRESULT, [[T.LPSTR, 'lpmmioinfo'], [T.UINT, 'uMessage'], [T.LPARAM, 'lParam1'], [T.LPARAM, 'lParam2']]));};
+T.LPMMIOPROC = function() {return Pointer(Fn(T.LRESULT, [[T.LPSTR, 'lpmmioinfo'], [T.UINT, 'uMessage'], [T.LPARAM, 'lParam1'], [T.LPARAM, 'lParam2']]), [['stdcall']]);};
 T.MMIOINFO = function() {return Struct('_MMIOINFO', {
     dwFlags: T.DWORD,
     fccIOProc: T.FOURCC,
@@ -12487,7 +12487,7 @@ T.LPMMCKINFO = function() {return Pointer(Struct('_MMCKINFO', {
     dwDataOffset: T.DWORD,
     dwFlags: T.DWORD
 }));};
-T.YIELDPROC = function() {return Pointer(Fn(T.UINT, [[T.MCIDEVICEID], [T.DWORD]]));};
+T.YIELDPROC = function() {return Pointer(Fn(T.UINT, [[T.MCIDEVICEID], [T.DWORD]]), [['stdcall']]);};
 T.MCI_GENERIC_PARMS = function() {return Struct('tagMCI_GENERIC_PARMS', {
     dwCallback: T.DWORD_PTR
 });};
@@ -13271,7 +13271,7 @@ T.RPC_STATS_VECTOR = function() {return Struct('', {
 });};
 T.RPC_EP_INQ_HANDLE = function() {return Pointer(T.I_RPC_HANDLE);};
 T.RPC_IF_CALLBACK_FN = function() {return Fn(T.RPC_STATUS, [[T.RPC_IF_HANDLE, 'InterfaceUuid'], [Pointer(null), 'Context']], [['stdcall']]);};
-T.RPC_AUTH_KEY_RETRIEVAL_FN = function() {return Pointer(Fn(null, [[Pointer(null)], [T.RPC_WSTR], [T.ULONG], [Pointer(Pointer(null))], [Pointer(T.RPC_STATUS)]]));};
+T.RPC_AUTH_KEY_RETRIEVAL_FN = function() {return Pointer(Fn(null, [[Pointer(null)], [T.RPC_WSTR], [T.ULONG], [Pointer(Pointer(null))], [Pointer(T.RPC_STATUS)]]), [['stdcall']]);};
 T.RPC_POLICY = function() {return Struct('_RPC_POLICY', {
     Length: T.u32,
     EndpointFlags: T.ULONG,
@@ -13402,7 +13402,7 @@ T.PRPC_SECURITY_QOS_V2_A = function() {return Pointer(Struct('_RPC_SECURITY_QOS_
         HttpCredentials: Pointer(T.RPC_HTTP_TRANSPORT_CREDENTIALS_A)
     })
 }));};
-T.RPC_MGMT_AUTHORIZATION_FN = function() {return Pointer(Fn(T.i32, [[T.RPC_BINDING_HANDLE], [T.ULONG], [Pointer(T.RPC_STATUS)]]));};
+T.RPC_MGMT_AUTHORIZATION_FN = function() {return Pointer(Fn(T.i32, [[T.RPC_BINDING_HANDLE], [T.ULONG], [Pointer(T.RPC_STATUS)]]), [['stdcall']]);};
 T.RPC_VERSION = function() {return Struct('_RPC_VERSION', {
     MajorVersion: T.u16,
     MinorVersion: T.u16
@@ -13441,8 +13441,8 @@ T.PRPC_MESSAGE = function() {return Pointer(Struct('_RPC_MESSAGE', {
     ImportContext: Pointer(null),
     RpcFlags: T.ULONG
 }));};
-T.RPC_DISPATCH_FUNCTION = function() {return Pointer(Fn(null, [[T.PRPC_MESSAGE, 'Message']]));};
-T.RPC_FORWARD_FUNCTION = function() {return Pointer(Fn(T.RPC_STATUS, [[Pointer(T.UUID), 'InterfaceId'], [Pointer(T.RPC_VERSION), 'InterfaceVersion'], [Pointer(T.UUID), 'ObjectId'], [Pointer(T.u8), 'Rpcpro'], [Pointer(Pointer(null)), 'ppDestEndpoint']]));};
+T.RPC_DISPATCH_FUNCTION = function() {return Pointer(Fn(null, [[T.PRPC_MESSAGE, 'Message']]), [['stdcall']]);};
+T.RPC_FORWARD_FUNCTION = function() {return Pointer(Fn(T.RPC_STATUS, [[Pointer(T.UUID), 'InterfaceId'], [Pointer(T.RPC_VERSION), 'InterfaceVersion'], [Pointer(T.UUID), 'ObjectId'], [Pointer(T.u8), 'Rpcpro'], [Pointer(Pointer(null)), 'ppDestEndpoint']]), [['stdcall']]);};
 T.RPC_DISPATCH_TABLE = function() {return Struct('', {
     DispatchTableCount: T.u32,
     DispatchTable: Pointer(T.RPC_DISPATCH_FUNCTION),
@@ -13948,7 +13948,7 @@ T.off_t = function() {return T.off32_t;};
 T.useconds_t = function() {return T.u32;};
 T._sigset_t = function() {return T.u32;};
 T.clock_t = function() {return T.i32;};
-T._onexit_t = function() {return Pointer(Fn(T.i32, [[null]]));};
+T._onexit_t = function() {return Pointer(Fn(T.i32, [[null]]), [['cdecl']]);};
 T.div_t = function() {return Struct('_div_t', {
     quot: T.i32,
     rem: T.i32
@@ -13972,8 +13972,8 @@ T._LONGDOUBLE = function() {return Struct('', {
 T._LDBL12 = function() {return Struct('', {
     ld12: ArrayType(T.u8, 12)
 });};
-T._purecall_handler = function() {return Pointer(Fn(null, [[null]]));};
-T._invalid_parameter_handler = function() {return Pointer(Fn(null, [[Pointer(T.wchar_t)], [Pointer(T.wchar_t)], [Pointer(T.wchar_t)], [T.u32], [T.uintptr_t]]));};
+T._purecall_handler = function() {return Pointer(Fn(null, [[null]]), [['cdecl']]);};
+T._invalid_parameter_handler = function() {return Pointer(Fn(null, [[Pointer(T.wchar_t)], [Pointer(T.wchar_t)], [Pointer(T.wchar_t)], [T.u32], [T.uintptr_t]]), [['cdecl']]);};
 T.lldiv_t = function() {return Struct('', {
     quot: T.i64,
     rem: T.i64
@@ -14917,8 +14917,8 @@ T.LPQOS = function() {return Pointer(Struct('_QUALITYOFSERVICE', {
     ReceivingFlowspec: T.FLOWSPEC,
     ProviderSpecific: T.WSABUF
 }));};
-T.LPCONDITIONPROC = function() {return Pointer(Fn(T.i32, [[T.LPWSABUF, 'lpCallerId'], [T.LPWSABUF, 'lpCallerData'], [T.LPQOS, 'lpSQOS'], [T.LPQOS, 'lpGQOS'], [T.LPWSABUF, 'lpCalleeId'], [T.LPWSABUF, 'lpCalleeData'], [Pointer(T.GROUP), 'g'], [T.DWORD, 'dwCallbackData']]));};
-T.LPWSAOVERLAPPED_COMPLETION_ROUTINE = function() {return Pointer(Fn(null, [[T.DWORD, 'dwError'], [T.DWORD, 'cbTransferred'], [T.LPWSAOVERLAPPED, 'lpOverlapped'], [T.DWORD, 'dwFlags']]));};
+T.LPCONDITIONPROC = function() {return Pointer(Fn(T.i32, [[T.LPWSABUF, 'lpCallerId'], [T.LPWSABUF, 'lpCallerData'], [T.LPQOS, 'lpSQOS'], [T.LPQOS, 'lpGQOS'], [T.LPWSABUF, 'lpCalleeId'], [T.LPWSABUF, 'lpCalleeData'], [Pointer(T.GROUP), 'g'], [T.DWORD, 'dwCallbackData']]), [['stdcall']]);};
+T.LPWSAOVERLAPPED_COMPLETION_ROUTINE = function() {return Pointer(Fn(null, [[T.DWORD, 'dwError'], [T.DWORD, 'cbTransferred'], [T.LPWSAOVERLAPPED, 'lpOverlapped'], [T.DWORD, 'dwFlags']]), [['stdcall']]);};
 T.BLOB = function() {return Struct('_BLOB', {
     cbSize: T.ULONG,
     pBlobData: Pointer(T.BYTE)
@@ -16643,11 +16643,11 @@ T.PCERT_SYSTEM_STORE_RELOCATE_PARA = function() {return Pointer(Struct('_CERT_SY
         pwszSystemStore: T.LPCWSTR
     })
 }));};
-T.PFN_CERT_ENUM_SYSTEM_STORE_LOCATION = function() {return Pointer(Fn(T.BOOL, [[T.LPCWSTR, 'pwszStoreLocation'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvReserved'], [Pointer(null), 'pvArg']]));};
-T.PFN_CERT_ENUM_SYSTEM_STORE = function() {return Pointer(Fn(T.BOOL, [[Pointer(null), 'pvSystemStore'], [T.DWORD, 'dwFlags'], [T.PCERT_SYSTEM_STORE_INFO, 'pStoreInfo'], [Pointer(null), 'pvReserved'], [Pointer(null), 'pvArg']]));};
-T.PFN_CERT_ENUM_PHYSICAL_STORE = function() {return Pointer(Fn(T.BOOL, [[Pointer(null), 'pvSystemStore'], [T.DWORD, 'dwFlags'], [T.LPCWSTR, 'pwszStoreName'], [T.PCERT_PHYSICAL_STORE_INFO, 'pStoreInfo'], [Pointer(null), 'pvReserved'], [Pointer(null), 'pvArg']]));};
-T.PFN_CRYPT_ALLOC = function() {return Pointer(Fn(T.LPVOID, [[T.size_t, 'cbsize']]));};
-T.PFN_CRYPT_FREE = function() {return Pointer(Fn(null, [[T.LPVOID, 'pv']]));};
+T.PFN_CERT_ENUM_SYSTEM_STORE_LOCATION = function() {return Pointer(Fn(T.BOOL, [[T.LPCWSTR, 'pwszStoreLocation'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvReserved'], [Pointer(null), 'pvArg']]), [['stdcall']]);};
+T.PFN_CERT_ENUM_SYSTEM_STORE = function() {return Pointer(Fn(T.BOOL, [[Pointer(null), 'pvSystemStore'], [T.DWORD, 'dwFlags'], [T.PCERT_SYSTEM_STORE_INFO, 'pStoreInfo'], [Pointer(null), 'pvReserved'], [Pointer(null), 'pvArg']]), [['stdcall']]);};
+T.PFN_CERT_ENUM_PHYSICAL_STORE = function() {return Pointer(Fn(T.BOOL, [[Pointer(null), 'pvSystemStore'], [T.DWORD, 'dwFlags'], [T.LPCWSTR, 'pwszStoreName'], [T.PCERT_PHYSICAL_STORE_INFO, 'pStoreInfo'], [Pointer(null), 'pvReserved'], [Pointer(null), 'pvArg']]), [['stdcall']]);};
+T.PFN_CRYPT_ALLOC = function() {return Pointer(Fn(T.LPVOID, [[T.size_t, 'cbsize']]), [['alloc_size', {"__rule":"constant","_0":"1"}], ['stdcall']]);};
+T.PFN_CRYPT_FREE = function() {return Pointer(Fn(null, [[T.LPVOID, 'pv']]), [['stdcall']]);};
 T.CRYPT_ENCODE_PARA = function() {return Struct('_CRYPT_ENCODE_PARA', {
     cbSize: T.DWORD,
     pfnAlloc: T.PFN_CRYPT_ALLOC,
@@ -16684,21 +16684,21 @@ T.PCERT_STORE_PROV_INFO = function() {return Pointer(Struct('_CERT_STORE_PROV_IN
     dwStoreProvFlags: T.DWORD,
     hStoreProvFuncAddr2: T.HCRYPTOIDFUNCADDR
 }));};
-T.PFN_CERT_DLL_OPEN_STORE_PROV_FUNC = function() {return Pointer(Fn(T.BOOL, [[T.LPCSTR, 'lpszStoreProvider'], [T.DWORD, 'dwEncodingType'], [T.HCRYPTPROV_LEGACY, 'hCryptProv'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvPara'], [T.HCERTSTORE, 'hCertStore'], [T.PCERT_STORE_PROV_INFO, 'pStoreProvInfo']]));};
-T.PFN_CERT_STORE_PROV_CLOSE = function() {return Pointer(Fn(null, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.DWORD, 'dwFlags']]));};
-T.PFN_CERT_STORE_PROV_READ_CERT = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_CONTEXT, 'pStoreCertContext'], [T.DWORD, 'dwFlags'], [Pointer(T.PCCERT_CONTEXT), 'ppProvCertContext']]));};
-T.PFN_CERT_STORE_PROV_WRITE_CERT = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_CONTEXT, 'pCertContext'], [T.DWORD, 'dwFlags']]));};
-T.PFN_CERT_STORE_PROV_DELETE_CERT = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_CONTEXT, 'pCertContext'], [T.DWORD, 'dwFlags']]));};
-T.PFN_CERT_STORE_PROV_SET_CERT_PROPERTY = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_CONTEXT, 'pCertContext'], [T.DWORD, 'dwPropId'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvData']]));};
-T.PFN_CERT_STORE_PROV_READ_CRL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCRL_CONTEXT, 'pStoreCrlContext'], [T.DWORD, 'dwFlags'], [Pointer(T.PCCRL_CONTEXT), 'ppProvCrlContext']]));};
-T.PFN_CERT_STORE_PROV_WRITE_CRL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCRL_CONTEXT, 'pCrlContext'], [T.DWORD, 'dwFlags']]));};
-T.PFN_CERT_STORE_PROV_DELETE_CRL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCRL_CONTEXT, 'pCrlContext'], [T.DWORD, 'dwFlags']]));};
-T.PFN_CERT_STORE_PROV_SET_CRL_PROPERTY = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCRL_CONTEXT, 'pCrlContext'], [T.DWORD, 'dwPropId'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvData']]));};
-T.PFN_CERT_STORE_PROV_READ_CTL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCTL_CONTEXT, 'pStoreCtlContext'], [T.DWORD, 'dwFlags'], [Pointer(T.PCCTL_CONTEXT), 'ppProvCtlContext']]));};
-T.PFN_CERT_STORE_PROV_WRITE_CTL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCTL_CONTEXT, 'pCtlContext'], [T.DWORD, 'dwFlags']]));};
-T.PFN_CERT_STORE_PROV_DELETE_CTL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCTL_CONTEXT, 'pCtlContext'], [T.DWORD, 'dwFlags']]));};
-T.PFN_CERT_STORE_PROV_SET_CTL_PROPERTY = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCTL_CONTEXT, 'pCtlContext'], [T.DWORD, 'dwPropId'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvData']]));};
-T.PFN_CERT_STORE_PROV_CONTROL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.DWORD, 'dwFlags'], [T.DWORD, 'dwCtrlType'], [Pointer(null), 'pvCtrlPara']]));};
+T.PFN_CERT_DLL_OPEN_STORE_PROV_FUNC = function() {return Pointer(Fn(T.BOOL, [[T.LPCSTR, 'lpszStoreProvider'], [T.DWORD, 'dwEncodingType'], [T.HCRYPTPROV_LEGACY, 'hCryptProv'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvPara'], [T.HCERTSTORE, 'hCertStore'], [T.PCERT_STORE_PROV_INFO, 'pStoreProvInfo']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_CLOSE = function() {return Pointer(Fn(null, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.DWORD, 'dwFlags']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_READ_CERT = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_CONTEXT, 'pStoreCertContext'], [T.DWORD, 'dwFlags'], [Pointer(T.PCCERT_CONTEXT), 'ppProvCertContext']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_WRITE_CERT = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_CONTEXT, 'pCertContext'], [T.DWORD, 'dwFlags']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_DELETE_CERT = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_CONTEXT, 'pCertContext'], [T.DWORD, 'dwFlags']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_SET_CERT_PROPERTY = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_CONTEXT, 'pCertContext'], [T.DWORD, 'dwPropId'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvData']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_READ_CRL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCRL_CONTEXT, 'pStoreCrlContext'], [T.DWORD, 'dwFlags'], [Pointer(T.PCCRL_CONTEXT), 'ppProvCrlContext']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_WRITE_CRL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCRL_CONTEXT, 'pCrlContext'], [T.DWORD, 'dwFlags']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_DELETE_CRL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCRL_CONTEXT, 'pCrlContext'], [T.DWORD, 'dwFlags']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_SET_CRL_PROPERTY = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCRL_CONTEXT, 'pCrlContext'], [T.DWORD, 'dwPropId'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvData']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_READ_CTL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCTL_CONTEXT, 'pStoreCtlContext'], [T.DWORD, 'dwFlags'], [Pointer(T.PCCTL_CONTEXT), 'ppProvCtlContext']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_WRITE_CTL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCTL_CONTEXT, 'pCtlContext'], [T.DWORD, 'dwFlags']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_DELETE_CTL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCTL_CONTEXT, 'pCtlContext'], [T.DWORD, 'dwFlags']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_SET_CTL_PROPERTY = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCTL_CONTEXT, 'pCtlContext'], [T.DWORD, 'dwPropId'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvData']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_CONTROL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.DWORD, 'dwFlags'], [T.DWORD, 'dwCtrlType'], [Pointer(null), 'pvCtrlPara']]), [['stdcall']]);};
 T.CERT_STORE_PROV_FIND_INFO = function() {return Struct('_CERT_STORE_PROV_FIND_INFO', {
     cbSize: T.DWORD,
     dwMsgAndCertEncodingType: T.DWORD,
@@ -16715,14 +16715,14 @@ T.PCERT_STORE_PROV_FIND_INFO = function() {return Pointer(Struct('_CERT_STORE_PR
 }));};
 T.CCERT_STORE_PROV_FIND_INFO = function() {return T.CERT_STORE_PROV_FIND_INFO;};
 T.PCCERT_STORE_PROV_FIND_INFO = function() {return Pointer(T.CERT_STORE_PROV_FIND_INFO, [['const']]);};
-T.PFN_CERT_STORE_PROV_FIND_CERT = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_STORE_PROV_FIND_INFO, 'pFindInfo'], [T.PCCERT_CONTEXT, 'pPrevCertContext'], [T.DWORD, 'dwFlags'], [Pointer(Pointer(null)), 'ppvStoreProvFindInfo'], [Pointer(T.PCCERT_CONTEXT), 'ppProvCertContext']]));};
-T.PFN_CERT_STORE_PROV_FREE_FIND_CERT = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_CONTEXT, 'pCertContext'], [Pointer(null), 'pvStoreProvFindInfo'], [T.DWORD, 'dwFlags']]));};
-T.PFN_CERT_STORE_PROV_GET_CERT_PROPERTY = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_CONTEXT, 'pCertContext'], [T.DWORD, 'dwPropId'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvData'], [Pointer(T.DWORD), 'pcbData']]));};
-T.PFN_CERT_STORE_PROV_FIND_CRL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_STORE_PROV_FIND_INFO, 'pFindInfo'], [T.PCCRL_CONTEXT, 'pPrevCrlContext'], [T.DWORD, 'dwFlags'], [Pointer(Pointer(null)), 'ppvStoreProvFindInfo'], [Pointer(T.PCCRL_CONTEXT), 'ppProvCrlContext']]));};
-T.PFN_CERT_STORE_PROV_FREE_FIND_CRL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCRL_CONTEXT, 'pCrlContext'], [Pointer(null), 'pvStoreProvFindInfo'], [T.DWORD, 'dwFlags']]));};
-T.PFN_CERT_STORE_PROV_GET_CRL_PROPERTY = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCRL_CONTEXT, 'pCrlContext'], [T.DWORD, 'dwPropId'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvData'], [Pointer(T.DWORD), 'pcbData']]));};
-T.PFN_CERT_STORE_PROV_FIND_CTL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCTL_CONTEXT, 'pCtlContext'], [Pointer(null), 'pvStoreProvFindInfo'], [T.DWORD, 'dwFlags']]));};
-T.PFN_CERT_STORE_PROV_GET_CTL_PROPERTY = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCTL_CONTEXT, 'pCtlContext'], [T.DWORD, 'dwPropId'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvData']]));};
+T.PFN_CERT_STORE_PROV_FIND_CERT = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_STORE_PROV_FIND_INFO, 'pFindInfo'], [T.PCCERT_CONTEXT, 'pPrevCertContext'], [T.DWORD, 'dwFlags'], [Pointer(Pointer(null)), 'ppvStoreProvFindInfo'], [Pointer(T.PCCERT_CONTEXT), 'ppProvCertContext']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_FREE_FIND_CERT = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_CONTEXT, 'pCertContext'], [Pointer(null), 'pvStoreProvFindInfo'], [T.DWORD, 'dwFlags']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_GET_CERT_PROPERTY = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_CONTEXT, 'pCertContext'], [T.DWORD, 'dwPropId'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvData'], [Pointer(T.DWORD), 'pcbData']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_FIND_CRL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCERT_STORE_PROV_FIND_INFO, 'pFindInfo'], [T.PCCRL_CONTEXT, 'pPrevCrlContext'], [T.DWORD, 'dwFlags'], [Pointer(Pointer(null)), 'ppvStoreProvFindInfo'], [Pointer(T.PCCRL_CONTEXT), 'ppProvCrlContext']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_FREE_FIND_CRL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCRL_CONTEXT, 'pCrlContext'], [Pointer(null), 'pvStoreProvFindInfo'], [T.DWORD, 'dwFlags']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_GET_CRL_PROPERTY = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCRL_CONTEXT, 'pCrlContext'], [T.DWORD, 'dwPropId'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvData'], [Pointer(T.DWORD), 'pcbData']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_FIND_CTL = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCTL_CONTEXT, 'pCtlContext'], [Pointer(null), 'pvStoreProvFindInfo'], [T.DWORD, 'dwFlags']]), [['stdcall']]);};
+T.PFN_CERT_STORE_PROV_GET_CTL_PROPERTY = function() {return Pointer(Fn(T.BOOL, [[T.HCERTSTOREPROV, 'hStoreProv'], [T.PCCTL_CONTEXT, 'pCtlContext'], [T.DWORD, 'dwPropId'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvData']]), [['stdcall']]);};
 T.CERT_CREATE_CONTEXT_PARA = function() {return Struct('_CERT_CREATE_CONTEXT_PARA', {
     cbSize: T.DWORD,
     pfnFree: T.PFN_CRYPT_FREE,
@@ -16741,7 +16741,7 @@ T.PCRYPT_OID_FUNC_ENTRY = function() {return Pointer(Struct('_CRYPT_OID_FUNC_ENT
     pszOID: T.LPCSTR,
     pvFuncAddr: Pointer(null)
 }));};
-T.PFN_CRYPT_ENUM_OID_FUNC = function() {return Pointer(Fn(T.BOOL, [[T.DWORD, 'dwEncodingType'], [T.LPCSTR, 'pszFuncName'], [T.LPCSTR, 'pszOID'], [T.DWORD, 'cValue'], [Pointer(T.DWORD), 'rgdwValueType'], [Pointer(T.LPCWSTR), 'rgpwszValueName'], [Pointer(Pointer(T.BYTE)), 'rgpbValueData'], [Pointer(T.DWORD), 'rgcbValueData'], [Pointer(null), 'pvArg']]));};
+T.PFN_CRYPT_ENUM_OID_FUNC = function() {return Pointer(Fn(T.BOOL, [[T.DWORD, 'dwEncodingType'], [T.LPCSTR, 'pszFuncName'], [T.LPCSTR, 'pszOID'], [T.DWORD, 'cValue'], [Pointer(T.DWORD), 'rgdwValueType'], [Pointer(T.LPCWSTR), 'rgpwszValueName'], [Pointer(Pointer(T.BYTE)), 'rgpbValueData'], [Pointer(T.DWORD), 'rgcbValueData'], [Pointer(null), 'pvArg']]), [['stdcall']]);};
 T.CRYPT_OID_INFO = function() {return Struct('_CRYPT_OID_INFO', {
     cbSize: T.DWORD,
     pszOID: T.LPCSTR,
@@ -16768,7 +16768,7 @@ T.PCRYPT_OID_INFO = function() {return Pointer(Struct('_CRYPT_OID_INFO', {
 }));};
 T.CCRYPT_OID_INFO = function() {return T.CRYPT_OID_INFO;};
 T.PCCRYPT_OID_INFO = function() {return Pointer(T.CRYPT_OID_INFO, [['const']]);};
-T.PFN_CRYPT_ENUM_OID_INFO = function() {return Pointer(Fn(T.BOOL, [[T.PCCRYPT_OID_INFO, 'pInfo'], [Pointer(null), 'pvArg']]));};
+T.PFN_CRYPT_ENUM_OID_INFO = function() {return Pointer(Fn(T.BOOL, [[T.PCCRYPT_OID_INFO, 'pInfo'], [Pointer(null), 'pvArg']]), [['stdcall']]);};
 T.CRYPT_SIGN_MESSAGE_PARA = function() {return Struct('_CRYPT_SIGN_MESSAGE_PARA', {
     cbSize: T.DWORD,
     dwMsgEncodingType: T.DWORD,
@@ -16803,7 +16803,7 @@ T.PCRYPT_SIGN_MESSAGE_PARA = function() {return Pointer(Struct('_CRYPT_SIGN_MESS
     dwFlags: T.DWORD,
     dwInnerContentType: T.DWORD
 }));};
-T.PFN_CRYPT_GET_SIGNER_CERTIFICATE = function() {return Pointer(Fn(T.PCCERT_CONTEXT, [[Pointer(null), 'pvArg'], [T.DWORD, 'dwCertEncodingType'], [T.PCERT_INFO, 'pSignerId'], [T.HCERTSTORE, 'hMsgCertStore']]));};
+T.PFN_CRYPT_GET_SIGNER_CERTIFICATE = function() {return Pointer(Fn(T.PCCERT_CONTEXT, [[Pointer(null), 'pvArg'], [T.DWORD, 'dwCertEncodingType'], [T.PCERT_INFO, 'pSignerId'], [T.HCERTSTORE, 'hMsgCertStore']]), [['stdcall']]);};
 T.CRYPT_VERIFY_MESSAGE_PARA = function() {return Struct('_CRYPT_VERIFY_MESSAGE_PARA', {
     cbSize: T.DWORD,
     dwMsgAndCertEncodingType: T.DWORD,
@@ -16910,8 +16910,8 @@ T.PCRYPT_URL_INFO = function() {return Pointer(Struct('_CRYPT_URL_INFO', {
 }));};
 T.HCRYPTASYNC = function() {return T.HANDLE;};
 T.PHCRYPTASYNC = function() {return Pointer(T.HANDLE);};
-T.PFN_CRYPT_ASYNC_PARAM_FREE_FUNC = function() {return Pointer(Fn(null, [[T.LPSTR, 'pszParamOid'], [T.LPVOID, 'pvParam']]));};
-T.PFN_CRYPT_ASYNC_RETRIEVAL_COMPLETION_FUNC = function() {return Pointer(Fn(null, [[Pointer(null), 'pvCompletion'], [T.DWORD, 'dwCompletionCode'], [T.LPCSTR, 'pszURL'], [T.LPSTR, 'pszObjectOid'], [Pointer(null), 'pvObject']]));};
+T.PFN_CRYPT_ASYNC_PARAM_FREE_FUNC = function() {return Pointer(Fn(null, [[T.LPSTR, 'pszParamOid'], [T.LPVOID, 'pvParam']]), [['stdcall']]);};
+T.PFN_CRYPT_ASYNC_RETRIEVAL_COMPLETION_FUNC = function() {return Pointer(Fn(null, [[Pointer(null), 'pvCompletion'], [T.DWORD, 'dwCompletionCode'], [T.LPCSTR, 'pszURL'], [T.LPSTR, 'pszObjectOid'], [Pointer(null), 'pvObject']]), [['stdcall']]);};
 T.CRYPT_ASYNC_RETRIEVAL_COMPLETION = function() {return Struct('_CRYPT_ASYNC_RETRIEVAL_COMPLETION', {
     pfnCompletion: T.PFN_CRYPT_ASYNC_RETRIEVAL_COMPLETION_FUNC,
     pvCompletion: Pointer(null)
@@ -16920,7 +16920,7 @@ T.PCRYPT_ASYNC_RETRIEVAL_COMPLETION = function() {return Pointer(Struct('_CRYPT_
     pfnCompletion: T.PFN_CRYPT_ASYNC_RETRIEVAL_COMPLETION_FUNC,
     pvCompletion: Pointer(null)
 }));};
-T.PFN_CANCEL_ASYNC_RETRIEVAL_FUNC = function() {return Pointer(Fn(T.BOOL, [[T.HCRYPTASYNC, 'hAsyncRetrieve']]));};
+T.PFN_CANCEL_ASYNC_RETRIEVAL_FUNC = function() {return Pointer(Fn(T.BOOL, [[T.HCRYPTASYNC, 'hAsyncRetrieve']]), [['stdcall']]);};
 T.CRYPT_BLOB_ARRAY = function() {return Struct('_CRYPT_BLOB_ARRAY', {
     cBlob: T.DWORD,
     rgBlob: T.PCRYPT_DATA_BLOB
@@ -16969,8 +16969,8 @@ T.PCRYPT_RETRIEVE_AUX_INFO = function() {return Pointer(Struct('_CRYPT_RETRIEVE_
     pLastSyncTime: Pointer(T.FILETIME),
     dwMaxUrlRetrievalByteCount: T.DWORD
 }));};
-T.PFN_FREE_ENCODED_OBJECT_FUNC = function() {return Pointer(Fn(null, [[T.LPCSTR, 'pszObjectOid'], [T.PCRYPT_BLOB_ARRAY, 'pObject'], [Pointer(null), 'pvFreeContext']]));};
-T.PFN_CRYPT_CANCEL_RETRIEVAL = function() {return Pointer(Fn(T.BOOL, [[T.DWORD, 'dwFlags'], [Pointer(null), 'pvArg']]));};
+T.PFN_FREE_ENCODED_OBJECT_FUNC = function() {return Pointer(Fn(null, [[T.LPCSTR, 'pszObjectOid'], [T.PCRYPT_BLOB_ARRAY, 'pObject'], [Pointer(null), 'pvFreeContext']]), [['stdcall']]);};
+T.PFN_CRYPT_CANCEL_RETRIEVAL = function() {return Pointer(Fn(T.BOOL, [[T.DWORD, 'dwFlags'], [Pointer(null), 'pvArg']]), [['stdcall']]);};
 T.CERT_CRL_CONTEXT_PAIR = function() {return Struct('_CERT_CRL_CONTEXT_PAIR', {
     pCertContext: T.PCCERT_CONTEXT,
     pCrlContext: T.PCCRL_CONTEXT
@@ -17041,7 +17041,7 @@ T.PCERT_CHAIN_ENGINE_CONFIG = function() {return Pointer(Struct('_CERT_CHAIN_ENG
     hExclusiveRoot: T.HCERTSTORE,
     hExclusiveRootTrustedPeople: T.HCERTSTORE
 }));};
-T.PFN_CMSG_STREAM_OUTPUT = function() {return Pointer(Fn(T.BOOL, [[Pointer(null), 'pvArg'], [Pointer(T.BYTE), 'pbData'], [T.DWORD, 'cbData'], [T.BOOL, 'fFinal']]));};
+T.PFN_CMSG_STREAM_OUTPUT = function() {return Pointer(Fn(T.BOOL, [[Pointer(null), 'pvArg'], [Pointer(T.BYTE), 'pbData'], [T.DWORD, 'cbData'], [T.BOOL, 'fFinal']]), [['stdcall']]);};
 T.CMSG_STREAM_INFO = function() {return Struct('_CMSG_STREAM_INFO', {
     cbContent: T.DWORD,
     pfnStreamOutput: T.PFN_CMSG_STREAM_OUTPUT,
@@ -17417,7 +17417,7 @@ T.PCMSG_CMS_RECIPIENT_INFO = function() {return Pointer(Struct('_CMSG_CMS_RECIPI
     })
 }));};
 T.PFN_CMSG_ALLOC = function() {return Pointer(Fn(Pointer(null), [[T.size_t, 'cb']]));};
-T.PFN_CMSG_FREE = function() {return Pointer(Fn(null, [[Pointer(null), 'pv']]));};
+T.PFN_CMSG_FREE = function() {return Pointer(Fn(null, [[Pointer(null), 'pv']]), [['stdcall']]);};
 T.CMSG_CONTENT_ENCRYPT_INFO = function() {return Struct('_CMSG_CONTENT_ENCRYPT_INFO', {
     cbSize: T.DWORD,
     hCryptProv: T.HCRYPTPROV,
@@ -17472,9 +17472,9 @@ T.PCMSG_CTRL_KEY_TRANS_DECRYPT_PARA = function() {return Pointer(Struct('_CMSG_C
     pKeyTrans: T.PCMSG_KEY_TRANS_RECIPIENT_INFO,
     dwRecipientIndex: T.DWORD
 }));};
-T.PFN_CMSG_GEN_CONTENT_ENCRYPT_KEY = function() {return Pointer(Fn(T.BOOL, [[T.PCMSG_CONTENT_ENCRYPT_INFO, 'pContentEncryptInfo'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvReserved']]));};
-T.PFN_CMSG_EXPORT_KEY_TRANS = function() {return Pointer(Fn(T.BOOL, [[T.PCMSG_CONTENT_ENCRYPT_INFO, 'pContentEncryptInfo'], [T.PCMSG_KEY_TRANS_RECIPIENT_ENCODE_INFO, 'pKeyTransEncodeInfo'], [T.PCMSG_KEY_TRANS_ENCRYPT_INFO, 'pKeyTransEncryptInfo'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvReserved']]));};
-T.PFN_CMSG_IMPORT_KEY_TRANS = function() {return Pointer(Fn(T.BOOL, [[T.PCRYPT_ALGORITHM_IDENTIFIER, 'pContentEncryptionAlgorithm'], [T.PCMSG_CTRL_KEY_TRANS_DECRYPT_PARA, 'pKeyTransDecryptPara'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvReserved'], [Pointer(T.HCRYPTKEY), 'phContentEncryptKey']]));};
+T.PFN_CMSG_GEN_CONTENT_ENCRYPT_KEY = function() {return Pointer(Fn(T.BOOL, [[T.PCMSG_CONTENT_ENCRYPT_INFO, 'pContentEncryptInfo'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvReserved']]), [['stdcall']]);};
+T.PFN_CMSG_EXPORT_KEY_TRANS = function() {return Pointer(Fn(T.BOOL, [[T.PCMSG_CONTENT_ENCRYPT_INFO, 'pContentEncryptInfo'], [T.PCMSG_KEY_TRANS_RECIPIENT_ENCODE_INFO, 'pKeyTransEncodeInfo'], [T.PCMSG_KEY_TRANS_ENCRYPT_INFO, 'pKeyTransEncryptInfo'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvReserved']]), [['stdcall']]);};
+T.PFN_CMSG_IMPORT_KEY_TRANS = function() {return Pointer(Fn(T.BOOL, [[T.PCRYPT_ALGORITHM_IDENTIFIER, 'pContentEncryptionAlgorithm'], [T.PCMSG_CTRL_KEY_TRANS_DECRYPT_PARA, 'pKeyTransDecryptPara'], [T.DWORD, 'dwFlags'], [Pointer(null), 'pvReserved'], [Pointer(T.HCRYPTKEY), 'phContentEncryptKey']]), [['stdcall']]);};
 T.PRINTER_DEFAULTSA = function() {return Struct('_PRINTER_DEFAULTSA', {
     pDatatype: T.LPSTR,
     pDevMode: T.LPDEVMODEA,
@@ -19383,12 +19383,12 @@ T.NDR_SCONTEXT = function() {return Pointer(Struct('', {
     pad: ArrayType(Pointer(null), 2),
     userContext: Pointer(null)
 }));};
-T.NDR_RUNDOWN = function() {return Pointer(Fn(null, [[Pointer(null), 'context']]));};
-T.NDR_NOTIFY_ROUTINE = function() {return Pointer(Fn(null, [[null]]));};
-T.NDR_NOTIFY2_ROUTINE = function() {return Pointer(Fn(null, [[T.boolean, 'flag']]));};
+T.NDR_RUNDOWN = function() {return Pointer(Fn(null, [[Pointer(null), 'context']]), [['stdcall']]);};
+T.NDR_NOTIFY_ROUTINE = function() {return Pointer(Fn(null, [[null]]), [['stdcall']]);};
+T.NDR_NOTIFY2_ROUTINE = function() {return Pointer(Fn(null, [[T.boolean, 'flag']]), [['stdcall']]);};
 T.RPC_BUFPTR = function() {return Pointer(T.u8);};
 T.RPC_LENGTH = function() {return T.ULONG;};
-T.EXPR_EVAL = function() {return Pointer(Fn(null, [[Pointer(Struct('_MIDL_STUB_MESSAGE', null))]]));};
+T.EXPR_EVAL = function() {return Pointer(Fn(null, [[Pointer(Struct('_MIDL_STUB_MESSAGE', null))]]), [['stdcall']]);};
 T.PFORMAT_STRING = function() {return Pointer(T.u8, [['const']]);};
 T.ARRAY_INFO = function() {return Struct('', {
     Dimension: T.LONG,
@@ -19566,7 +19566,7 @@ T.PMIDL_STUB_MESSAGE = function() {return Pointer(Struct('_MIDL_STUB_MESSAGE', {
     Reserved51_5: T.INT_PTR
 }));};
 T.GENERIC_BINDING_ROUTINE = function() {return Pointer(Fn(Pointer(null), [[Pointer(null)]]));};
-T.GENERIC_UNBIND_ROUTINE = function() {return Pointer(Fn(null, [[Pointer(null)], [Pointer(T.u8)]]));};
+T.GENERIC_UNBIND_ROUTINE = function() {return Pointer(Fn(null, [[Pointer(null)], [Pointer(T.u8)]]), [['stdcall']]);};
 T.GENERIC_BINDING_ROUTINE_PAIR = function() {return Struct('_GENERIC_BINDING_ROUTINE_PAIR', {
     pfnBind: T.GENERIC_BINDING_ROUTINE,
     pfnUnbind: T.GENERIC_UNBIND_ROUTINE
@@ -19587,7 +19587,7 @@ T.PGENERIC_BINDING_INFO = function() {return Pointer(Struct('__GENERIC_BINDING_I
     pfnBind: T.GENERIC_BINDING_ROUTINE,
     pfnUnbind: T.GENERIC_UNBIND_ROUTINE
 }));};
-T.XMIT_HELPER_ROUTINE = function() {return Pointer(Fn(null, [[T.PMIDL_STUB_MESSAGE]]));};
+T.XMIT_HELPER_ROUTINE = function() {return Pointer(Fn(null, [[T.PMIDL_STUB_MESSAGE]]), [['stdcall']]);};
 T.XMIT_ROUTINE_QUINTUPLE = function() {return Struct('_XMIT_ROUTINE_QUINTUPLE', {
     pfnTranslateToXmit: T.XMIT_HELPER_ROUTINE,
     pfnTranslateFromXmit: T.XMIT_HELPER_ROUTINE,
@@ -19600,10 +19600,10 @@ T.PXMIT_ROUTINE_QUINTUPLE = function() {return Pointer(Struct('_XMIT_ROUTINE_QUI
     pfnFreeXmit: T.XMIT_HELPER_ROUTINE,
     pfnFreeInst: T.XMIT_HELPER_ROUTINE
 }));};
-T.USER_MARSHAL_SIZING_ROUTINE = function() {return Pointer(Fn(T.ULONG, [[Pointer(T.ULONG)], [T.ULONG], [Pointer(null)]]));};
+T.USER_MARSHAL_SIZING_ROUTINE = function() {return Pointer(Fn(T.ULONG, [[Pointer(T.ULONG)], [T.ULONG], [Pointer(null)]]), [['stdcall']]);};
 T.USER_MARSHAL_MARSHALLING_ROUTINE = function() {return Pointer(Fn(Pointer(T.u8), [[Pointer(T.ULONG)], [Pointer(T.u8)], [Pointer(null)]]));};
 T.USER_MARSHAL_UNMARSHALLING_ROUTINE = function() {return Pointer(Fn(Pointer(T.u8), [[Pointer(T.ULONG)], [Pointer(T.u8)], [Pointer(null)]]));};
-T.USER_MARSHAL_FREEING_ROUTINE = function() {return Pointer(Fn(null, [[Pointer(T.ULONG)], [Pointer(null)]]));};
+T.USER_MARSHAL_FREEING_ROUTINE = function() {return Pointer(Fn(null, [[Pointer(T.ULONG)], [Pointer(null)]]), [['stdcall']]);};
 T.USER_MARSHAL_ROUTINE_QUADRUPLE = function() {return Struct('_USER_MARSHAL_ROUTINE_QUADRUPLE', {
     pfnBufferSize: T.USER_MARSHAL_SIZING_ROUTINE,
     pfnMarshall: T.USER_MARSHAL_MARSHALLING_ROUTINE,
@@ -19684,8 +19684,8 @@ T.PMIDL_SYNTAX_INFO = function() {return Pointer(Struct('_MIDL_SYNTAX_INFO', {
     pReserved1: T.ULONG_PTR,
     pReserved2: T.ULONG_PTR
 }));};
-T.STUB_THUNK = function() {return Pointer(Fn(null, [[T.PMIDL_STUB_MESSAGE]]));};
-T.SERVER_ROUTINE = function() {return Pointer(Fn(T.LONG, []));};
+T.STUB_THUNK = function() {return Pointer(Fn(null, [[T.PMIDL_STUB_MESSAGE]]), [['stdcall']]);};
+T.SERVER_ROUTINE = function() {return Pointer(Fn(T.LONG, []), [['stdcall']]);};
 T.MIDL_SERVER_INFO = function() {return Struct('_MIDL_SERVER_INFO_', {
     pStubDesc: T.PMIDL_STUB_DESC,
     DispatchTable: Pointer(T.SERVER_ROUTINE),
@@ -24497,11 +24497,11 @@ T.OLESTREAM = function() {return Struct('_OLESTREAM', {
     lpstbl: T.LPOLESTREAMVTBL
 });};
 T.HPROPSHEETPAGE = function() {return Pointer(Struct('_PSP', null));};
-T.LPFNPSPCALLBACKA = function() {return Pointer(Fn(T.UINT, [[T.HWND], [T.UINT], [Pointer(Struct('_PROPSHEETPAGEA', null))]]));};
-T.LPFNPSPCALLBACKW = function() {return Pointer(Fn(T.UINT, [[T.HWND], [T.UINT], [Pointer(Struct('_PROPSHEETPAGEW', null))]]));};
-T.PFNPROPSHEETCALLBACK = function() {return Pointer(Fn(T.INT, [[T.HWND], [T.UINT], [T.LPARAM]]));};
-T.LPFNADDPROPSHEETPAGE = function() {return Pointer(Fn(T.BOOL, [[T.HPROPSHEETPAGE], [T.LPARAM]]));};
-T.LPFNADDPROPSHEETPAGES = function() {return Pointer(Fn(T.BOOL, [[T.LPVOID], [T.LPFNADDPROPSHEETPAGE], [T.LPARAM]]));};
+T.LPFNPSPCALLBACKA = function() {return Pointer(Fn(T.UINT, [[T.HWND], [T.UINT], [Pointer(Struct('_PROPSHEETPAGEA', null))]]), [['stdcall']]);};
+T.LPFNPSPCALLBACKW = function() {return Pointer(Fn(T.UINT, [[T.HWND], [T.UINT], [Pointer(Struct('_PROPSHEETPAGEW', null))]]), [['stdcall']]);};
+T.PFNPROPSHEETCALLBACK = function() {return Pointer(Fn(T.INT, [[T.HWND], [T.UINT], [T.LPARAM]]), [['stdcall']]);};
+T.LPFNADDPROPSHEETPAGE = function() {return Pointer(Fn(T.BOOL, [[T.HPROPSHEETPAGE], [T.LPARAM]]), [['stdcall']]);};
+T.LPFNADDPROPSHEETPAGES = function() {return Pointer(Fn(T.BOOL, [[T.LPVOID], [T.LPFNADDPROPSHEETPAGE], [T.LPARAM]]), [['stdcall']]);};
 T.PROPSHEETPAGEA = function() {return Struct('_PROPSHEETPAGEA', {
     dwSize: T.DWORD,
     dwFlags: T.DWORD,
@@ -24721,7 +24721,7 @@ T.LPPSHNOTIFY = function() {return Pointer(Struct('_PSHNOTIFY', {
     hdr: T.NMHDR,
     lParam: T.LPARAM
 }));};
-T.LPOFNHOOKPROC = function() {return Pointer(Fn(T.UINT_PTR, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]));};
+T.LPOFNHOOKPROC = function() {return Pointer(Fn(T.UINT_PTR, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]), [['stdcall']]);};
 T.OPENFILENAMEA = function() {return Struct('tagOFNA', {
     lStructSize: T.DWORD,
     hwndOwner: T.HWND,
@@ -24860,7 +24860,7 @@ T.LPOFNOTIFYEXW = function() {return Pointer(Struct('_OFNOTIFYEXW', {
 }));};
 T.OFNOTIFYEX = function() {return T.OFNOTIFYEXA;};
 T.LPOFNOTIFYEX = function() {return T.LPOFNOTIFYEXA;};
-T.LPCCHOOKPROC = function() {return Pointer(Fn(T.UINT_PTR, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]));};
+T.LPCCHOOKPROC = function() {return Pointer(Fn(T.UINT_PTR, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]), [['stdcall']]);};
 T.CHOOSECOLORA = function() {return Struct('', {
     lStructSize: T.DWORD,
     hwndOwner: T.HWND,
@@ -24887,7 +24887,7 @@ T.CHOOSECOLORW = function() {return Struct('', {
 T.LPCHOOSECOLORW = function() {return Pointer(T.CHOOSECOLORW);};
 T.CHOOSECOLOR = function() {return T.CHOOSECOLORA;};
 T.LPCHOOSECOLOR = function() {return T.LPCHOOSECOLORA;};
-T.LPFRHOOKPROC = function() {return Pointer(Fn(T.UINT_PTR, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]));};
+T.LPFRHOOKPROC = function() {return Pointer(Fn(T.UINT_PTR, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]), [['stdcall']]);};
 T.FINDREPLACEA = function() {return Struct('', {
     lStructSize: T.DWORD,
     hwndOwner: T.HWND,
@@ -24942,7 +24942,7 @@ T.LPFINDREPLACEW = function() {return Pointer(Struct('', {
 }));};
 T.FINDREPLACE = function() {return T.FINDREPLACEA;};
 T.LPFINDREPLACE = function() {return T.LPFINDREPLACEA;};
-T.LPCFHOOKPROC = function() {return Pointer(Fn(T.UINT_PTR, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]));};
+T.LPCFHOOKPROC = function() {return Pointer(Fn(T.UINT_PTR, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]), [['stdcall']]);};
 T.CHOOSEFONTA = function() {return Struct('tagCHOOSEFONTA', {
     lStructSize: T.UINT,
     hwndOwner: T.HWND,
@@ -25017,8 +25017,8 @@ T.LPCHOOSEFONTW = function() {return Pointer(Struct('tagCHOOSEFONTW', {
 }));};
 T.CHOOSEFONT = function() {return T.CHOOSEFONTA;};
 T.LPCHOOSEFONT = function() {return T.LPCHOOSEFONTA;};
-T.LPPRINTHOOKPROC = function() {return Pointer(Fn(T.UINT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]));};
-T.LPSETUPHOOKPROC = function() {return Pointer(Fn(T.UINT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]));};
+T.LPPRINTHOOKPROC = function() {return Pointer(Fn(T.UINT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]), [['stdcall']]);};
+T.LPSETUPHOOKPROC = function() {return Pointer(Fn(T.UINT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]), [['stdcall']]);};
 T.PRINTDLGA = function() {return Struct('tagPDA', {
     lStructSize: T.DWORD,
     hwndOwner: T.HWND,
@@ -25112,8 +25112,8 @@ T.DEVNAMES = function() {return Struct('', {
     wDefault: T.WORD
 });};
 T.LPDEVNAMES = function() {return Pointer(T.DEVNAMES);};
-T.LPPAGEPAINTHOOK = function() {return Pointer(Fn(T.UINT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]));};
-T.LPPAGESETUPHOOK = function() {return Pointer(Fn(T.UINT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]));};
+T.LPPAGEPAINTHOOK = function() {return Pointer(Fn(T.UINT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]), [['stdcall']]);};
+T.LPPAGESETUPHOOK = function() {return Pointer(Fn(T.UINT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM]]), [['stdcall']]);};
 T.PAGESETUPDLGA = function() {return Struct('tagPSDA', {
     lStructSize: T.DWORD,
     hwndOwner: T.HWND,
@@ -25333,8 +25333,8 @@ T.LPSERVICE_STATUS_PROCESS = function() {return Pointer(Struct('_SERVICE_STATUS_
 T.SC_STATUS_TYPE = function() {return Enum('SC_STATUS_PROCESS_INFO', {
     SC_STATUS_PROCESS_INFO: 0
 });};
-T.LPSERVICE_MAIN_FUNCTIONA = function() {return Pointer(Fn(null, [[T.DWORD], [Pointer(T.LPSTR)]]));};
-T.LPSERVICE_MAIN_FUNCTIONW = function() {return Pointer(Fn(null, [[T.DWORD], [Pointer(T.LPWSTR)]]));};
+T.LPSERVICE_MAIN_FUNCTIONA = function() {return Pointer(Fn(null, [[T.DWORD], [Pointer(T.LPSTR)]]), [['stdcall']]);};
+T.LPSERVICE_MAIN_FUNCTIONW = function() {return Pointer(Fn(null, [[T.DWORD], [Pointer(T.LPWSTR)]]), [['stdcall']]);};
 T.LPSERVICE_MAIN_FUNCTION = function() {return T.LPSERVICE_MAIN_FUNCTIONA;};
 T.SERVICE_TABLE_ENTRYA = function() {return Struct('_SERVICE_TABLE_ENTRYA', {
     lpServiceName: T.LPSTR,
@@ -25524,8 +25524,8 @@ T.LPQUERY_SERVICE_LOCK_STATUSW = function() {return Pointer(Struct('_QUERY_SERVI
     dwLockDuration: T.DWORD
 }));};
 T.QUERY_SERVICE_LOCK_STATUS = function() {return T.QUERY_SERVICE_LOCK_STATUSA;};
-T.LPHANDLER_FUNCTION = function() {return Pointer(Fn(null, [[T.DWORD]]));};
-T.LPHANDLER_FUNCTION_EX = function() {return Pointer(Fn(T.DWORD, [[T.DWORD], [T.DWORD], [T.LPVOID], [T.LPVOID]]));};
+T.LPHANDLER_FUNCTION = function() {return Pointer(Fn(null, [[T.DWORD]]), [['stdcall']]);};
+T.LPHANDLER_FUNCTION_EX = function() {return Pointer(Fn(T.DWORD, [[T.DWORD], [T.DWORD], [T.LPVOID], [T.LPVOID]]), [['stdcall']]);};
 T.MODEMDEVCAPS = function() {return Struct('tagMODEMDEVCAPS', {
     dwActualSize: T.DWORD,
     dwRequiredSize: T.DWORD,
@@ -25632,8 +25632,8 @@ T.LPREGISTERWORDW = function() {return Pointer(Struct('tagREGISTERWORDW', {
     lpReading: T.LPWSTR,
     lpWord: T.LPWSTR
 }));};
-T.REGISTERWORDENUMPROCA = function() {return Pointer(Fn(T.i32, [[T.LPCSTR], [T.DWORD], [T.LPCSTR], [T.LPVOID]]));};
-T.REGISTERWORDENUMPROCW = function() {return Pointer(Fn(T.i32, [[T.LPCWSTR], [T.DWORD], [T.LPCWSTR], [T.LPVOID]]));};
+T.REGISTERWORDENUMPROCA = function() {return Pointer(Fn(T.i32, [[T.LPCSTR], [T.DWORD], [T.LPCSTR], [T.LPVOID]]), [['stdcall']]);};
+T.REGISTERWORDENUMPROCW = function() {return Pointer(Fn(T.i32, [[T.LPCWSTR], [T.DWORD], [T.LPCWSTR], [T.LPVOID]]), [['stdcall']]);};
 T.CANDIDATEFORM = function() {return Struct('tagCANDIDATEFORM', {
     dwIndex: T.DWORD,
     dwStyle: T.DWORD,
@@ -25758,9 +25758,9 @@ T.LPCOMPOSITIONFORM = function() {return Pointer(Struct('_tagCOMPOSITIONFORM', {
     ptCurrentPos: T.POINT,
     rcArea: T.RECT
 }));};
-T._PVFV = function() {return Pointer(Fn(null, [[null]]));};
-T._PIFV = function() {return Pointer(Fn(T.i32, [[null]]));};
-T._PVFI = function() {return Pointer(Fn(null, [[T.i32]]));};
+T._PVFV = function() {return Pointer(Fn(null, [[null]]), [['cdecl']]);};
+T._PIFV = function() {return Pointer(Fn(T.i32, [[null]]), [['cdecl']]);};
+T._PVFI = function() {return Pointer(Fn(null, [[T.i32]]), [['cdecl']]);};
 T.ioinfo = function() {return Struct('', {
     osfhnd: T.intptr_t,
     osfile: T.char,
@@ -25781,10 +25781,10 @@ T.__enative_startup_state = function() {return Enum('__initialized', {
     __initialized: 2
 });};
 T._HFILE = function() {return Pointer(null);};
-T._CRT_REPORT_HOOK = function() {return Pointer(Fn(T.i32, [[T.i32], [Pointer(T.char)], [Pointer(T.i32)]]));};
-T._CRT_REPORT_HOOKW = function() {return Pointer(Fn(T.i32, [[T.i32], [Pointer(T.wchar_t)], [Pointer(T.i32)]]));};
-T._CRT_ALLOC_HOOK = function() {return Pointer(Fn(T.i32, [[T.i32], [Pointer(null)], [T.size_t], [T.i32], [T.i32], [Pointer(T.u8)], [T.i32]]));};
-T._CRT_DUMP_CLIENT = function() {return Pointer(Fn(null, [[Pointer(null)], [T.size_t]]));};
+T._CRT_REPORT_HOOK = function() {return Pointer(Fn(T.i32, [[T.i32], [Pointer(T.char)], [Pointer(T.i32)]]), [['cdecl']]);};
+T._CRT_REPORT_HOOKW = function() {return Pointer(Fn(T.i32, [[T.i32], [Pointer(T.wchar_t)], [Pointer(T.i32)]]), [['cdecl']]);};
+T._CRT_ALLOC_HOOK = function() {return Pointer(Fn(T.i32, [[T.i32], [Pointer(null)], [T.size_t], [T.i32], [T.i32], [Pointer(T.u8)], [T.i32]]), [['cdecl']]);};
+T._CRT_DUMP_CLIENT = function() {return Pointer(Fn(null, [[Pointer(null)], [T.size_t]]), [['cdecl']]);};
 T._CrtMemState = function() {return Struct('_CrtMemState', {
     pBlockHeader: Pointer(Struct('_CrtMemBlockHeader', null)),
     lCounts: ArrayType(T.size_t, 5),
@@ -25989,7 +25989,7 @@ T.LPIMAGELISTDRAWPARAMS = function() {return Pointer(Struct('_IMAGELISTDRAWPARAM
     Frame: T.DWORD,
     crEffect: T.COLORREF
 }));};
-T.SUBCLASSPROC = function() {return Pointer(Fn(T.LRESULT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM], [T.UINT_PTR], [T.DWORD_PTR]]));};
+T.SUBCLASSPROC = function() {return Pointer(Fn(T.LRESULT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM], [T.UINT_PTR], [T.DWORD_PTR]]), [['stdcall']]);};
 T.HDLAYOUT = function() {return Struct('_HD_LAYOUT', {
     prc: Pointer(T.RECT),
     pwpos: Pointer(T.WINDOWPOS)
@@ -27138,7 +27138,7 @@ T.LPNMTVDISPINFOEXW = function() {return Pointer(Struct('tagTVDISPINFOEXW', {
     hdr: T.NMHDR,
     item: T.TVITEMEXW
 }));};
-T.PFNTVCOMPARE = function() {return Pointer(Fn(T.INT, [[T.LPARAM], [T.LPARAM], [T.LPARAM]]));};
+T.PFNTVCOMPARE = function() {return Pointer(Fn(T.INT, [[T.LPARAM], [T.LPARAM], [T.LPARAM]]), [['stdcall']]);};
 T.TVSORTCB = function() {return Struct('tagTVSORTCB', {
     hParent: T.HTREEITEM,
     lpfnCompare: T.PFNTVCOMPARE,
@@ -27662,7 +27662,7 @@ T.LPTCHITTESTINFO = function() {return Pointer(Struct('tagTCHITTESTINFO', {
     pt: T.POINT,
     flags: T.UINT
 }));};
-T.PFNLVCOMPARE = function() {return Pointer(Fn(T.INT, [[T.LPARAM], [T.LPARAM], [T.LPARAM]]));};
+T.PFNLVCOMPARE = function() {return Pointer(Fn(T.INT, [[T.LPARAM], [T.LPARAM], [T.LPARAM]]), [['stdcall']]);};
 T.NMLVCUSTOMDRAW = function() {return Struct('tagNMLVCUSTOMDRAW', {
     nmcd: T.NMCUSTOMDRAW,
     clrText: T.COLORREF,
@@ -28123,16 +28123,16 @@ T.LPNMDATETIMEFORMATQUERYW = function() {return Pointer(Struct('tagNMDATETIMEFOR
 T.NMDATETIMEFORMATQUERY = function() {return T.NMDATETIMEFORMATQUERYA;};
 T.LPNMDATETIMEFORMATQUERY = function() {return T.LPNMDATETIMEFORMATQUERYA;};
 T.HDSA = function() {return Pointer(Struct('_DSA', null));};
-T.PFNDSAENUMCALLBACK = function() {return Pointer(Fn(T.INT, [[T.LPVOID], [T.LPVOID]]));};
+T.PFNDSAENUMCALLBACK = function() {return Pointer(Fn(T.INT, [[T.LPVOID], [T.LPVOID]]), [['stdcall']]);};
 T.HDPA = function() {return Pointer(Struct('_DPA', null));};
-T.PFNDPAENUMCALLBACK = function() {return Pointer(Fn(T.INT, [[T.LPVOID], [T.LPVOID]]));};
-T.PFNDPACOMPARE = function() {return Pointer(Fn(T.INT, [[T.LPVOID], [T.LPVOID], [T.LPARAM]]));};
-T.PFNDPAMERGE = function() {return Pointer(Fn(T.PVOID, [[T.UINT], [T.PVOID], [T.PVOID], [T.LPARAM]]));};
+T.PFNDPAENUMCALLBACK = function() {return Pointer(Fn(T.INT, [[T.LPVOID], [T.LPVOID]]), [['stdcall']]);};
+T.PFNDPACOMPARE = function() {return Pointer(Fn(T.INT, [[T.LPVOID], [T.LPVOID], [T.LPARAM]]), [['stdcall']]);};
+T.PFNDPAMERGE = function() {return Pointer(Fn(T.PVOID, [[T.UINT], [T.PVOID], [T.PVOID], [T.LPARAM]]), [['stdcall']]);};
 T.DPASTREAMINFO = function() {return Struct('_DPASTREAMINFO', {
     iPos: T.INT,
     pvItem: T.LPVOID
 });};
-T.PFNDPASTREAM = function() {return Pointer(Fn(T.HRESULT, [[Pointer(T.DPASTREAMINFO)], [Pointer(Struct('IStream', null))], [T.LPVOID]]));};
+T.PFNDPASTREAM = function() {return Pointer(Fn(T.HRESULT, [[Pointer(T.DPASTREAMINFO)], [Pointer(Struct('IStream', null))], [T.LPVOID]]), [['stdcall']]);};
 T.LITEM = function() {return Struct('tagLITEM', {
     mask: T.UINT,
     iLink: T.i32,
@@ -28183,7 +28183,7 @@ T.TASKDIALOG_BUTTON = function() {return Struct('_TASKDIALOG_BUTTON', {
     nButtonID: T.i32,
     pszButtonText: T.PCWSTR
 });};
-T.PFTASKDIALOGCALLBACK = function() {return Pointer(Fn(T.HRESULT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM], [T.LONG_PTR]]));};
+T.PFTASKDIALOGCALLBACK = function() {return Pointer(Fn(T.HRESULT, [[T.HWND], [T.UINT], [T.WPARAM], [T.LPARAM], [T.LONG_PTR]]), [['stdcall']]);};
 T.TASKDIALOGCONFIG = function() {return Struct('_TASKDIALOGCONFIG', {
     cbSize: T.UINT,
     hwndParent: T.HWND,
@@ -28833,7 +28833,7 @@ var globals = {
     GetWriteWatch: function() {return (Fn(T.UINT, [[T.DWORD], [T.LPVOID], [T.SIZE_T], [Pointer(T.LPVOID)], [Pointer(T.ULONG_PTR)], [Pointer(T.ULONG)]], [['dllimport'], ['stdcall']]))('GetWriteWatch');},
     GlobalAddAtomA: function() {return (Fn(T.ATOM, [[T.LPCSTR]], [['dllimport'], ['stdcall']]))('GlobalAddAtomA');},
     GlobalAddAtomW: function() {return (Fn(T.ATOM, [[T.LPCWSTR]], [['dllimport'], ['stdcall']]))('GlobalAddAtomW');},
-    GlobalAlloc: function() {return (Fn(T.HGLOBAL, [[T.UINT], [T.SIZE_T]], [['dllimport'], ['stdcall']]))('GlobalAlloc');},
+    GlobalAlloc: function() {return (Fn(T.HGLOBAL, [[T.UINT], [T.SIZE_T]], [['dllimport'], ['stdcall'], ['alloc_size', {"__rule":"constant","_0":"2"}]]))('GlobalAlloc');},
     GlobalCompact: function() {return (Fn(T.SIZE_T, [[T.DWORD]], [['dllimport'], ['stdcall']]))('GlobalCompact');},
     GlobalDeleteAtom: function() {return (Fn(T.ATOM, [[T.ATOM]], [['dllimport'], ['stdcall']]))('GlobalDeleteAtom');},
     GlobalFindAtomA: function() {return (Fn(T.ATOM, [[T.LPCSTR]], [['dllimport'], ['stdcall']]))('GlobalFindAtomA');},
@@ -28847,19 +28847,19 @@ var globals = {
     GlobalLock: function() {return (Fn(T.LPVOID, [[T.HGLOBAL]], [['dllimport'], ['stdcall']]))('GlobalLock');},
     GlobalMemoryStatus: function() {return (Fn(null, [[T.LPMEMORYSTATUS]], [['dllimport'], ['stdcall']]))('GlobalMemoryStatus');},
     GlobalMemoryStatusEx: function() {return (Fn(T.BOOL, [[T.LPMEMORYSTATUSEX]], [['dllimport'], ['stdcall']]))('GlobalMemoryStatusEx');},
-    GlobalReAlloc: function() {return (Fn(T.HGLOBAL, [[T.HGLOBAL], [T.SIZE_T], [T.UINT]], [['dllimport'], ['stdcall']]))('GlobalReAlloc');},
+    GlobalReAlloc: function() {return (Fn(T.HGLOBAL, [[T.HGLOBAL], [T.SIZE_T], [T.UINT]], [['dllimport'], ['stdcall'], ['alloc_size', {"__rule":"constant","_0":"3"}]]))('GlobalReAlloc');},
     GlobalSize: function() {return (Fn(T.SIZE_T, [[T.HGLOBAL]], [['dllimport'], ['stdcall']]))('GlobalSize');},
     GlobalUnfix: function() {return (Fn(null, [[T.HGLOBAL]], [['dllimport'], ['stdcall']]))('GlobalUnfix');},
     GlobalUnlock: function() {return (Fn(T.BOOL, [[T.HGLOBAL]], [['dllimport'], ['stdcall']]))('GlobalUnlock');},
     GlobalUnWire: function() {return (Fn(T.BOOL, [[T.HGLOBAL]], [['dllimport'], ['stdcall']]))('GlobalUnWire');},
     GlobalWire: function() {return (Fn(T.LPVOID, [[T.HGLOBAL]], [['dllimport'], ['stdcall']]))('GlobalWire');},
-    HeapAlloc: function() {return (Fn(T.LPVOID, [[T.HANDLE], [T.DWORD], [T.SIZE_T]], [['dllimport'], ['stdcall']]))('HeapAlloc');},
+    HeapAlloc: function() {return (Fn(T.LPVOID, [[T.HANDLE], [T.DWORD], [T.SIZE_T]], [['dllimport'], ['stdcall'], ['alloc_size', {"__rule":"constant","_0":"3"}]]))('HeapAlloc');},
     HeapCompact: function() {return (Fn(T.SIZE_T, [[T.HANDLE], [T.DWORD]], [['dllimport'], ['stdcall']]))('HeapCompact');},
     HeapCreate: function() {return (Fn(T.HANDLE, [[T.DWORD], [T.SIZE_T], [T.SIZE_T]], [['dllimport'], ['stdcall']]))('HeapCreate');},
     HeapDestroy: function() {return (Fn(T.BOOL, [[T.HANDLE]], [['dllimport'], ['stdcall']]))('HeapDestroy');},
     HeapFree: function() {return (Fn(T.BOOL, [[T.HANDLE], [T.DWORD], [T.LPVOID]], [['dllimport'], ['stdcall']]))('HeapFree');},
     HeapLock: function() {return (Fn(T.BOOL, [[T.HANDLE]], [['dllimport'], ['stdcall']]))('HeapLock');},
-    HeapReAlloc: function() {return (Fn(T.LPVOID, [[T.HANDLE], [T.DWORD], [T.LPVOID], [T.SIZE_T]], [['dllimport'], ['stdcall']]))('HeapReAlloc');},
+    HeapReAlloc: function() {return (Fn(T.LPVOID, [[T.HANDLE], [T.DWORD], [T.LPVOID], [T.SIZE_T]], [['dllimport'], ['stdcall'], ['alloc_size', {"__rule":"constant","_0":"4"}]]))('HeapReAlloc');},
     HeapQueryInformation: function() {return (Fn(T.BOOL, [[T.HANDLE], [T.HEAP_INFORMATION_CLASS], [T.PVOID], [T.SIZE_T], [T.PSIZE_T]], [['dllimport'], ['stdcall']]))('HeapQueryInformation');},
     HeapSetInformation: function() {return (Fn(T.BOOL, [[T.HANDLE], [T.HEAP_INFORMATION_CLASS], [T.PVOID], [T.SIZE_T]], [['dllimport'], ['stdcall']]))('HeapSetInformation');},
     HeapSize: function() {return (Fn(T.SIZE_T, [[T.HANDLE], [T.DWORD], [T.LPCVOID]], [['dllimport'], ['stdcall']]))('HeapSize');},
@@ -28905,13 +28905,13 @@ var globals = {
     LoadLibraryExW: function() {return (Fn(T.HMODULE, [[T.LPCWSTR], [T.HANDLE], [T.DWORD]], [['dllimport'], ['stdcall']]))('LoadLibraryExW');},
     LoadModule: function() {return (Fn(T.DWORD, [[T.LPCSTR], [T.LPVOID]], [['dllimport'], ['stdcall']]))('LoadModule');},
     LoadResource: function() {return (Fn(T.HGLOBAL, [[T.HMODULE], [T.HRSRC]], [['dllimport'], ['stdcall']]))('LoadResource');},
-    LocalAlloc: function() {return (Fn(T.HLOCAL, [[T.UINT], [T.SIZE_T]], [['dllimport'], ['stdcall']]))('LocalAlloc');},
+    LocalAlloc: function() {return (Fn(T.HLOCAL, [[T.UINT], [T.SIZE_T]], [['dllimport'], ['stdcall'], ['alloc_size', {"__rule":"constant","_0":"2"}]]))('LocalAlloc');},
     LocalCompact: function() {return (Fn(T.SIZE_T, [[T.UINT]], [['dllimport'], ['stdcall']]))('LocalCompact');},
     LocalFlags: function() {return (Fn(T.UINT, [[T.HLOCAL]], [['dllimport'], ['stdcall']]))('LocalFlags');},
     LocalFree: function() {return (Fn(T.HLOCAL, [[T.HLOCAL]], [['dllimport'], ['stdcall']]))('LocalFree');},
     LocalHandle: function() {return (Fn(T.HLOCAL, [[T.LPCVOID]], [['dllimport'], ['stdcall']]))('LocalHandle');},
     LocalLock: function() {return (Fn(T.LPVOID, [[T.HLOCAL]], [['dllimport'], ['stdcall']]))('LocalLock');},
-    LocalReAlloc: function() {return (Fn(T.HLOCAL, [[T.HLOCAL], [T.SIZE_T], [T.UINT]], [['dllimport'], ['stdcall']]))('LocalReAlloc');},
+    LocalReAlloc: function() {return (Fn(T.HLOCAL, [[T.HLOCAL], [T.SIZE_T], [T.UINT]], [['dllimport'], ['stdcall'], ['alloc_size', {"__rule":"constant","_0":"3"}]]))('LocalReAlloc');},
     LocalShrink: function() {return (Fn(T.SIZE_T, [[T.HGLOBAL], [T.UINT]], [['dllimport'], ['stdcall']]))('LocalShrink');},
     LocalSize: function() {return (Fn(T.SIZE_T, [[T.HLOCAL]], [['dllimport'], ['stdcall']]))('LocalSize');},
     LocalUnlock: function() {return (Fn(T.BOOL, [[T.HLOCAL]], [['dllimport'], ['stdcall']]))('LocalUnlock');},
@@ -30911,9 +30911,9 @@ var globals = {
     _get_winver: function() {return (Fn(T.errno_t, [[Pointer(T.u32), '_Value']], [['cdecl']]))('_get_winver');},
     _get_winmajor: function() {return (Fn(T.errno_t, [[Pointer(T.u32), '_Value']], [['cdecl']]))('_get_winmajor');},
     _get_winminor: function() {return (Fn(T.errno_t, [[Pointer(T.u32), '_Value']], [['cdecl']]))('_get_winminor');},
-    exit: function() {return (Fn(null, [[T.i32, '_Code']], [['cdecl'], ['nothrow']]))('exit');},
-    _exit: function() {return (Fn(null, [[T.i32, '_Code']], [['dllimport'], ['cdecl'], ['nothrow']]))('_exit');},
-    _Exit: function() {return (Fn(null, [[T.i32]], [['cdecl']]))('_Exit');},
+    exit: function() {return (Fn(null, [[T.i32, '_Code']], [['cdecl'], ['nothrow'], ['noreturn']]))('exit');},
+    _exit: function() {return (Fn(null, [[T.i32, '_Code']], [['dllimport'], ['cdecl'], ['nothrow'], ['noreturn']]))('_exit');},
+    _Exit: function() {return (Fn(null, [[T.i32]], [['cdecl'], ['noreturn']]))('_Exit');},
     abort: function() {return (Fn(null, [[null]], [['cdecl'], ['noreturn']]))('abort');},
     _set_abort_behavior: function() {return (Fn(T.u32, [[T.u32, '_Flags'], [T.u32, '_Mask']], [['dllimport'], ['cdecl']]))('_set_abort_behavior');},
     abs: function() {return (Fn(T.i32, [[T.i32, '_X']], [['cdecl']]))('abs');},
@@ -31044,9 +31044,9 @@ var globals = {
     _wputenv: function() {return (Fn(T.i32, [[Pointer(T.wchar_t), '_EnvString']], [['dllimport'], ['cdecl']]))('_wputenv');},
     _wsearchenv: function() {return (Fn(null, [[Pointer(T.wchar_t), '_Filename'], [Pointer(T.wchar_t), '_EnvVar'], [Pointer(T.wchar_t), '_ResultPath']], [['dllimport'], ['cdecl']]))('_wsearchenv');},
     _wsplitpath: function() {return (Fn(null, [[Pointer(T.wchar_t), '_FullPath'], [Pointer(T.wchar_t), '_Drive'], [Pointer(T.wchar_t), '_Dir'], [Pointer(T.wchar_t), '_Filename'], [Pointer(T.wchar_t), '_Ext']], [['dllimport'], ['cdecl']]))('_wsplitpath');},
-    _beep: function() {return (Fn(null, [[T.u32, '_Frequency'], [T.u32, '_Duration']], [['dllimport'], ['cdecl']]))('_beep');},
-    _seterrormode: function() {return (Fn(null, [[T.i32, '_Mode']], [['dllimport'], ['cdecl']]))('_seterrormode');},
-    _sleep: function() {return (Fn(null, [[T.u32, '_Duration']], [['dllimport'], ['cdecl']]))('_sleep');},
+    _beep: function() {return (Fn(null, [[T.u32, '_Frequency'], [T.u32, '_Duration']], [['dllimport'], ['cdecl'], ['deprecated']]))('_beep');},
+    _seterrormode: function() {return (Fn(null, [[T.i32, '_Mode']], [['dllimport'], ['cdecl'], ['deprecated']]))('_seterrormode');},
+    _sleep: function() {return (Fn(null, [[T.u32, '_Duration']], [['dllimport'], ['cdecl'], ['deprecated']]))('_sleep');},
     ecvt: function() {return (Fn(Pointer(T.char), [[T.f64, '_Val'], [T.i32, '_NumOfDigits'], [Pointer(T.i32), '_PtDec'], [Pointer(T.i32), '_PtSign']], [['cdecl']]))('ecvt');},
     fcvt: function() {return (Fn(Pointer(T.char), [[T.f64, '_Val'], [T.i32, '_NumOfDec'], [Pointer(T.i32), '_PtDec'], [Pointer(T.i32), '_PtSign']], [['cdecl']]))('fcvt');},
     gcvt: function() {return (Fn(Pointer(T.char), [[T.f64, '_Val'], [T.i32, '_NumOfDigits'], [Pointer(T.char), '_DstBuf']], [['cdecl']]))('gcvt');},
@@ -31218,8 +31218,8 @@ var globals = {
     CryptSignHashW: function() {return (Fn(T.BOOL, [[T.HCRYPTHASH], [T.DWORD], [T.LPCWSTR], [T.DWORD], [Pointer(T.BYTE)], [Pointer(T.DWORD)]], [['dllimport'], ['stdcall']]))('CryptSignHashW');},
     CryptVerifySignatureA: function() {return (Fn(T.BOOL, [[T.HCRYPTHASH], [Pointer(T.BYTE)], [T.DWORD], [T.HCRYPTKEY], [T.LPCSTR], [T.DWORD]], [['dllimport'], ['stdcall']]))('CryptVerifySignatureA');},
     CryptVerifySignatureW: function() {return (Fn(T.BOOL, [[T.HCRYPTHASH], [Pointer(T.BYTE)], [T.DWORD], [T.HCRYPTKEY], [T.LPCWSTR], [T.DWORD]], [['dllimport'], ['stdcall']]))('CryptVerifySignatureW');},
-    CryptMemAlloc: function() {return (Fn(T.LPVOID, [[T.ULONG, 'cbSize']], [['stdcall']]))('CryptMemAlloc');},
-    CryptMemRealloc: function() {return (Fn(T.LPVOID, [[T.LPVOID, 'pv'], [T.ULONG, 'cbSize']], [['stdcall']]))('CryptMemRealloc');},
+    CryptMemAlloc: function() {return (Fn(T.LPVOID, [[T.ULONG, 'cbSize']], [['stdcall'], ['alloc_size', {"__rule":"constant","_0":"1"}]]))('CryptMemAlloc');},
+    CryptMemRealloc: function() {return (Fn(T.LPVOID, [[T.LPVOID, 'pv'], [T.ULONG, 'cbSize']], [['stdcall'], ['alloc_size', {"__rule":"constant","_0":"2"}]]))('CryptMemRealloc');},
     CryptMemFree: function() {return (Fn(null, [[T.LPVOID, 'pv']], [['stdcall']]))('CryptMemFree');},
     CryptBinaryToStringA: function() {return (Fn(T.BOOL, [[Pointer(T.BYTE), 'pbBinary'], [T.DWORD, 'cbBinary'], [T.DWORD, 'dwFlags'], [T.LPSTR, 'pszString'], [Pointer(T.DWORD), 'pcchString']], [['stdcall']]))('CryptBinaryToStringA');},
     CryptBinaryToStringW: function() {return (Fn(T.BOOL, [[Pointer(T.BYTE), 'pbBinary'], [T.DWORD, 'cbBinary'], [T.DWORD, 'dwFlags'], [T.LPWSTR, 'pszString'], [Pointer(T.DWORD), 'pcchString']], [['stdcall']]))('CryptBinaryToStringW');},
@@ -32513,7 +32513,7 @@ var globals = {
     CoGetInstanceFromFile: function() {return (Fn(T.HRESULT, [[Pointer(T.COSERVERINFO), 'pServerInfo'], [Pointer(T.CLSID), 'pClsid'], [Pointer(T.IUnknown), 'punkOuter'], [T.DWORD, 'dwClsCtx'], [T.DWORD, 'grfMode'], [Pointer(T.OLECHAR), 'pwszName'], [T.DWORD, 'dwCount'], [Pointer(T.MULTI_QI), 'pResults']], [['stdcall']]))('CoGetInstanceFromFile');},
     CoGetInstanceFromIStorage: function() {return (Fn(T.HRESULT, [[Pointer(T.COSERVERINFO), 'pServerInfo'], [Pointer(T.CLSID), 'pClsid'], [Pointer(T.IUnknown), 'punkOuter'], [T.DWORD, 'dwClsCtx'], [Pointer(T.IStorage), 'pstg'], [T.DWORD, 'dwCount'], [Pointer(T.MULTI_QI), 'pResults']], [['stdcall']]))('CoGetInstanceFromIStorage');},
     CoGetMalloc: function() {return (Fn(T.HRESULT, [[T.DWORD, 'dwMemContext'], [Pointer(T.LPMALLOC), 'lpMalloc']], [['stdcall']]))('CoGetMalloc');},
-    CoTaskMemAlloc: function() {return (Fn(T.LPVOID, [[T.ULONG, 'size']], [['stdcall']]))('CoTaskMemAlloc');},
+    CoTaskMemAlloc: function() {return (Fn(T.LPVOID, [[T.ULONG, 'size']], [['stdcall'], ['alloc_size', {"__rule":"constant","_0":"1"}]]))('CoTaskMemAlloc');},
     CoTaskMemFree: function() {return (Fn(null, [[T.LPVOID, 'ptr']], [['stdcall']]))('CoTaskMemFree');},
     CoTaskMemRealloc: function() {return (Fn(T.LPVOID, [[T.LPVOID, 'ptr'], [T.ULONG, 'size']], [['stdcall']]))('CoTaskMemRealloc');},
     CoRegisterMallocSpy: function() {return (Fn(T.HRESULT, [[T.LPMALLOCSPY, 'pMallocSpy']], [['stdcall']]))('CoRegisterMallocSpy');},
@@ -35094,14 +35094,14 @@ var globals = {
     __mingw_vfscanf: function() {return (Fn(T.i32, [[Pointer(T.FILE), 'fp'], [Pointer(T.char), 'Format'], [T.va_list, 'argp']], [['format', 'gnu_scanf', {"__rule":"constant","_0":"2"}, {"__rule":"constant","_0":"0"}], ['nonnull', {"__rule":"constant","_0":"2"}], ['cdecl']]))('__mingw_vfscanf');},
     __mingw_vsnprintf: function() {return (Fn(T.i32, [[Pointer(T.char), '_DstBuf'], [T.size_t, '_MaxCount'], [Pointer(T.char), '_Format'], [T.va_list, '_ArgList']], [['format', 'gnu_printf', {"__rule":"constant","_0":"3"}, {"__rule":"constant","_0":"0"}], ['nonnull', {"__rule":"constant","_0":"3"}], ['cdecl']]))('__mingw_vsnprintf');},
     __mingw_snprintf: function() {return (Fn(T.i32, [[Pointer(T.char), 's'], [T.size_t, 'n'], [Pointer(T.char), 'format'], '...'], [['format', 'gnu_printf', {"__rule":"constant","_0":"3"}, {"__rule":"constant","_0":"4"}], ['nonnull', {"__rule":"constant","_0":"3"}], ['cdecl']]))('__mingw_snprintf');},
-    __mingw_printf: function() {return (Fn(T.i32, [[Pointer(T.char)], '...'], [['format', 'gnu_printf', {"__rule":"constant","_0":"1"}, {"__rule":"constant","_0":"2"}], ['nonnull', {"__rule":"constant","_0":"1"}], ['cdecl']]))('__mingw_printf');},
-    __mingw_vprintf: function() {return (Fn(T.i32, [[Pointer(T.char)], [T.va_list]], [['format', 'gnu_printf', {"__rule":"constant","_0":"1"}, {"__rule":"constant","_0":"0"}], ['nonnull', {"__rule":"constant","_0":"1"}], ['cdecl']]))('__mingw_vprintf');},
-    __mingw_fprintf: function() {return (Fn(T.i32, [[Pointer(T.FILE)], [Pointer(T.char)], '...'], [['format', 'gnu_printf', {"__rule":"constant","_0":"2"}, {"__rule":"constant","_0":"3"}], ['nonnull', {"__rule":"constant","_0":"2"}], ['cdecl']]))('__mingw_fprintf');},
-    __mingw_vfprintf: function() {return (Fn(T.i32, [[Pointer(T.FILE)], [Pointer(T.char)], [T.va_list]], [['format', 'gnu_printf', {"__rule":"constant","_0":"2"}, {"__rule":"constant","_0":"0"}], ['nonnull', {"__rule":"constant","_0":"2"}], ['cdecl']]))('__mingw_vfprintf');},
-    __mingw_sprintf: function() {return (Fn(T.i32, [[Pointer(T.char)], [Pointer(T.char)], '...'], [['format', 'gnu_printf', {"__rule":"constant","_0":"2"}, {"__rule":"constant","_0":"3"}], ['nonnull', {"__rule":"constant","_0":"2"}], ['cdecl']]))('__mingw_sprintf');},
-    __mingw_vsprintf: function() {return (Fn(T.i32, [[Pointer(T.char)], [Pointer(T.char)], [T.va_list]], [['format', 'gnu_printf', {"__rule":"constant","_0":"2"}, {"__rule":"constant","_0":"0"}], ['nonnull', {"__rule":"constant","_0":"2"}], ['cdecl']]))('__mingw_vsprintf');},
-    __mingw_asprintf: function() {return (Fn(T.i32, [[Pointer(Pointer(T.char))], [Pointer(T.char)], '...'], [['format', 'gnu_printf', {"__rule":"constant","_0":"2"}, {"__rule":"constant","_0":"3"}], ['nonnull', {"__rule":"constant","_0":"1"}, {"__rule":"constant","_0":"2"}], ['cdecl']]))('__mingw_asprintf');},
-    __mingw_vasprintf: function() {return (Fn(T.i32, [[Pointer(Pointer(T.char))], [Pointer(T.char)], [T.va_list]], [['format', 'gnu_printf', {"__rule":"constant","_0":"2"}, {"__rule":"constant","_0":"0"}], ['nonnull', {"__rule":"constant","_0":"1"}, {"__rule":"constant","_0":"2"}], ['cdecl']]))('__mingw_vasprintf');},
+    __mingw_printf: function() {return (Fn(T.i32, [[Pointer(T.char)], '...'], [['format', 'gnu_printf', {"__rule":"constant","_0":"1"}, {"__rule":"constant","_0":"2"}], ['nonnull', {"__rule":"constant","_0":"1"}], ['cdecl'], ['nothrow']]))('__mingw_printf');},
+    __mingw_vprintf: function() {return (Fn(T.i32, [[Pointer(T.char)], [T.va_list]], [['format', 'gnu_printf', {"__rule":"constant","_0":"1"}, {"__rule":"constant","_0":"0"}], ['nonnull', {"__rule":"constant","_0":"1"}], ['cdecl'], ['nothrow']]))('__mingw_vprintf');},
+    __mingw_fprintf: function() {return (Fn(T.i32, [[Pointer(T.FILE)], [Pointer(T.char)], '...'], [['format', 'gnu_printf', {"__rule":"constant","_0":"2"}, {"__rule":"constant","_0":"3"}], ['nonnull', {"__rule":"constant","_0":"2"}], ['cdecl'], ['nothrow']]))('__mingw_fprintf');},
+    __mingw_vfprintf: function() {return (Fn(T.i32, [[Pointer(T.FILE)], [Pointer(T.char)], [T.va_list]], [['format', 'gnu_printf', {"__rule":"constant","_0":"2"}, {"__rule":"constant","_0":"0"}], ['nonnull', {"__rule":"constant","_0":"2"}], ['cdecl'], ['nothrow']]))('__mingw_vfprintf');},
+    __mingw_sprintf: function() {return (Fn(T.i32, [[Pointer(T.char)], [Pointer(T.char)], '...'], [['format', 'gnu_printf', {"__rule":"constant","_0":"2"}, {"__rule":"constant","_0":"3"}], ['nonnull', {"__rule":"constant","_0":"2"}], ['cdecl'], ['nothrow']]))('__mingw_sprintf');},
+    __mingw_vsprintf: function() {return (Fn(T.i32, [[Pointer(T.char)], [Pointer(T.char)], [T.va_list]], [['format', 'gnu_printf', {"__rule":"constant","_0":"2"}, {"__rule":"constant","_0":"0"}], ['nonnull', {"__rule":"constant","_0":"2"}], ['cdecl'], ['nothrow']]))('__mingw_vsprintf');},
+    __mingw_asprintf: function() {return (Fn(T.i32, [[Pointer(Pointer(T.char))], [Pointer(T.char)], '...'], [['format', 'gnu_printf', {"__rule":"constant","_0":"2"}, {"__rule":"constant","_0":"3"}], ['nonnull', {"__rule":"constant","_0":"1"}, {"__rule":"constant","_0":"2"}], ['cdecl'], ['nothrow']]))('__mingw_asprintf');},
+    __mingw_vasprintf: function() {return (Fn(T.i32, [[Pointer(Pointer(T.char))], [Pointer(T.char)], [T.va_list]], [['format', 'gnu_printf', {"__rule":"constant","_0":"2"}, {"__rule":"constant","_0":"0"}], ['nonnull', {"__rule":"constant","_0":"1"}, {"__rule":"constant","_0":"2"}], ['cdecl'], ['nothrow']]))('__mingw_vasprintf');},
     fprintf: function() {return (Fn(T.i32, [[Pointer(T.FILE), '_File'], [Pointer(T.char), '_Format'], '...'], [['cdecl']]))('fprintf');},
     printf: function() {return (Fn(T.i32, [[Pointer(T.char), '_Format'], '...'], [['cdecl']]))('printf');},
     sprintf: function() {return (Fn(T.i32, [[Pointer(T.char), '_Dest'], [Pointer(T.char), '_Format'], '...'], [['cdecl']]))('sprintf');},
@@ -35395,9 +35395,9 @@ var globals = {
     umask: function() {return (Fn(T.i32, [[T.i32, '_Mode']], [['cdecl']]))('umask');},
     write: function() {return (Fn(T.i32, [[T.i32, '_Filehandle'], [Pointer(null), '_Buf'], [T.u32, '_MaxCharCount']], [['cdecl']]))('write');},
     _beginthread: function() {return (Fn(T.uintptr_t, [[Pointer(Fn(null, [[Pointer(null)]])), '_StartAddress'], [T.u32, '_StackSize'], [Pointer(null), '_ArgList']], [['dllimport'], ['cdecl']]))('_beginthread');},
-    _endthread: function() {return (Fn(null, [[null]], [['dllimport'], ['cdecl']]))('_endthread');},
+    _endthread: function() {return (Fn(null, [[null]], [['dllimport'], ['cdecl'], ['noreturn']]))('_endthread');},
     _beginthreadex: function() {return (Fn(T.uintptr_t, [[Pointer(null), '_Security'], [T.u32, '_StackSize'], [Pointer(Fn(T.u32, [[Pointer(null)]])), '_StartAddress'], [Pointer(null), '_ArgList'], [T.u32, '_InitFlag'], [Pointer(T.u32), '_ThrdAddr']], [['dllimport'], ['cdecl']]))('_beginthreadex');},
-    _endthreadex: function() {return (Fn(null, [[T.u32, '_Retval']], [['dllimport'], ['cdecl']]))('_endthreadex');},
+    _endthreadex: function() {return (Fn(null, [[T.u32, '_Retval']], [['dllimport'], ['cdecl'], ['noreturn']]))('_endthreadex');},
     _cexit: function() {return (Fn(null, [[null]], [['dllimport'], ['cdecl'], ['nothrow']]))('_cexit');},
     _c_exit: function() {return (Fn(null, [[null]], [['dllimport'], ['cdecl'], ['nothrow']]))('_c_exit');},
     _getpid: function() {return (Fn(T.i32, [[null]], [['dllimport'], ['cdecl']]))('_getpid');},
@@ -35440,7 +35440,7 @@ var globals = {
     __security_cookie: function() {return (T.uintptr_t)('__security_cookie');},
     _loaddll: function() {return (Fn(T.intptr_t, [[Pointer(T.char), '_Filename']], [['cdecl']]))('_loaddll');},
     _unloaddll: function() {return (Fn(T.i32, [[T.intptr_t, '_Handle']], [['cdecl']]))('_unloaddll');},
-    _getdllprocaddr: function() {return (Fn(Pointer(Fn(T.i32, [[null]])), [[T.intptr_t, '_Handle'], [Pointer(T.char), '_ProcedureName'], [T.intptr_t, '_Ordinal']]))('_getdllprocaddr');},
+    _getdllprocaddr: function() {return (Fn(Pointer(Fn(T.i32, [[null]])), [[T.intptr_t, '_Handle'], [Pointer(T.char), '_ProcedureName'], [T.intptr_t, '_Ordinal']], [['cdecl'], ['cdecl']]))('_getdllprocaddr');},
     cwait: function() {return (Fn(T.intptr_t, [[Pointer(T.i32), '_TermStat'], [T.intptr_t, '_ProcHandle'], [T.i32, '_Action']], [['cdecl']]))('cwait');},
     execl: function() {return (Fn(T.i32, [[Pointer(T.char), '_Filename'], [Pointer(T.char), '_ArgList'], '...'], [['cdecl']]))('execl');},
     execle: function() {return (Fn(T.i32, [[Pointer(T.char), '_Filename'], [Pointer(T.char), '_ArgList'], '...'], [['cdecl']]))('execle');},

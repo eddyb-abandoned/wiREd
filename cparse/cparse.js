@@ -241,7 +241,7 @@ R('parameter_type_list').filter(({_0})=>{
     return r;
 });
 R('direct_declarator').filter(({_0, _1})=>{
-    var filter = T => T, rest = [];
+    var filter = T => T, rest = [], attr = [];
     for(let _ of _1.map(_ => _._1)) {
         let oldFilter = filter;
         if(_._0 === '(' && _._2 === ')')
@@ -252,13 +252,15 @@ R('direct_declarator').filter(({_0, _1})=>{
             filter = T => Pointer(oldFilter(T)); // FIXME is T[] really a T*?
         else if(_._0 === '[' && _._4 === ']')
             filter = T => ArrayType(oldFilter(T), _._2.__rule === 'constant' ? _._2._0 : `NaN /* ${prettyPrint(_._2)} */`);
+        else if(_.__rule === 'attribute_specifier')
+            attr.push(..._.attr);
         else
             rest.push(_);
     }
 
     if(typeof _0 === 'string')
-        return {__rule: 'direct_declarator', name: _0, filter, rest};
-    return {__rule: 'direct_declarator', name: _0._2.name, filter: T => _0._2.filter(filter(T)), attr: _0._2.attr, rest};
+        return {__rule: 'direct_declarator', name: _0, filter, attr, rest};
+    return {__rule: 'direct_declarator', name: _0._2.name, filter: T => _0._2.filter(filter(T)), attr: [..._0._2.attr, ...attr], rest};
 });
 R('direct_abstract_declarator').filter(({_0, _1})=>{
     var filter = T => T, rest = [];
@@ -285,7 +287,7 @@ R('direct_abstract_declarator').filter(({_0, _1})=>{
 });
 R('declarator').filter(({_0})=>{
     if(_0.__rule === 'direct_declarator')
-        return {__rule: 'declarator', name: _0.name, filter: _0.filter, attr: [], rest: _0.rest};
+        return {__rule: 'declarator', name: _0.name, filter: _0.filter, attr: _0.attr, rest: _0.rest};
     if(_0._2.__rule === 'declarator')
         return {__rule: 'declarator', name: _0._2.name, filter: _0._2.filter, attr: [..._0._0.attr, ..._0._2.attr], rest: _0._2.rest};
     return {__rule: 'declarator', name: _0._2.name, filter: T => _0._2.filter(_0._0.filter(T)), attr: _0._0.attr, rest: _0._2.rest};
