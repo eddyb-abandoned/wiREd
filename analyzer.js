@@ -529,6 +529,19 @@ let makeAnalyzer = arch => {
                 // Cleanup local details, not required anymore.
                 if(block !== this)
                     ;//delete block.R0;
+                for(let frame of block.stack)
+                    for(let stack of [frame.up, frame.down])
+                        for(var i = 0; i < stack.length; i++) {
+                            var v = stack[i];
+                            if(v === null)
+                                delete stack[i];
+                            else if(v) {
+                                delete v.canBeArg;
+                                delete v.parent;
+                                delete v.PC;
+                                delete v.PCnext;
+                            }
+                        }
                 if(this.returnPoints.indexOf(block) === -1) {
                     if(block !== this)
                         ;//delete block.SP0;
