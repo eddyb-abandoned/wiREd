@@ -478,10 +478,10 @@ let makeAnalyzer = arch => {
                 console.groupEnd();
             else if(newTarget !== target) {
                 if(newTarget.returnPoints !== this.returnPoints)
-                    for(let x in newTarget.returnPoints)
+                    for(let x of newTarget.returnPoints)
                         this.addReturnPoint(x);
                 if(newTarget.functionCalls !== this.functionCalls)
-                    for(let x in newTarget.functionCalls)
+                    for(let x of newTarget.functionCalls)
                         this.addFunctionCall(x);
                 if(newTarget.functionBlocks !== this.functionBlocks)
                     console.error('Warning: jumped to block of different function');
