@@ -30,16 +30,17 @@ Number.prototype.toSupString = function toSupString(base) {
         return oldFormat.apply(this, arguments).replace(/(?:^|\n)/g, '$&'+indent);
     };
 
-    console.group = name => {
-        console.log(name, '{');
+    console.group = (name, wrap=true) => {
+        console.log(name + (wrap ? ' {' : ''));
         indent += '    ';
     };
 
-    console.groupEnd = ()=>{
+    console.groupEnd = (wrap=true) => {
         if(indent === '')
             return false;
         indent = indent.slice(0, -4);
-        console.log('}');
+        if(wrap)
+            console.log('}');
     };
 }
 
