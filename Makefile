@@ -3,7 +3,7 @@ TRACEUR:=node --stack_trace_limit=64 `npm bin`/traceur --experimental --trap-mem
 ARCH_LIST:=8051 arm x86
 ARCH_JS:=$(ARCH_LIST:%=disasm/arch-%.js)
 
-PLATFORM_LIST:=windows
+PLATFORM_LIST:=linux windows
 PLATFORM_JS:=platform/platform.js $(PLATFORM_LIST:%=platform/%.h.js)
 
 all: node_modules ${ARCH_JS} ${PLATFORM_JS}
@@ -48,3 +48,5 @@ clean:
 # Platform.
 platform/windows.h: platform/windows.h.in
 	@${CC} -I/usr/include/wine/windows -Ideps/mingw-w64/mingw-w64-{crt/include,headers/{crt,include}} -m32 -E -P -x c "$<" | sed 's/\s*#pragma.*//' > "$@"
+platform/linux.h: platform/linux.h.in
+	@${CC} -m32 -E -P -x c "$<" > "$@"

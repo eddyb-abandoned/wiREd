@@ -1,0 +1,23 @@
+#define __extension__
+#define __inline __inline__
+#define __restrict __restrict__
+#define __asm__(...) // HACK this is used only by a few functions for some kind of aliasing.
+
+#include <ctype.h>
+#include <fcntl.h>
+#include <math.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+#include <wchar.h>
+#include <wctype.h>
+#include <sys/poll.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/statfs.h>
+
+// OpenGL.
+#include <GL/gl.h>
