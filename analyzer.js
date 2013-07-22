@@ -74,6 +74,7 @@ let makeAnalyzer = arch => {
             this.stack = [{down: [], up: []}];
             this.stackMaxAccess = -Infinity;
             this.returnPoints = [];
+            this.functionCalls = [];
             this.functionBlocks = [this];
             this.linkedFrom = [];
             this.R = {};
