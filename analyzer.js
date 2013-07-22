@@ -46,7 +46,7 @@ Number.prototype.toSupString = function toSupString(base) {
 
 let makeAnalyzer = arch => {
     let EventEmitter = require('events').EventEmitter;
-    let {R, PC, SP, FP, returnPC, uint, int, i8, Mov, Mem, Unknown, known, valueof, lvalueof, sizeof, inspect} = arch, analyzer;
+    let {R, PC, SP, FP, returnPC, uint, int, u8, Mov, Mem, Unknown, known, valueof, lvalueof, sizeof, inspect} = arch, analyzer;
 
     let eq = (a, b)=>a && a.known && a.bitsof <= 32 && typeof b === 'number' ? a._A === b : a === b; // HACK
 
