@@ -14,7 +14,7 @@ String.prototype.padRight = function padRight(n, p) {
 };
 
 Number.prototype.toSubString = function toSubString() {
-    if(this < 10)
+    if(this >= 0 && this < 10)
         return '₀₁₂₃₄₅₆₇₈₉'[this];
     return this.toString().replace(/[0-9]/g, x => '₀₁₂₃₄₅₆₇₈₉'[x]);
 };
