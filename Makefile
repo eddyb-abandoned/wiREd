@@ -14,10 +14,12 @@ node_modules: package.json
 .PRECIOUS: node_modules
 
 disasm/arch-%.js: disasm/%.js disasm/Disasm.js disasm/codegen-js.js disasm/codegen-js-base.js node_modules
+	@echo Generating "$@"...
 	@${TRACEUR} "$<" > /dev/null
 .PRECIOUS: disasm/arch-%.js
 
 %.analyzed: % analyzer.js ${ARCH_JS} ${PLATFORM_JS}
+	@echo Analyzing "$<"...
 	@${TRACEUR} analyzer.js ${ANALYSIS_ARGS} "$<" > "$@" 2>&1
 .PRECIOUS: %.analyzed
 
