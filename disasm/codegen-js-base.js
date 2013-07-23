@@ -141,6 +141,11 @@ ${fn}.prototype = new Unknown;
 ${fn}.prototype.constructor = ${fn};
 ${fn}.prototype.fn = '${fn}'; // TODO obsolete?
 ${fn}.prototype.op = '${op}';
+${fn}.prototype.a = null;
+${fn}.prototype.type = null;
+${fn}.prototype.bitsof = 0;
+${fn}.prototype.signed = true;
+${fn}.prototype.isInteger = true;
 Object.defineProperty(${fn}.prototype, 'value', {get: function() {
     var a = valueof(this.a);
     if(a !== this.a)
@@ -197,6 +202,12 @@ ${fn}.prototype = new Unknown;
 ${fn}.prototype.constructor = ${fn};
 ${fn}.prototype.fn = '${fn}'; // TODO obsolete?
 ${fn}.prototype.op = '${op}';
+${fn}.prototype.a = null;
+${fn}.prototype.b = null;
+${fn}.prototype.type = null;
+${fn}.prototype.bitsof = 0;
+${fn}.prototype.signed = true;
+${fn}.prototype.isInteger = true;
 Object.defineProperty(${fn}.prototype, 'value', {get: function() {
     var a = ${op === '=' ? 'l' : ''}valueof(this.a), b = valueof(this.b);
     if(a !== this.a || b !== this.b)
@@ -229,7 +240,7 @@ ${fn}.prototype.inspect = function(_, p) {
 code += `
 var Integer = exports.Integer = function Integer() {}
 Integer.prototype = {
-    constructor: Integer, known: true, isInteger: true,
+    constructor: Integer, isInteger: true,
     get value() {
         if(!this.known) {
             var v = valueof(this._A);
@@ -262,7 +273,7 @@ for(let bits of intBitSizes) {
     for(let signed of [false, true]) {
         let id = (signed ? 'i' : 'u')+bits, dwords = 'abcdefgh'.slice(0, Math.ceil(bits / 32)).split('');
         let conv = signed ? (bits >= 32 ? '>> 0' : '<< '+(32-bits)+' >> '+(32-bits))
-                        : (bits >= 32 ? '>>> 0' : '& 0x'+((1<<bits)-1).toString(16));
+                          : (bits >= 32 ? '>>> 0' : '& 0x'+((1<<bits)-1).toString(16));
         let suffix = ['b', , , 'c'/*FIXME better suffix for byte than c from char*/, 's', '', 'l'][Math.log(bits)/Math.LN2|0];
 
         code += `
@@ -276,16 +287,17 @@ var ${id} = ${signed ? '' : 'u'}int[${bits}] = exports.${id} = function ${id}(${
     else if(a.isInteger && a.known)
         this._A = a._A ${conv};
     else {
-        this._A = a instanceof ${(signed ? 'u' : 'i')+bits} || a instanceof ${id} ? a._A : a;
         this.known = false;
+        this._A = a instanceof ${(signed ? 'u' : 'i')+bits} || a instanceof ${id} ? a._A : a;
     }
 }
 ${id}.prototype = new Integer;
 ${id}.prototype.constructor = ${id};
 ${id}.prototype.type = ${id};
-${dwords.map(x => id+'.prototype._'+x.toUpperCase()).join(' = ')} = 0;
 ${id}.prototype.bitsof = ${bits};
 ${id}.prototype.signed = ${signed};
+${id}.prototype.known = true;
+${dwords.map(x => id+'.prototype._'+x.toUpperCase()).join(' = ')} = 0;
 ${id}.prototype.inspect = function(_, p) {
     if(this.known)
         return ${bits <= 32 ? (/*signed ? `this._A` : */`(this._A >= 48 ? '0x'+this._A.toString(16) : this._A)`)+`+(/*process.env.DEBUG_INT*/false ? '${signed ? '' : 'u'}${suffix}' : '')` : `'${id}('+`+dwords.map(x => 'this._'+x.toUpperCase()).join(`+', '+`)+`+')'`};
@@ -438,6 +450,8 @@ function RegisterFrozen${bits}(name, type) {
 }
 RegisterFrozen${bits}.prototype = new Unknown(${bits});
 RegisterFrozen${bits}.prototype.constructor = RegisterFrozen${bits};
+RegisterFrozen${bits}.prototype.name = null;
+RegisterFrozen${bits}.prototype.type = null;
 RegisterFrozen${bits}.prototype.inspect = function() {
     return this.name;
 };
@@ -468,6 +482,8 @@ Register${bits}.prototype = new Unknown(${bits});
 Register${bits}.prototype.constructor = Register${bits};
 Register${bits}.prototype.name = '<${bits}>';
 Register${bits}.prototype.nthValue = 0;
+Register${bits}.prototype.value = null;
+Register${bits}.prototype.lvalue = null;
 Register${bits}.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };`;
@@ -494,6 +510,7 @@ var Mem${bits} = Mem[${bits}] = exports.Mem${bits} = function Mem${bits}(addr) {
 Mem${bits}.prototype = new Unknown(${bits});
 Mem${bits}.prototype.constructor = Mem${bits};
 Mem${bits}.prototype.fn = 'Mem';
+Mem${bits}.prototype.addr = null;
 Object.defineProperties(Mem${bits}.prototype, {
     lvalue: {
         get: function() {

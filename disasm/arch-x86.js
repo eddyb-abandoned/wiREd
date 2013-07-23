@@ -156,6 +156,11 @@ Not.prototype = new Unknown;
 Not.prototype.constructor = Not;
 Not.prototype.fn = 'Not'; // TODO obsolete?
 Not.prototype.op = '~';
+Not.prototype.a = null;
+Not.prototype.type = null;
+Not.prototype.bitsof = 0;
+Not.prototype.signed = true;
+Not.prototype.isInteger = true;
 Object.defineProperty(Not.prototype, 'value', {get: function() {
     var a = valueof(this.a);
     if(a !== this.a)
@@ -187,6 +192,11 @@ Neg.prototype = new Unknown;
 Neg.prototype.constructor = Neg;
 Neg.prototype.fn = 'Neg'; // TODO obsolete?
 Neg.prototype.op = '-';
+Neg.prototype.a = null;
+Neg.prototype.type = null;
+Neg.prototype.bitsof = 0;
+Neg.prototype.signed = true;
+Neg.prototype.isInteger = true;
 Object.defineProperty(Neg.prototype, 'value', {get: function() {
     var a = valueof(this.a);
     if(a !== this.a)
@@ -205,6 +215,12 @@ Mov.prototype = new Unknown;
 Mov.prototype.constructor = Mov;
 Mov.prototype.fn = 'Mov'; // TODO obsolete?
 Mov.prototype.op = '=';
+Mov.prototype.a = null;
+Mov.prototype.b = null;
+Mov.prototype.type = null;
+Mov.prototype.bitsof = 0;
+Mov.prototype.signed = true;
+Mov.prototype.isInteger = true;
 Object.defineProperty(Mov.prototype, 'value', {get: function() {
     var a = lvalueof(this.a), b = valueof(this.b);
     if(a !== this.a || b !== this.b)
@@ -240,6 +256,12 @@ Add.prototype = new Unknown;
 Add.prototype.constructor = Add;
 Add.prototype.fn = 'Add'; // TODO obsolete?
 Add.prototype.op = '+';
+Add.prototype.a = null;
+Add.prototype.b = null;
+Add.prototype.type = null;
+Add.prototype.bitsof = 0;
+Add.prototype.signed = true;
+Add.prototype.isInteger = true;
 Object.defineProperty(Add.prototype, 'value', {get: function() {
     var a = valueof(this.a), b = valueof(this.b);
     if(a !== this.a || b !== this.b)
@@ -270,6 +292,12 @@ Mul.prototype = new Unknown;
 Mul.prototype.constructor = Mul;
 Mul.prototype.fn = 'Mul'; // TODO obsolete?
 Mul.prototype.op = '*';
+Mul.prototype.a = null;
+Mul.prototype.b = null;
+Mul.prototype.type = null;
+Mul.prototype.bitsof = 0;
+Mul.prototype.signed = true;
+Mul.prototype.isInteger = true;
 Object.defineProperty(Mul.prototype, 'value', {get: function() {
     var a = valueof(this.a), b = valueof(this.b);
     if(a !== this.a || b !== this.b)
@@ -292,6 +320,12 @@ Div.prototype = new Unknown;
 Div.prototype.constructor = Div;
 Div.prototype.fn = 'Div'; // TODO obsolete?
 Div.prototype.op = '/';
+Div.prototype.a = null;
+Div.prototype.b = null;
+Div.prototype.type = null;
+Div.prototype.bitsof = 0;
+Div.prototype.signed = true;
+Div.prototype.isInteger = true;
 Object.defineProperty(Div.prototype, 'value', {get: function() {
     var a = valueof(this.a), b = valueof(this.b);
     if(a !== this.a || b !== this.b)
@@ -318,6 +352,12 @@ And.prototype = new Unknown;
 And.prototype.constructor = And;
 And.prototype.fn = 'And'; // TODO obsolete?
 And.prototype.op = '&';
+And.prototype.a = null;
+And.prototype.b = null;
+And.prototype.type = null;
+And.prototype.bitsof = 0;
+And.prototype.signed = true;
+And.prototype.isInteger = true;
 Object.defineProperty(And.prototype, 'value', {get: function() {
     var a = valueof(this.a), b = valueof(this.b);
     if(a !== this.a || b !== this.b)
@@ -344,6 +384,12 @@ Or.prototype = new Unknown;
 Or.prototype.constructor = Or;
 Or.prototype.fn = 'Or'; // TODO obsolete?
 Or.prototype.op = '|';
+Or.prototype.a = null;
+Or.prototype.b = null;
+Or.prototype.type = null;
+Or.prototype.bitsof = 0;
+Or.prototype.signed = true;
+Or.prototype.isInteger = true;
 Object.defineProperty(Or.prototype, 'value', {get: function() {
     var a = valueof(this.a), b = valueof(this.b);
     if(a !== this.a || b !== this.b)
@@ -369,6 +415,12 @@ Xor.prototype = new Unknown;
 Xor.prototype.constructor = Xor;
 Xor.prototype.fn = 'Xor'; // TODO obsolete?
 Xor.prototype.op = '^';
+Xor.prototype.a = null;
+Xor.prototype.b = null;
+Xor.prototype.type = null;
+Xor.prototype.bitsof = 0;
+Xor.prototype.signed = true;
+Xor.prototype.isInteger = true;
 Object.defineProperty(Xor.prototype, 'value', {get: function() {
     var a = valueof(this.a), b = valueof(this.b);
     if(a !== this.a || b !== this.b)
@@ -391,6 +443,12 @@ Eq.prototype = new Unknown;
 Eq.prototype.constructor = Eq;
 Eq.prototype.fn = 'Eq'; // TODO obsolete?
 Eq.prototype.op = '==';
+Eq.prototype.a = null;
+Eq.prototype.b = null;
+Eq.prototype.type = null;
+Eq.prototype.bitsof = 0;
+Eq.prototype.signed = true;
+Eq.prototype.isInteger = true;
 Object.defineProperty(Eq.prototype, 'value', {get: function() {
     var a = valueof(this.a), b = valueof(this.b);
     if(a !== this.a || b !== this.b)
@@ -413,6 +471,12 @@ Lt.prototype = new Unknown;
 Lt.prototype.constructor = Lt;
 Lt.prototype.fn = 'Lt'; // TODO obsolete?
 Lt.prototype.op = '<';
+Lt.prototype.a = null;
+Lt.prototype.b = null;
+Lt.prototype.type = null;
+Lt.prototype.bitsof = 0;
+Lt.prototype.signed = true;
+Lt.prototype.isInteger = true;
 Object.defineProperty(Lt.prototype, 'value', {get: function() {
     var a = valueof(this.a), b = valueof(this.b);
     if(a !== this.a || b !== this.b)
@@ -436,6 +500,12 @@ Shl.prototype = new Unknown;
 Shl.prototype.constructor = Shl;
 Shl.prototype.fn = 'Shl'; // TODO obsolete?
 Shl.prototype.op = '<<';
+Shl.prototype.a = null;
+Shl.prototype.b = null;
+Shl.prototype.type = null;
+Shl.prototype.bitsof = 0;
+Shl.prototype.signed = true;
+Shl.prototype.isInteger = true;
 Object.defineProperty(Shl.prototype, 'value', {get: function() {
     var a = valueof(this.a), b = valueof(this.b);
     if(a !== this.a || b !== this.b)
@@ -459,6 +529,12 @@ Shr.prototype = new Unknown;
 Shr.prototype.constructor = Shr;
 Shr.prototype.fn = 'Shr'; // TODO obsolete?
 Shr.prototype.op = '>>';
+Shr.prototype.a = null;
+Shr.prototype.b = null;
+Shr.prototype.type = null;
+Shr.prototype.bitsof = 0;
+Shr.prototype.signed = true;
+Shr.prototype.isInteger = true;
 Object.defineProperty(Shr.prototype, 'value', {get: function() {
     var a = valueof(this.a), b = valueof(this.b);
     if(a !== this.a || b !== this.b)
@@ -471,7 +547,7 @@ Shr.prototype.inspect = function(_, p) {
 };
 var Integer = exports.Integer = function Integer() {}
 Integer.prototype = {
-    constructor: Integer, known: true, isInteger: true,
+    constructor: Integer, isInteger: true,
     get value() {
         if(!this.known) {
             var v = valueof(this._A);
@@ -508,16 +584,17 @@ var u1 = uint[1] = exports.u1 = function u1(a) {
     else if(a.isInteger && a.known)
         this._A = a._A & 0x1;
     else {
-        this._A = a instanceof i1 || a instanceof u1 ? a._A : a;
         this.known = false;
+        this._A = a instanceof i1 || a instanceof u1 ? a._A : a;
     }
 }
 u1.prototype = new Integer;
 u1.prototype.constructor = u1;
 u1.prototype.type = u1;
-u1.prototype._A = 0;
 u1.prototype.bitsof = 1;
 u1.prototype.signed = false;
+u1.prototype.known = true;
+u1.prototype._A = 0;
 u1.prototype.inspect = function(_, p) {
     if(this.known)
         return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 'ub' : '');
@@ -668,16 +745,17 @@ var i1 = int[1] = exports.i1 = function i1(a) {
     else if(a.isInteger && a.known)
         this._A = a._A << 31 >> 31;
     else {
-        this._A = a instanceof u1 || a instanceof i1 ? a._A : a;
         this.known = false;
+        this._A = a instanceof u1 || a instanceof i1 ? a._A : a;
     }
 }
 i1.prototype = new Integer;
 i1.prototype.constructor = i1;
 i1.prototype.type = i1;
-i1.prototype._A = 0;
 i1.prototype.bitsof = 1;
 i1.prototype.signed = true;
+i1.prototype.known = true;
+i1.prototype._A = 0;
 i1.prototype.inspect = function(_, p) {
     if(this.known)
         return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 'b' : '');
@@ -828,16 +906,17 @@ var u8 = uint[8] = exports.u8 = function u8(a) {
     else if(a.isInteger && a.known)
         this._A = a._A & 0xff;
     else {
-        this._A = a instanceof i8 || a instanceof u8 ? a._A : a;
         this.known = false;
+        this._A = a instanceof i8 || a instanceof u8 ? a._A : a;
     }
 }
 u8.prototype = new Integer;
 u8.prototype.constructor = u8;
 u8.prototype.type = u8;
-u8.prototype._A = 0;
 u8.prototype.bitsof = 8;
 u8.prototype.signed = false;
+u8.prototype.known = true;
+u8.prototype._A = 0;
 u8.prototype.inspect = function(_, p) {
     if(this.known)
         return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 'uc' : '');
@@ -988,16 +1067,17 @@ var i8 = int[8] = exports.i8 = function i8(a) {
     else if(a.isInteger && a.known)
         this._A = a._A << 24 >> 24;
     else {
-        this._A = a instanceof u8 || a instanceof i8 ? a._A : a;
         this.known = false;
+        this._A = a instanceof u8 || a instanceof i8 ? a._A : a;
     }
 }
 i8.prototype = new Integer;
 i8.prototype.constructor = i8;
 i8.prototype.type = i8;
-i8.prototype._A = 0;
 i8.prototype.bitsof = 8;
 i8.prototype.signed = true;
+i8.prototype.known = true;
+i8.prototype._A = 0;
 i8.prototype.inspect = function(_, p) {
     if(this.known)
         return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 'c' : '');
@@ -1148,16 +1228,17 @@ var u16 = uint[16] = exports.u16 = function u16(a) {
     else if(a.isInteger && a.known)
         this._A = a._A & 0xffff;
     else {
-        this._A = a instanceof i16 || a instanceof u16 ? a._A : a;
         this.known = false;
+        this._A = a instanceof i16 || a instanceof u16 ? a._A : a;
     }
 }
 u16.prototype = new Integer;
 u16.prototype.constructor = u16;
 u16.prototype.type = u16;
-u16.prototype._A = 0;
 u16.prototype.bitsof = 16;
 u16.prototype.signed = false;
+u16.prototype.known = true;
+u16.prototype._A = 0;
 u16.prototype.inspect = function(_, p) {
     if(this.known)
         return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 'us' : '');
@@ -1308,16 +1389,17 @@ var i16 = int[16] = exports.i16 = function i16(a) {
     else if(a.isInteger && a.known)
         this._A = a._A << 16 >> 16;
     else {
-        this._A = a instanceof u16 || a instanceof i16 ? a._A : a;
         this.known = false;
+        this._A = a instanceof u16 || a instanceof i16 ? a._A : a;
     }
 }
 i16.prototype = new Integer;
 i16.prototype.constructor = i16;
 i16.prototype.type = i16;
-i16.prototype._A = 0;
 i16.prototype.bitsof = 16;
 i16.prototype.signed = true;
+i16.prototype.known = true;
+i16.prototype._A = 0;
 i16.prototype.inspect = function(_, p) {
     if(this.known)
         return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 's' : '');
@@ -1468,16 +1550,17 @@ var u32 = uint[32] = exports.u32 = function u32(a) {
     else if(a.isInteger && a.known)
         this._A = a._A >>> 0;
     else {
-        this._A = a instanceof i32 || a instanceof u32 ? a._A : a;
         this.known = false;
+        this._A = a instanceof i32 || a instanceof u32 ? a._A : a;
     }
 }
 u32.prototype = new Integer;
 u32.prototype.constructor = u32;
 u32.prototype.type = u32;
-u32.prototype._A = 0;
 u32.prototype.bitsof = 32;
 u32.prototype.signed = false;
+u32.prototype.known = true;
+u32.prototype._A = 0;
 u32.prototype.inspect = function(_, p) {
     if(this.known)
         return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? 'u' : '');
@@ -1628,16 +1711,17 @@ var i32 = int[32] = exports.i32 = function i32(a) {
     else if(a.isInteger && a.known)
         this._A = a._A >> 0;
     else {
-        this._A = a instanceof u32 || a instanceof i32 ? a._A : a;
         this.known = false;
+        this._A = a instanceof u32 || a instanceof i32 ? a._A : a;
     }
 }
 i32.prototype = new Integer;
 i32.prototype.constructor = i32;
 i32.prototype.type = i32;
-i32.prototype._A = 0;
 i32.prototype.bitsof = 32;
 i32.prototype.signed = true;
+i32.prototype.known = true;
+i32.prototype._A = 0;
 i32.prototype.inspect = function(_, p) {
     if(this.known)
         return (this._A >= 48 ? '0x'+this._A.toString(16) : this._A)+(/*process.env.DEBUG_INT*/false ? '' : '');
@@ -1788,16 +1872,17 @@ var u64 = uint[64] = exports.u64 = function u64(a, b) {
     else if(a.isInteger && a.known)
         this._A = a._A >>> 0;
     else {
-        this._A = a instanceof i64 || a instanceof u64 ? a._A : a;
         this.known = false;
+        this._A = a instanceof i64 || a instanceof u64 ? a._A : a;
     }
 }
 u64.prototype = new Integer;
 u64.prototype.constructor = u64;
 u64.prototype.type = u64;
-u64.prototype._A = u64.prototype._B = 0;
 u64.prototype.bitsof = 64;
 u64.prototype.signed = false;
+u64.prototype.known = true;
+u64.prototype._A = u64.prototype._B = 0;
 u64.prototype.inspect = function(_, p) {
     if(this.known)
         return 'u64('+this._A+', '+this._B+')';
@@ -1833,16 +1918,17 @@ var i64 = int[64] = exports.i64 = function i64(a, b) {
     else if(a.isInteger && a.known)
         this._A = a._A >> 0;
     else {
-        this._A = a instanceof u64 || a instanceof i64 ? a._A : a;
         this.known = false;
+        this._A = a instanceof u64 || a instanceof i64 ? a._A : a;
     }
 }
 i64.prototype = new Integer;
 i64.prototype.constructor = i64;
 i64.prototype.type = i64;
-i64.prototype._A = i64.prototype._B = 0;
 i64.prototype.bitsof = 64;
 i64.prototype.signed = true;
+i64.prototype.known = true;
+i64.prototype._A = i64.prototype._B = 0;
 i64.prototype.inspect = function(_, p) {
     if(this.known)
         return 'i64('+this._A+', '+this._B+')';
@@ -1878,16 +1964,17 @@ var u128 = uint[128] = exports.u128 = function u128(a, b, c, d) {
     else if(a.isInteger && a.known)
         this._A = a._A >>> 0;
     else {
-        this._A = a instanceof i128 || a instanceof u128 ? a._A : a;
         this.known = false;
+        this._A = a instanceof i128 || a instanceof u128 ? a._A : a;
     }
 }
 u128.prototype = new Integer;
 u128.prototype.constructor = u128;
 u128.prototype.type = u128;
-u128.prototype._A = u128.prototype._B = u128.prototype._C = u128.prototype._D = 0;
 u128.prototype.bitsof = 128;
 u128.prototype.signed = false;
+u128.prototype.known = true;
+u128.prototype._A = u128.prototype._B = u128.prototype._C = u128.prototype._D = 0;
 u128.prototype.inspect = function(_, p) {
     if(this.known)
         return 'u128('+this._A+', '+this._B+', '+this._C+', '+this._D+')';
@@ -1923,16 +2010,17 @@ var i128 = int[128] = exports.i128 = function i128(a, b, c, d) {
     else if(a.isInteger && a.known)
         this._A = a._A >> 0;
     else {
-        this._A = a instanceof u128 || a instanceof i128 ? a._A : a;
         this.known = false;
+        this._A = a instanceof u128 || a instanceof i128 ? a._A : a;
     }
 }
 i128.prototype = new Integer;
 i128.prototype.constructor = i128;
 i128.prototype.type = i128;
-i128.prototype._A = i128.prototype._B = i128.prototype._C = i128.prototype._D = 0;
 i128.prototype.bitsof = 128;
 i128.prototype.signed = true;
+i128.prototype.known = true;
+i128.prototype._A = i128.prototype._B = i128.prototype._C = i128.prototype._D = 0;
 i128.prototype.inspect = function(_, p) {
     if(this.known)
         return 'i128('+this._A+', '+this._B+', '+this._C+', '+this._D+')';
@@ -1968,16 +2056,17 @@ var u256 = uint[256] = exports.u256 = function u256(a, b, c, d, e, f, g, h) {
     else if(a.isInteger && a.known)
         this._A = a._A >>> 0;
     else {
-        this._A = a instanceof i256 || a instanceof u256 ? a._A : a;
         this.known = false;
+        this._A = a instanceof i256 || a instanceof u256 ? a._A : a;
     }
 }
 u256.prototype = new Integer;
 u256.prototype.constructor = u256;
 u256.prototype.type = u256;
-u256.prototype._A = u256.prototype._B = u256.prototype._C = u256.prototype._D = u256.prototype._E = u256.prototype._F = u256.prototype._G = u256.prototype._H = 0;
 u256.prototype.bitsof = 256;
 u256.prototype.signed = false;
+u256.prototype.known = true;
+u256.prototype._A = u256.prototype._B = u256.prototype._C = u256.prototype._D = u256.prototype._E = u256.prototype._F = u256.prototype._G = u256.prototype._H = 0;
 u256.prototype.inspect = function(_, p) {
     if(this.known)
         return 'u256('+this._A+', '+this._B+', '+this._C+', '+this._D+', '+this._E+', '+this._F+', '+this._G+', '+this._H+')';
@@ -2013,16 +2102,17 @@ var i256 = int[256] = exports.i256 = function i256(a, b, c, d, e, f, g, h) {
     else if(a.isInteger && a.known)
         this._A = a._A >> 0;
     else {
-        this._A = a instanceof u256 || a instanceof i256 ? a._A : a;
         this.known = false;
+        this._A = a instanceof u256 || a instanceof i256 ? a._A : a;
     }
 }
 i256.prototype = new Integer;
 i256.prototype.constructor = i256;
 i256.prototype.type = i256;
-i256.prototype._A = i256.prototype._B = i256.prototype._C = i256.prototype._D = i256.prototype._E = i256.prototype._F = i256.prototype._G = i256.prototype._H = 0;
 i256.prototype.bitsof = 256;
 i256.prototype.signed = true;
+i256.prototype.known = true;
+i256.prototype._A = i256.prototype._B = i256.prototype._C = i256.prototype._D = i256.prototype._E = i256.prototype._F = i256.prototype._G = i256.prototype._H = 0;
 i256.prototype.inspect = function(_, p) {
     if(this.known)
         return 'i256('+this._A+', '+this._B+', '+this._C+', '+this._D+', '+this._E+', '+this._F+', '+this._G+', '+this._H+')';
@@ -2248,6 +2338,8 @@ function RegisterFrozen1(name, type) {
 }
 RegisterFrozen1.prototype = new Unknown(1);
 RegisterFrozen1.prototype.constructor = RegisterFrozen1;
+RegisterFrozen1.prototype.name = null;
+RegisterFrozen1.prototype.type = null;
 RegisterFrozen1.prototype.inspect = function() {
     return this.name;
 };
@@ -2278,6 +2370,8 @@ Register1.prototype = new Unknown(1);
 Register1.prototype.constructor = Register1;
 Register1.prototype.name = '<1>';
 Register1.prototype.nthValue = 0;
+Register1.prototype.value = null;
+Register1.prototype.lvalue = null;
 Register1.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2287,6 +2381,8 @@ function RegisterFrozen8(name, type) {
 }
 RegisterFrozen8.prototype = new Unknown(8);
 RegisterFrozen8.prototype.constructor = RegisterFrozen8;
+RegisterFrozen8.prototype.name = null;
+RegisterFrozen8.prototype.type = null;
 RegisterFrozen8.prototype.inspect = function() {
     return this.name;
 };
@@ -2317,6 +2413,8 @@ Register8.prototype = new Unknown(8);
 Register8.prototype.constructor = Register8;
 Register8.prototype.name = '<8>';
 Register8.prototype.nthValue = 0;
+Register8.prototype.value = null;
+Register8.prototype.lvalue = null;
 Register8.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2326,6 +2424,8 @@ function RegisterFrozen16(name, type) {
 }
 RegisterFrozen16.prototype = new Unknown(16);
 RegisterFrozen16.prototype.constructor = RegisterFrozen16;
+RegisterFrozen16.prototype.name = null;
+RegisterFrozen16.prototype.type = null;
 RegisterFrozen16.prototype.inspect = function() {
     return this.name;
 };
@@ -2356,6 +2456,8 @@ Register16.prototype = new Unknown(16);
 Register16.prototype.constructor = Register16;
 Register16.prototype.name = '<16>';
 Register16.prototype.nthValue = 0;
+Register16.prototype.value = null;
+Register16.prototype.lvalue = null;
 Register16.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2365,6 +2467,8 @@ function RegisterFrozen32(name, type) {
 }
 RegisterFrozen32.prototype = new Unknown(32);
 RegisterFrozen32.prototype.constructor = RegisterFrozen32;
+RegisterFrozen32.prototype.name = null;
+RegisterFrozen32.prototype.type = null;
 RegisterFrozen32.prototype.inspect = function() {
     return this.name;
 };
@@ -2395,6 +2499,8 @@ Register32.prototype = new Unknown(32);
 Register32.prototype.constructor = Register32;
 Register32.prototype.name = '<32>';
 Register32.prototype.nthValue = 0;
+Register32.prototype.value = null;
+Register32.prototype.lvalue = null;
 Register32.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2404,6 +2510,8 @@ function RegisterFrozen64(name, type) {
 }
 RegisterFrozen64.prototype = new Unknown(64);
 RegisterFrozen64.prototype.constructor = RegisterFrozen64;
+RegisterFrozen64.prototype.name = null;
+RegisterFrozen64.prototype.type = null;
 RegisterFrozen64.prototype.inspect = function() {
     return this.name;
 };
@@ -2434,6 +2542,8 @@ Register64.prototype = new Unknown(64);
 Register64.prototype.constructor = Register64;
 Register64.prototype.name = '<64>';
 Register64.prototype.nthValue = 0;
+Register64.prototype.value = null;
+Register64.prototype.lvalue = null;
 Register64.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2443,6 +2553,8 @@ function RegisterFrozen80(name, type) {
 }
 RegisterFrozen80.prototype = new Unknown(80);
 RegisterFrozen80.prototype.constructor = RegisterFrozen80;
+RegisterFrozen80.prototype.name = null;
+RegisterFrozen80.prototype.type = null;
 RegisterFrozen80.prototype.inspect = function() {
     return this.name;
 };
@@ -2473,6 +2585,8 @@ Register80.prototype = new Unknown(80);
 Register80.prototype.constructor = Register80;
 Register80.prototype.name = '<80>';
 Register80.prototype.nthValue = 0;
+Register80.prototype.value = null;
+Register80.prototype.lvalue = null;
 Register80.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2482,6 +2596,8 @@ function RegisterFrozen128(name, type) {
 }
 RegisterFrozen128.prototype = new Unknown(128);
 RegisterFrozen128.prototype.constructor = RegisterFrozen128;
+RegisterFrozen128.prototype.name = null;
+RegisterFrozen128.prototype.type = null;
 RegisterFrozen128.prototype.inspect = function() {
     return this.name;
 };
@@ -2512,6 +2628,8 @@ Register128.prototype = new Unknown(128);
 Register128.prototype.constructor = Register128;
 Register128.prototype.name = '<128>';
 Register128.prototype.nthValue = 0;
+Register128.prototype.value = null;
+Register128.prototype.lvalue = null;
 Register128.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2521,6 +2639,8 @@ function RegisterFrozen256(name, type) {
 }
 RegisterFrozen256.prototype = new Unknown(256);
 RegisterFrozen256.prototype.constructor = RegisterFrozen256;
+RegisterFrozen256.prototype.name = null;
+RegisterFrozen256.prototype.type = null;
 RegisterFrozen256.prototype.inspect = function() {
     return this.name;
 };
@@ -2551,6 +2671,8 @@ Register256.prototype = new Unknown(256);
 Register256.prototype.constructor = Register256;
 Register256.prototype.name = '<256>';
 Register256.prototype.nthValue = 0;
+Register256.prototype.value = null;
+Register256.prototype.lvalue = null;
 Register256.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2571,6 +2693,7 @@ var Mem1 = Mem[1] = exports.Mem1 = function Mem1(addr) {
 Mem1.prototype = new Unknown(1);
 Mem1.prototype.constructor = Mem1;
 Mem1.prototype.fn = 'Mem';
+Mem1.prototype.addr = null;
 Object.defineProperties(Mem1.prototype, {
     lvalue: {
         get: function() {
@@ -2602,6 +2725,7 @@ var Mem8 = Mem[8] = exports.Mem8 = function Mem8(addr) {
 Mem8.prototype = new Unknown(8);
 Mem8.prototype.constructor = Mem8;
 Mem8.prototype.fn = 'Mem';
+Mem8.prototype.addr = null;
 Object.defineProperties(Mem8.prototype, {
     lvalue: {
         get: function() {
@@ -2633,6 +2757,7 @@ var Mem16 = Mem[16] = exports.Mem16 = function Mem16(addr) {
 Mem16.prototype = new Unknown(16);
 Mem16.prototype.constructor = Mem16;
 Mem16.prototype.fn = 'Mem';
+Mem16.prototype.addr = null;
 Object.defineProperties(Mem16.prototype, {
     lvalue: {
         get: function() {
@@ -2664,6 +2789,7 @@ var Mem32 = Mem[32] = exports.Mem32 = function Mem32(addr) {
 Mem32.prototype = new Unknown(32);
 Mem32.prototype.constructor = Mem32;
 Mem32.prototype.fn = 'Mem';
+Mem32.prototype.addr = null;
 Object.defineProperties(Mem32.prototype, {
     lvalue: {
         get: function() {
@@ -2695,6 +2821,7 @@ var Mem64 = Mem[64] = exports.Mem64 = function Mem64(addr) {
 Mem64.prototype = new Unknown(64);
 Mem64.prototype.constructor = Mem64;
 Mem64.prototype.fn = 'Mem';
+Mem64.prototype.addr = null;
 Object.defineProperties(Mem64.prototype, {
     lvalue: {
         get: function() {
@@ -2726,6 +2853,7 @@ var Mem80 = Mem[80] = exports.Mem80 = function Mem80(addr) {
 Mem80.prototype = new Unknown(80);
 Mem80.prototype.constructor = Mem80;
 Mem80.prototype.fn = 'Mem';
+Mem80.prototype.addr = null;
 Object.defineProperties(Mem80.prototype, {
     lvalue: {
         get: function() {
@@ -2757,6 +2885,7 @@ var Mem128 = Mem[128] = exports.Mem128 = function Mem128(addr) {
 Mem128.prototype = new Unknown(128);
 Mem128.prototype.constructor = Mem128;
 Mem128.prototype.fn = 'Mem';
+Mem128.prototype.addr = null;
 Object.defineProperties(Mem128.prototype, {
     lvalue: {
         get: function() {
@@ -2788,6 +2917,7 @@ var Mem256 = Mem[256] = exports.Mem256 = function Mem256(addr) {
 Mem256.prototype = new Unknown(256);
 Mem256.prototype.constructor = Mem256;
 Mem256.prototype.fn = 'Mem';
+Mem256.prototype.addr = null;
 Object.defineProperties(Mem256.prototype, {
     lvalue: {
         get: function() {

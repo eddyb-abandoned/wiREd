@@ -65,6 +65,18 @@ let makeAnalyzer = arch => {
         });
         console.groupEnd();
     });
+    // HACK cache methods that return constant strings.
+    let R0inspectMethods = [];
+    for(let i = 0; i < R.length; i++) {
+        let name = inspect(R[i])+(0).toSubString()/*+(this.start||0).toSupString(16)*/;
+        R0inspectMethods[i] = ()=>name;
+    }
+    let retPCinspectMethod;
+    {
+        let name = 'ret'+inspect(PC);
+        retPCinspectMethod = ()=>name;
+    }
+
     class Block extends EventEmitter {
         constructor(options={}) {
             super();
@@ -82,16 +94,15 @@ let makeAnalyzer = arch => {
             this.R0 = [];
             for(let i = 0; i < R.length; i++) {
                 this.R0[i] = new Unknown(R[i].bitsof);
+                this.R0[i].inspect = R0inspectMethods[i];
                 this.RnthValue[i] = 1;
                 this.Rvalue[i] = this.R0[i];
 
                 if(R[i] === SP)
                     this.SP0 = [this.R0[i]];
-                let name = inspect(R[i])+(0).toSubString()/*+(this.start||0).toSupString(16)*/;
-                this.R0[i].inspect = ()=>name;
             }
             this.retPC = new Unknown(PC.bitsof);
-            this.retPC.inspect = ()=>'ret'+inspect(PC);
+            this.retPC.inspect = retPCinspectMethod;
 
             for(let i in options)
                 this[i] = options[i];
@@ -527,8 +538,19 @@ let makeAnalyzer = arch => {
                 numLinksCounters[nLinks] = (numLinksCounters[nLinks] || 0) + 1;
 
                 // Cleanup local details, not required anymore.
+                block.linkedFrom = null;
                 if(block !== this)
-                    ;//delete block.R0;
+                    block.R0 = null;
+                if(this.returnPoints.indexOf(block) === -1) {
+                    if(block !== this)
+                        block.SP0 = null;
+                    block.stack = [];
+                    block.RnthValue = null;
+                    block.Rvalue = null;
+                } else {
+                    block.SP0 = [block.SP0[0]];
+                    block.stack = [{up: block.stack[0].up, down: []}];
+                }
                 for(let frame of block.stack)
                     for(let stack of [frame.up, frame.down])
                         for(var i = 0; i < stack.length; i++) {
@@ -536,25 +558,29 @@ let makeAnalyzer = arch => {
                             if(v === null)
                                 delete stack[i];
                             else if(v) {
-                                delete v.canBeArg;
-                                delete v.parent;
-                                delete v.PC;
-                                delete v.PCnext;
+                                v.parent = null;
+                                v.PC = null;
                             }
                         }
-                if(this.returnPoints.indexOf(block) === -1) {
-                    if(block !== this)
-                        ;//delete block.SP0;
-                    //delete block.RnthValue;
-                    //delete block.Rvalue;
-                    //delete block.stack;
-                } else {
-                    //block.SP0 = [block.SP0[0]];
-                    //block.stack = [{up: block.stack[0].up, down: []}];
-                }
             }
         }
     };
+
+    // HACK manually add prototype slots for these members so map transitions aren't required.
+    Block.prototype.stack = null;
+    Block.prototype.stackMaxAccess = -Infinity;
+    Block.prototype.returnPoints = null;
+    Block.prototype.functionCalls = null;
+    Block.prototype.functionBlocks = null;
+    Block.prototype.linkedFrom = null;
+    Block.prototype.RnthValue = null;
+    Block.prototype.Rvalue = null;
+    Block.prototype.R0 = null;
+    Block.prototype.SP0 = null;
+    Block.prototype.retPC = null;
+    Block.prototype.start = 0;
+    Block.prototype.returns = false;
+    Block.prototype.link = null;
 
     return analyzer = new (class Analyzer extends EventEmitter {
         constructor() {
