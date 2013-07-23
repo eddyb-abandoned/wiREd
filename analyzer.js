@@ -83,7 +83,7 @@ let makeAnalyzer = arch => {
 
             //this.setMaxListeners(64);
 
-            this.stack = [{down: [], up: []}];
+            this.stackFrames = [{base: null, down: [], up: []}];
             this.stackMaxAccess = -Infinity;
             this.returnPoints = [];
             this.functionCalls = [];
@@ -99,7 +99,7 @@ let makeAnalyzer = arch => {
                 this.Rvalue[i] = this.R0[i];
 
                 if(R[i] === SP)
-                    this.SP0 = [this.R0[i]];
+                    this.stackFrames[0].base = this.R0[i];
             }
             this.retPC = new Unknown(PC.bitsof);
             this.retPC.inspect = retPCinspectMethod;
@@ -132,22 +132,12 @@ let makeAnalyzer = arch => {
                         return false;
                 return true;
             };
-            let commonArray = arrays => {
-                let minLength = arrays.map(x => x.length).reduce((a, b) => Math.min(a, b)), r = [];
+            let commonFrames = arrays => {
+                let r = [], minLength = arrays.map(x => x.length).reduce((a, b) => Math.min(a, b));
                 for(let i = 0; i < minLength; i++) {
-                    if(!arrays.slice(1).every(x => x[i] === arrays[0][i]))
+                    if(!arrays.slice(1).every(x => x[i].base === arrays[0][i].base && equalArray(x[i].down, arrays[0][i].down) && equalArray(x[i].up, arrays[0][i].up)))
                         break;
-                    r.push(arrays[0][i]);
-                }
-                return r;
-            };
-            let commonStack = (arrays, minLength) => {
-                let r = [];
-                minLength = Math.min(minLength, arrays.map(x => x.length).reduce((a, b) => Math.min(a, b)));
-                for(let i = 0; i < minLength; i++) {
-                    if(!arrays.slice(1).every(x => equalArray(x[i].down, arrays[0][i].down) && equalArray(x[i].up, arrays[0][i].up)))
-                        break;
-                    r.push({down: arrays[0][i].down.slice(), up: arrays[0][i].up.slice()});
+                    r.push({base: arrays[0][i].base, down: arrays[0][i].down.slice(), up: arrays[0][i].up.slice()});
                 }
                 return r;
             };
@@ -164,13 +154,9 @@ let makeAnalyzer = arch => {
             }
             this.linkedFrom.push(...sources);
 
-            let SP0common = commonArray(sources.map(x => x.SP0));
-            if(SP0common.length) {
-                this.SP0 = SP0common;
-                let stackCommon = commonStack(sources.map(x => x.stack), SP0common.length);
-                if(stackCommon.length)
-                    this.stack = stackCommon;
-            }
+            let stackFramesCommon = commonFrames(sources.map(x => x.stackFrames));
+            if(stackFramesCommon.length)
+                this.stackFrames = stackFramesCommon;
 
             for(let i = 0; i < R.length; i++) {
                 this.RnthValue[i] = sources.map(x => x.RnthValue[i]).reduce((a, b) => Math.max(a, b));
@@ -195,33 +181,36 @@ let makeAnalyzer = arch => {
             analyzer.memRead = analyzer.memWrite = null;
         }
 
-        SPdiff(SP, SP0=this.SP0[this.SP0.length-1]) {
-            if(SP === SP0)
+        SPdiff(SP, base=this.stackFrames[this.stackFrames.length-1].base) {
+            if(SP === base)
                 return 0;
-            if(SP.op === '+' && SP.a === SP0 && SP.b.known && SP.b.bitsof <= 32) // HACK
+            if(SP.op === '+' && SP.a === base && SP.b.known && SP.b.bitsof <= 32) // HACK
                 return SP.b._A;
             return null;
         }
 
         SPdiffAll(SP) {
-            let diff = 0;
+            let offset = 0;
             if(SP.op === '+' && SP.b.known && SP.b.bitsof <= 32) { // HACK
-                diff = SP.b._A;
+                offset = SP.b._A;
                 SP = SP.a;
             }
-            let i = this.SP0.lastIndexOf(SP);
-            return [i, i === -1 ? null : diff];
+            for(let i = 0; i < this.stackFrames.length; i++) {
+                let frame = this.stackFrames[i];
+                if(SP === frame.base)
+                    return [frame, offset];
+            }
+            return [null, 0];
         }
 
-        readStack(pos, bits, stack=this.stack[this.stack.length-1], bytes=bits/8) {
-            if(stack === this.stack[0])
+        readStack(pos, bits, frame=this.stackFrames[this.stackFrames.length-1], bytes=bits/8) {
+            if(frame === this.stackFrames[0])
                 this.stackMaxAccess = Math.max(this.stackMaxAccess, pos+bytes);
-            if(pos < 0) {
-                pos = ~pos; // HACK -pos-1.
-                stack = stack.down;
-            } else
-                stack = stack.up;
-            var v = stack[pos];
+            let v;
+            if(pos < 0)
+                v = frame.down[~pos]; // HACK -pos-1.
+            else
+                v = frame.up[pos];
             if(!v)
                 return;
             if(v === null)
@@ -231,18 +220,18 @@ let makeAnalyzer = arch => {
             return v.value;
         }
 
-        writeStack(pos, bits, v, stack=this.stack[this.stack.length-1], bytes=bits/8) {
+        writeStack(pos, bits, v, frame=this.stackFrames[this.stackFrames.length-1], bytes=bits/8) {
             let canBeArg = false; // HACK should be true only for pushes/calls.
-            if(stack === this.stack[this.stack.length-1] && pos === this.SPdiff(valueof(SP)))
+            if(frame === this.stackFrames[this.stackFrames.length-1] && pos === this.SPdiff(valueof(SP)))
                 canBeArg = true;
-            let originalPos = pos;
-            if(pos < 0) {
+            let isDown = pos < 0, stack;
+            if(isDown) {
                 pos = ~pos; // HACK -pos-1.
-                stack = stack.down;
+                stack = frame.down;
             } else
-                stack = stack.up;
-            stack[pos] = {bitsof: bits, canBeArg, value: v, parent: this, PC: this.PC, PCnext: this.PCnext};
-            if(originalPos < 0)
+                stack = frame.up;
+            stack[pos] = {bitsof: bits, value: v, canBeArg, parent: this, PC: this.PC, PCnext: this.PCnext};
+            if(isDown)
                 for(let i = pos-1; i > pos-bytes; i--)
                     stack[i] = null;
             else
@@ -257,15 +246,15 @@ let makeAnalyzer = arch => {
             }
 
             analyzer.memRead = (addr, bits)=>{
-                let [i, diff] = this.SPdiffAll(addr);
-                if(diff !== null) // HACK
-                    return this.readStack(diff, bits, this.stack[i]);
+                let [frame, offset] = this.SPdiffAll(addr);
+                if(frame)
+                    return this.readStack(offset, bits, frame);
             };
 
             analyzer.memWrite = (addr, bits, v)=>{
-                let [i, diff] = this.SPdiffAll(addr);
-                if(diff !== null) // HACK
-                    return this.writeStack(diff, bits, v, this.stack[i]) !== false;
+                let [frame, offset] = this.SPdiffAll(addr);
+                if(frame)
+                    return this.writeStack(offset, bits, v, frame) !== false;
             };
         }
 
@@ -312,12 +301,12 @@ let makeAnalyzer = arch => {
 
                     // HACK mark touched args so they don't get reused.
                     let stackMaxAccess = targetBlock.returnPoints.reduce((a, b)=>Math.max(a, b.stackMaxAccess), 0);
-                    for(let diff = this.SPdiff(SP), stack = this.stack[this.stack.length-1].down, i = diff; i < diff+stackMaxAccess; i++)
+                    for(let offset = this.SPdiff(SP), stack = this.stackFrames[this.stackFrames.length-1].down, i = offset; i < offset+stackMaxAccess; i++)
                         if(stack[~i] && stack[~i].canBeArg)
                             stack[~i].canBeArg = false;
 
                     // HACK pass current register values to the called function.
-                    let changedR0 = {};
+                    let changedR0 = [];
                     for(let i = 0; i < R.length; i++) {
                         changedR0[i] = targetBlock.R0[i].value;
                         targetBlock.R0[i].value = R[i].value;
@@ -328,29 +317,30 @@ let makeAnalyzer = arch => {
                     for(let i = 0; i < R.length; i++) {
                         if(targetBlock.returnPoints.every(x => x.Rvalue[i] === targetBlock.R0[i]))
                             continue;
-                        let SP0, SPdiff;
+                        let frameCommon, offsetCommon;
                         for(let x of targetBlock.returnPoints) {
                             let v = x.Rvalue[i];
                             // TODO treat this special case like function arguments.
                             //if(v.frozenValue) // HACK allows the callee to access the caller's stack (used in SEH's alloca).
                             //    v = v.frozenValue;
                             v = valueof(v);
-                            let [j, diff] = this.SPdiffAll(v);
-                            if(diff === null) {
-                                SP0 = null;
+                            let [frame, offset] = this.SPdiffAll(v);
+                            if(!frame) {
+                                frameCommon = null;
                                 break;
                             }
-                            if(!SP0) {
-                                SP0 = this.SP0[j];
-                                SPdiff = diff;
-                            } else if(this.SP0[j] !== SP0 || diff !== SPdiff) {
-                                console.error('Warning: '+inspect(R[i])+' differs '+inspect(x.SP0[j])+' + '+diff+' ('+inspect(x.start)+') vs '+inspect(SP0)+' + '+SPdiff+', from '+inspect(this.start)+' for '+inspect(targetBlock.start));
-                                SP0 = null;
+                            if(!frameCommon) {
+                                frameCommon = frame;
+                                offsetCommon = offset;
+                            } else if(frame !== frameCommon || offset !== offsetCommon) {
+                                if(R[i] === SP || R[i] === FP)
+                                    console.error('Warning: '+inspect(R[i])+' differs '+inspect(frame.base)+' + '+offset+' ('+inspect(new PC.type(x.start))+') vs '+inspect(frameCommon.base)+' + '+offsetCommon+', from '+inspect(new PC.type(this.start))+' for '+inspect(new PC.type(targetBlock.start)));
+                                frameCommon = null;
                                 break;
                             }
                         }
-                        if(SP0) {
-                            this.op(valueof(Mov(R[i], SP0.add(new SP.type(SPdiff)))));
+                        if(frameCommon) {
+                            this.op(valueof(Mov(R[i], frameCommon.base.add(new SP.type(offsetCommon)))));
                             updatedR.push(i);
                             //console.log('<-', R[i], '=', R[i].value, '//', inspect(targetBlock.returnPoints[0].Rvalue[i]));
                         }
@@ -358,14 +348,12 @@ let makeAnalyzer = arch => {
 
                     // Process the stack.
                     if(targetBlock.returnPoints.length === 1) {
-                        let {SP0: [{value: SP0}], stack: [stack]} = targetBlock.returnPoints[0];
-                        if(SP0) {
-                            let [j, diff] = this.SPdiffAll(SP0);
-                            stack.up.forEach((x, i)=>{
-                                if(x && i && diff !== null) // HACK Save values written over the caller's stack (used in SEH's alloca).
-                                    this.writeStack(diff+i, x.bitsof, valueof(x.value), this.stack[j]);
+                        let {stackFrames} = targetBlock.returnPoints[0], [frame, offset] = this.SPdiffAll(valueof(stackFrames[0].base));
+                        if(frame)
+                            stackFrames[0].up.forEach((x, i)=>{
+                                if(x && i) // HACK Save values written over the caller's stack (used in SEH's alloca).
+                                    this.writeStack(offset+i, x.bitsof, valueof(x.value), frame);
                             });
-                        }
                     }
                     if(targetBlock.functionCalls !== this.functionCalls)
                         for(let {fn, original=fn, calls} of targetBlock.functionCalls) {
@@ -390,8 +378,9 @@ let makeAnalyzer = arch => {
                         }
                     if(changes.length)
                         console.log('Changes', changes.join(', '));
-                    for(let i in changedR0)
-                        targetBlock.R0[i].value = changedR0[i];
+                    changedR0.forEach((x, i) => {
+                        targetBlock.R0[i].value = x;
+                    });
                 } else if(targetBlock === this.retPC)
                     this.returns = true;
                 else
@@ -402,8 +391,8 @@ let makeAnalyzer = arch => {
         getJumpTarget(newPC) {
             let savesPC = eq(valueof(returnPC), this.PCnext);
 
+            let isTailJump = !savesPC && eq(valueof(returnPC), this.retPC);
             if(!newPC.known) {
-                let isTailJump = !savesPC && this.SP0.length === 1 && this.SPdiff(valueof(SP)) === 0;
                 if(newPC === this.retPC) {
                     console.log('return;');
                     this.addReturnPoint(this);
@@ -429,18 +418,23 @@ let makeAnalyzer = arch => {
                 } else if(savesPC || isTailJump) {
                     console.error('Unknown '+(savesPC?'call':'tail-jump')+', assuming arguments');
                     let target = new Block({returns: true});
-                    if(returnPC.fn === 'Mem' && returnPC.addr === SP) // HACK
-                        target.Rvalue[R.indexOf(SP)/*HACK clean this up*/] = target.SP0[0].add(u8(sizeof(returnPC)));
                     target.addReturnPoint(target);
 
-                    let stack = this.stack[this.stack.length-1].down, i = this.SPdiff(valueof(SP)) + sizeof(PC), j = i, k = 0, pc = this.PC;
+                    let stack = this.stackFrames[this.stackFrames.length-1].down, i = this.SPdiff(valueof(SP));
+                    target.stackMaxAccess = 0;
+                    if(returnPC.fn === 'Mem' && returnPC.addr === SP) { // HACK for architectures that save PC on stack.
+                        target.Rvalue[R.indexOf(SP)/*HACK clean this up*/] = target.stackFrames[0].base.add(u8(sizeof(returnPC)));
+                        i += sizeof(PC);
+                        target.stackMaxAccess += sizeof(PC);
+                    }
+                    let j = i, k = 0, pc = this.PC;
                     while(j < 0) {
                         let v = stack[~j];
                         if(!v || v.parent != this || !v.canBeArg)
                             break;
                         if(pc > v.PCnext)
                             k += pc - v.PCnext;
-                        if(k > 12) {// HACK
+                        if(k > 12) { // HACK use a less magic value.
                             console.error(`!!stack[${j}]${v.bitsof} (${k}) =`, inspect(v.value));
                             break;
                         }
@@ -448,7 +442,7 @@ let makeAnalyzer = arch => {
                         j += v.bitsof/8;
                         pc = v.PC;
                     }
-                    target.stackMaxAccess = j - i + sizeof(PC);
+                    target.stackMaxAccess += j - i;
 
                     if(isTailJump) { // FIXME duplicated code.
                         console.error('Assuming callee cleans the stack ('+(j-i)+')');
@@ -543,31 +537,34 @@ let makeAnalyzer = arch => {
                     block.R0 = null;
                 if(this.returnPoints.indexOf(block) === -1) {
                     if(block !== this)
-                        block.SP0 = null;
-                    block.stack = [];
+                    block.stackFrames = null;
                     block.RnthValue = null;
                     block.Rvalue = null;
                 } else {
-                    block.SP0 = [block.SP0[0]];
-                    block.stack = [{up: block.stack[0].up, down: []}];
+                    if(this.returnPoints.length === 1)
+                        block.stackFrames = [{base: block.stackFrames[0].base, up: block.stackFrames[0].up, down: null}];
+                    else
+                        block.stackFrames = null;
                 }
-                for(let frame of block.stack)
-                    for(let stack of [frame.up, frame.down])
-                        for(var i = 0; i < stack.length; i++) {
-                            var v = stack[i];
-                            if(v === null)
-                                delete stack[i];
-                            else if(v) {
-                                v.parent = null;
-                                v.PC = null;
-                            }
-                        }
+                // TODO reduce some of the chaining in here.
+                if(block.stackFrames)
+                    for(let frame of block.stackFrames)
+                        for(let stack of [frame.up, frame.down])
+                            if(stack)
+                                for(var i = 0; i < stack.length; i++) {
+                                    var v = stack[i];
+                                    if(v) {
+                                        v.parent = null;
+                                        v.PC = null;
+                                    } else
+                                        delete stack[i];
+                                }
             }
         }
     };
 
     // HACK manually add prototype slots for these members so map transitions aren't required.
-    Block.prototype.stack = null;
+    Block.prototype.stackFrames = null;
     Block.prototype.stackMaxAccess = -Infinity;
     Block.prototype.returnPoints = null;
     Block.prototype.functionCalls = null;
@@ -576,7 +573,6 @@ let makeAnalyzer = arch => {
     Block.prototype.RnthValue = null;
     Block.prototype.Rvalue = null;
     Block.prototype.R0 = null;
-    Block.prototype.SP0 = null;
     Block.prototype.retPC = null;
     Block.prototype.start = 0;
     Block.prototype.returns = false;

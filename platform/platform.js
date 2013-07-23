@@ -347,7 +347,7 @@ var base = (arch, analyzer, platform)=>{ // HACK HACK HACK having arch there is 
                     let argVals = args.slice(0, conv.args.length).map(([type], i) => type ? type(this.block.R0[arch.R.indexOf(arch.R.byName[conv.args[i]])/*HACK clean this up*/]) : new arch.Unknown);
                     let offset = conv.stackOffset;
                     for(let [type] of args.slice(conv.args.length)) {
-                        argVals.push(type && type.fromMem ? type.fromMem(this.block.SP0[0].add(intptr_t(offset))) : new arch.Unknown);
+                        argVals.push(type && type.fromMem ? type.fromMem(this.block.stackFrames[0].base.add(intptr_t(offset))) : new arch.Unknown);
                         if(type && type.prototype)
                             offset += Math.ceil(type.prototype.bitsof/8);
                     }
@@ -363,7 +363,7 @@ var base = (arch, analyzer, platform)=>{ // HACK HACK HACK having arch there is 
 
                     offset = conv.calleeCleansStack ? offset : conv.stackOffset;
                     if(offset)
-                        this.block.Rvalue[arch.R.indexOf(arch.SP)/*HACK clean this up*/] = this.block.SP0[0].add(intptr_t(offset));
+                        this.block.Rvalue[arch.R.indexOf(arch.SP)/*HACK clean this up*/] = this.block.stackFrames[0].base.add(intptr_t(offset));
                 }
 
                 inspect() {
