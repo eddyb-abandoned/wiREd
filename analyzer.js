@@ -479,7 +479,9 @@ let makeAnalyzer = arch => {
             let addr = '0x'+newPC.toString(16).padLeft(8, '0');
             let fnName = analyzer.namedFunctions[newPC];
             if(fnName)
-                addr += ` (${fnName})`;
+                addr = `${fnName}${savesPC ? '()' : ''} /*${addr}*/`;
+            else if(savesPC)
+                addr += '()';
             if(!savesPC)
                 console.log('=> '+addr);
 
@@ -492,9 +494,9 @@ let makeAnalyzer = arch => {
                     if(target.returnPoints !== this.returnPoints)
                         for(let x of target.returnPoints)
                             this.addReturnPoint(x);
-                        if(target.functionCalls !== this.functionCalls)
-                            for(let x of target.functionCalls)
-                                this.addFunctionCall(x);
+                    if(target.functionCalls !== this.functionCalls)
+                        for(let x of target.functionCalls)
+                            this.addFunctionCall(x);
                 } else
                     console.log(addr + ' {}');
             } else {
