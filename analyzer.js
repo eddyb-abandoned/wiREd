@@ -264,31 +264,115 @@ let makeAnalyzer = arch => {
             this.PCwritten = false;
         }
 
-        op(x) {
-            if(x.op === '=') {
-                if(x.a === PC.lvalue)
-                    this.PCwritten = true;
-                else if(x.a === SP.lvalue) {
-                    if(x.b.known)
-                        return console.error('Ignoring known SP = '+inspect(x.b));
-                    let [i, diff] = this.SPdiffAll(x.b);
-                    if(diff === null) {
-                        if(x.b.op === '+' && x.b.b.known)
-                            this.SP0.push(x.b.a);
-                        else
-                            this.SP0.push(x.b);
-                        this.stack.push({down: [], up: []});
-                    } else if(i != this.SP0.length-1) {
-                        this.SP0.splice(i+1);
-                        this.stack.splice(i+1);
+        /// Analyze a single op. Returns true in case of early return.
+        op(op, first, last) {
+            let s = '', slice;
+
+            if(analyzer.showOriginal)
+                s = ' // ' + inspect(op);
+
+            if(process.env.DEBUG_OP)
+                console.log(s);
+
+            let v = valueof(op);
+            s = inspect(v) + s;
+
+            if(first) {
+                if(analyzer.showLegacyAsm && arch.legacyDisasm || analyzer.showBytes)
+                    slice = analyzer.codeBuffer.slice(this.PC - analyzer.codeBase, this.PCnext - analyzer.codeBase);
+                if(analyzer.showLegacyAsm && arch.legacyDisasm)
+                    s += ' // '+arch.legacyDisasm(this.PC, slice).trim();
+            }
+
+            if(analyzer.showBytes)
+                s = (!first ? (last ? '└' : '├').padLeft(2 + (this.PCnext - this.PC)*2) : '0x'+slice.toString('hex')).padRight(analyzer.showBytesPadding, first ? ' ' : '─') + s;
+
+            if(analyzer.showAddress)
+                s = (!first ? ''.padLeft(2 + 8) : '0x'+this.PC.toString(16).padLeft(8, '0')) + ' ' + s;
+
+
+            if(v.fn === 'If' && last) {
+                if(v.cond.bitsof === 1 && v.cond.known && !v.cond._A)
+                    console.error('Warning: skipping if with always false condition');
+                else {
+                    var wrapIf = v.then.length > 1 || v.then[0].op === '=' && v.then[0].a === PC;
+                    console.group('if('+inspect(v.cond)+')', wrapIf);
+                    this.linkCond = v.cond;
+                    var elseSources = [this];
+                    if(v.then.length === 1 && v.then[0].op === '=' && v.then[0].a === PC) // HACK special conditional jump case.
+                        this.linkIf = this.getJumpTarget(valueof(v.then[0].b));
+                    else { // HACK clean this up.
+                        let target = new Block;
+                        this.saveContext();
+                        target.linkFrom(this);
+                        target.restoreContext();
+                        target.PC = this.PC;
+                        target.PCnext = this.PCnext;
+                        target.preOp(v.then);
+                        for(var op of v.then)
+                            target.op(op);
+                        var err = null;
+                        try {
+                            target.postOp();
+                        } catch(e) {
+                            err = e;
+                            console.error(e.toString());
+                        }
+                        target.saveContext();
+                        this.linkIf = target;
+                        if(!err && !target.returns && !target.link)
+                            elseSources.push(target);
+                        this.restoreContext();
                     }
+                    console.groupEnd(wrapIf);
+
+                    var cachedElse = analyzer.getBlockFromCache(this.PCnext);
+                    if(elseSources.length === 1 || cachedElse) {
+                        if(!this.linkIf.returns)
+                            console.group('else');
+                        if(elseSources.length > 1)
+                            console.error('Warning: if/else fallthrough goes to already-analyzed block');
+                        this.link = this.getJumpTarget(new PC.type(this.PCnext));
+                        if(!this.linkIf.returns)
+                            console.groupEnd();
+                    } else {
+                        this.saveContext();
+                        var target = new Block({start: this.PCnext});
+                        target.linkFrom(...elseSources);
+                        this.link = analyzer.getBlock(target);
+                        this.restoreContext();
+                    }
+                    return true;
+                }
+            }
+            console.log(s);
+
+            if(v.op === '=') {
+                if(v.a === PC.lvalue)
+                    this.PCwritten = true;
+                else if(v.a === SP.lvalue && !v.b.known) {
+                    let [frame, offset] = this.SPdiffAll(v.b);
+                    if(!frame) {
+                        let base = v.b;
+                        if(base.op === '+' && base.b.known)
+                            base = base.a;
+                        this.stackFrames.push({base, down: [], up: []});
+                    } else if(frame !== this.stackFrames[this.stackFrames.length-1])
+                        this.stackFrames.splice(this.stackFrames.indexOf(frame)+1);
                 }
                 let needsFreeze = (x, d=0)=>d >= 8 || x.fn === 'Mem' && /*HACK for forwarding arguments*/!(x.addr.op === '+' && x.addr.a === this.stackFrames[0].base && x.addr.b.known && x.addr.b._A > 0)  || x.a && needsFreeze(x.a, d+1) || x.b && needsFreeze(x.b, d+1) || x.args && x.args.some(x => needsFreeze(x, d+1));
-                if(x.a.freeze && needsFreeze(x.b))
-                    x.a.freeze(x.b);
+                if(v.a === SP.lvalue && v.b.known) {
+                    console.error('Ignoring known SP = '+inspect(v.b));
+                    if(v.a.freeze)
+                        v.a.freeze(v.b);
+                } else if(v.a.freeze && needsFreeze(v.b))
+                    v.a.freeze(v.b);
                 else
-                    x.a.value = x.b;
+                    v.a.value = v.b;
             }
+
+            if(v.fn === 'FnCall' && v.name === 'UD') // HACK for ARM
+                return true;
         }
 
         postOp() {
@@ -340,7 +424,7 @@ let makeAnalyzer = arch => {
                             }
                         }
                         if(frameCommon) {
-                            this.op(valueof(Mov(R[i], frameCommon.base.add(new SP.type(offsetCommon)))));
+                            this.op(Mov(R[i], frameCommon.base.add(new SP.type(offsetCommon))));
                             updatedR.push(i);
                             //console.log('<-', R[i], '=', R[i].value, '//', inspect(targetBlock.returnPoints[0].Rvalue[i]));
                         }
@@ -368,13 +452,15 @@ let makeAnalyzer = arch => {
                     let changes = [];
                     for(let i = 0; i < R.length; i++)
                         if(R[i] !== PC && updatedR.indexOf(i) === -1 && targetBlock.returnPoints.some(x => x.Rvalue[i] !== targetBlock.R0[i])) {
-                            changes.push(`${inspect(R[i])} <- {${targetBlock.returnPoints.map(x => inspect(valueof(x.Rvalue[i]))).join(', ')}}`);
-                            let lvalue = lvalueof(R[i]);
                             // TODO use return values from functions with multiple return points.
                             if(targetBlock.returnPoints.length === 1)
-                                this.op(Mov(lvalue, valueof(targetBlock.returnPoints[0].Rvalue[i])));
-                            else if(lvalue.freeze)
-                                lvalue.freeze();
+                                this.op(Mov(R[i], targetBlock.returnPoints[0].Rvalue[i]));
+                            else {
+                                changes.push(`${inspect(R[i])} <- {${targetBlock.returnPoints.map(x => inspect(valueof(x.Rvalue[i]))).join(', ')}}`);
+                                let lvalue = lvalueof(R[i]);
+                                if(lvalue.freeze)
+                                    lvalue.freeze();
+                            }
                         }
                     if(changes.length)
                         console.log('Changes', changes.join(', '));
@@ -464,7 +550,7 @@ let makeAnalyzer = arch => {
                                 return;
                         }
                         console.error('Assuming callee cleans the stack ('+(j-i)+')');
-                        this.op(valueof(Mov(SP, SP.add(new SP.type(j-i)))));
+                        this.op(Mov(SP, SP.add(new SP.type(j-i))));
                     });
 
                     return target;
@@ -504,7 +590,7 @@ let makeAnalyzer = arch => {
                 if(savesPC) {
                     console.group(addr);
                     target.restoreContext();
-                    target.op(valueof(Mov(returnPC, target.retPC)));
+                    target.op(Mov(returnPC, target.retPC));
                     target.saveContext();
                 } else
                     target.linkFrom(this);
@@ -611,6 +697,7 @@ let makeAnalyzer = arch => {
             this.showBytes = true;
             this.showBytesPadding = 20;
             this.showOriginal = true;
+            this.showLegacyAsm = !!(arch.legacyDisasm && process.env.DEBUG_ASM);
         }
 
         get showTotalPadding() {
@@ -653,8 +740,7 @@ let makeAnalyzer = arch => {
 
         decodeBlock(block, start=block.start-this.codeBase) {
             block.restoreContext();
-            for(var i = start; i < this.codeBuffer.length && !block.link && !block.returns;) {
-                block.PC = this.codeBase+i;
+            for(var i = start; i < this.codeBuffer.length && !block.link && !block.returns; ) {
                 var r = null, err = null;
                 try {
                     r = arch.dis(this.codeBuffer, i);
@@ -664,111 +750,30 @@ let makeAnalyzer = arch => {
                 if(!r || err) {
                     console.error('Failed at', this.codeBuffer.slice(i));
                     if(arch.legacyDisasm)
-                        console.log(arch.legacyDisasm(this.codeBase+i, this.codeBuffer.slice(i, i+16)).trim());
+                        console.error(arch.legacyDisasm(this.codeBase+i, this.codeBuffer.slice(i, i+16)).trim());
                 }
                 if(err) throw err;
                 if(!r) return;
 
-                var bytes = r[0], slice = this.codeBuffer.slice(i, i+bytes), asm = '';
-                if(arch.legacyDisasm && process.env.DEBUG_ASM)
-                    asm = ' // '+arch.legacyDisasm(this.codeBase+i, slice).trim();
-                r = r.slice(1).filter(x => x);
-                block.PCnext = block.PC+bytes;
+                var bytes = r[0];
+                block.PC = this.codeBase + i;
+                block.PCnext = block.PC + bytes;
+                r = r.slice(1).filter(x => !!x);
+
                 this.emit('Block.preOp', block, r);
                 block.preOp(r);
-                for(var j = 0; j < r.length; j++) {
-                    var x = r[j], s = '';
 
-                    if(this.showOriginal)
-                        s = ' // '+inspect(x);
-
-                    var v = valueof(x);
-                    s = inspect(v)+s;
-
-                    if(!j)
-                        s += asm;
-
-                    if(this.showBytes)
-                        s = (j ? (j === r.length-1 ? '└' : '├').padLeft(2 + bytes*2) : '0x'+slice.toString('hex')).padRight(this.showBytesPadding, j ? '─' : ' ') + s;
-
-                    if(this.showAddress)
-                        s = (j ? ''.padLeft(2 + 8) : '0x'+block.PC.toString(16).padLeft(8, '0')) + ' ' + s;
-
-                    if(process.env.DEBUG_OP)
-                        console.log(s);
-                    if(v.fn === 'If' && j === r.length-1) {
-                        if(v.cond.bitsof === 1 && v.cond.known && !v.cond._A)
-                            console.error('Warning: skipping if with always false condition');
-                        else {
-                            var wrapIf = v.then.length > 1 || v.then[0].op === '=' && v.then[0].a === PC;
-                            console.group('if('+inspect(v.cond)+')', wrapIf);
-                            block.linkCond = v.cond;
-                            var elseSources = [block];
-                            if(v.then.length === 1 && v.then[0].op === '=' && v.then[0].a === PC) // HACK special conditional jump case.
-                                block.linkIf = block.getJumpTarget(valueof(v.then[0].b));
-                            else { // HACK clean this up.
-                                block.saveContext();
-                                var target = new Block;
-                                target.linkFrom(block);
-                                target.restoreContext();
-                                target.PC = block.PC;
-                                target.PCnext = block.PCnext;
-                                target.preOp(v.then);
-                                for(var op of v.then) {
-                                    var opVal = valueof(op);
-                                    console.log(''.padLeft(this.showTotalPadding) + inspect(opVal) + (this.showOriginal ? ' // ' + inspect(op) : ''));
-                                    target.op(opVal);
-                                }
-                                var err = null;
-                                try {
-                                    target.postOp();
-                                } catch(e) {
-                                    err = e;
-                                    console.error(e.toString());
-                                }
-                                target.saveContext();
-                                block.linkIf = target;
-                                if(!err && !target.returns && !target.link)
-                                    elseSources.push(target);
-                                block.restoreContext();
-                            }
-                            console.groupEnd(wrapIf);
-
-                            var cachedElse = this.getBlockFromCache(block.PCnext);
-                            if(elseSources.length === 1 || cachedElse) {
-                                if(!block.linkIf.returns)
-                                    console.group('else');
-                                if(elseSources.length > 1)
-                                    console.error('Warning: if/else fallthrough goes to already-analyzed block');
-                                block.link = block.getJumpTarget(new PC.type(block.PCnext));
-                                if(!block.linkIf.returns)
-                                    console.groupEnd();
-                            } else {
-                                block.saveContext();
-                                var target = new Block({start: block.PCnext});
-                                target.linkFrom(...elseSources);
-                                block.link = this.getBlock(target);
-                                block.restoreContext();
-                            }
-                            block.saveContext();
-                            block.finalize();
-                            block.inProgress = false;
-                            return;
-                        }
-                    }
-                    console.log(s);
-
-                    block.op(v);
-                    if(v.fn === 'FnCall' && v.name === 'UD') { // HACK for ARM
+                for(var j = 0; j < r.length; j++)
+                    if(block.op(r[j], !j, j === r.length - 1)) {
                         block.saveContext();
                         block.finalize();
                         block.inProgress = false;
                         return;
                     }
-                }
 
                 this.emit('Block.postOp', block);
                 block.postOp();
+
                 i += bytes;
             }
             block.saveContext();
