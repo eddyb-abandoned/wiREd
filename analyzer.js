@@ -283,7 +283,7 @@ let makeAnalyzer = arch => {
                         this.stack.splice(i+1);
                     }
                 }
-                let needsFreeze = (x, d=0)=>d >= 8 || x.fn === 'Mem' && /*HACK for forwarding arguments*/!(x.addr.op === '+' && x.addr.a === this.SP0[0] && x.addr.b.known && x.addr.b._A > 0)  || x.a && needsFreeze(x.a, d+1) || x.b && needsFreeze(x.b, d+1) || x.args && x.args.some(x => needsFreeze(x, d+1));
+                let needsFreeze = (x, d=0)=>d >= 8 || x.fn === 'Mem' && /*HACK for forwarding arguments*/!(x.addr.op === '+' && x.addr.a === this.stackFrames[0].base && x.addr.b.known && x.addr.b._A > 0)  || x.a && needsFreeze(x.a, d+1) || x.b && needsFreeze(x.b, d+1) || x.args && x.args.some(x => needsFreeze(x, d+1));
                 if(x.a.freeze && needsFreeze(x.b))
                     x.a.freeze(x.b);
                 else
