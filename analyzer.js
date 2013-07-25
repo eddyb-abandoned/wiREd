@@ -104,9 +104,21 @@ let makeAnalyzer = arch => {
             this.retPC = new Unknown(PC.bitsof);
             this.retPC.inspect = retPCinspectMethod;
 
+            this.output = [];
+
             if(options)
                 for(let i in options)
                     this[i] = options[i];
+        }
+
+        log(x) {
+            this.output.push(x);
+        }
+        warning(x) {
+            this.log('Warning: ' + x);
+        }
+        error(x) {
+            this.log('Error: ' + x);
         }
 
         addReturnPoint(x) {
@@ -218,7 +230,7 @@ let makeAnalyzer = arch => {
             if(v === null)
                 throw new Error('Reading invalid stack value');
             if(v.bitsof != bits)
-                return console.error('Reading differently sized stack value '+v.bitsof+' vs '+bits+' '+inspect(v.value)), null;
+                return this.error('Reading differently sized stack value ' + v.bitsof + ' vs ' + bits + ' ' + inspect(v.value)), null;
             return v.value;
         }
 
@@ -274,7 +286,7 @@ let makeAnalyzer = arch => {
                 s = ' // ' + inspect(op);
 
             if(process.env.DEBUG_OP)
-                console.log(s);
+                this.log(s);
 
             let v = valueof(op);
             s = inspect(v) + s;
@@ -295,10 +307,8 @@ let makeAnalyzer = arch => {
 
             if(v.fn === 'If' && last) {
                 if(v.cond.bitsof === 1 && v.cond.known && !v.cond._A)
-                    console.error('Warning: skipping if with always false condition');
+                    this.warning('Skipping if with always false condition');
                 else {
-                    var wrapIf = v.then.length > 1 || v.then[0].op === '=' && v.then[0].a === PC;
-                    console.group('if('+inspect(v.cond)+')', wrapIf);
                     this.linkCond = v.cond;
                     var elseSources = [this];
                     if(v.then.length === 1 && v.then[0].op === '=' && v.then[0].a === PC) // HACK special conditional jump case.
@@ -310,33 +320,29 @@ let makeAnalyzer = arch => {
                         target.restoreContext();
                         target.PC = this.PC;
                         target.PCnext = this.PCnext;
-                        target.preOp(v.then);
-                        for(var op of v.then)
-                            target.op(op);
                         var err = null;
                         try {
+                            target.preOp(v.then);
+                            for(let op of v.then)
+                                target.op(op);
                             target.postOp();
                         } catch(e) {
                             err = e;
-                            console.error(e.toString());
+                            target.log(e.toString());
                         }
+                        target.finalize();
                         target.saveContext();
                         this.linkIf = target;
                         if(!err && !target.returns && !target.link)
                             elseSources.push(target);
                         this.restoreContext();
                     }
-                    console.groupEnd(wrapIf);
 
                     var cachedElse = analyzer.getBlockFromCache(this.PCnext);
                     if(elseSources.length === 1 || cachedElse) {
-                        if(!this.linkIf.returns)
-                            console.group('else');
                         if(elseSources.length > 1)
-                            console.error('Warning: if/else fallthrough goes to already-analyzed block');
+                            this.warning('if/else fallthrough goes to already-analyzed block');
                         this.link = this.getJumpTarget(new PC.type(this.PCnext));
-                        if(!this.linkIf.returns)
-                            console.groupEnd();
                     } else {
                         this.saveContext();
                         var target = new Block({start: this.PCnext});
@@ -344,10 +350,12 @@ let makeAnalyzer = arch => {
                         this.link = analyzer.getBlock(target);
                         this.restoreContext();
                     }
+                    if(elseSources.length > 1)
+                        this.linkIf.link = this.link;
                     return true;
                 }
             }
-            console.log(s);
+            this.log(s); // TODO make this .op or something.
 
             if(v.op === '=') {
                 if(v.a === PC.lvalue)
@@ -364,7 +372,7 @@ let makeAnalyzer = arch => {
                 }
                 let needsFreeze = (x, d=0)=>d >= 8 || x.fn === 'Mem' && /*HACK for forwarding arguments*/!(x.addr.op === '+' && x.addr.a === this.stackFrames[0].base && x.addr.b.known && x.addr.b._A > 0)  || x.a && needsFreeze(x.a, d+1) || x.b && needsFreeze(x.b, d+1) || x.args && x.args.some(x => needsFreeze(x, d+1));
                 if(v.a === SP.lvalue && v.b.known) {
-                    console.error('Ignoring known SP = '+inspect(v.b));
+                    this.warning('Ignoring known SP = '+inspect(v.b));
                     if(v.a.freeze)
                         v.a.freeze(v.b);
                 } else if(v.a.freeze && needsFreeze(v.b))
@@ -420,7 +428,7 @@ let makeAnalyzer = arch => {
                                 offsetCommon = offset;
                             } else if(frame !== frameCommon || offset !== offsetCommon) {
                                 if(R[i] === SP || R[i] === FP)
-                                    console.error('Warning: '+inspect(R[i])+' differs '+inspect(frame.base)+' + '+offset+' ('+inspect(new PC.type(x.start))+') vs '+inspect(frameCommon.base)+' + '+offsetCommon+', from '+inspect(new PC.type(this.start))+' for '+inspect(new PC.type(targetBlock.start)));
+                                    this.warning(inspect(R[i])+' differs '+inspect(frame.base)+' + '+offset+' ('+inspect(new PC.type(x.start))+') vs '+inspect(frameCommon.base)+' + '+offsetCommon+', from '+inspect(new PC.type(this.start))+' for '+inspect(new PC.type(targetBlock.start)));
                                 frameCommon = null;
                                 break;
                             }
@@ -428,7 +436,7 @@ let makeAnalyzer = arch => {
                         if(frameCommon) {
                             this.op(Mov(R[i], frameCommon.base.add(new SP.type(offsetCommon))));
                             updatedR.push(i);
-                            //console.log('<-', R[i], '=', R[i].value, '//', inspect(targetBlock.returnPoints[0].Rvalue[i]));
+                            //this.log('<-', R[i], '=', R[i].value, '//', inspect(targetBlock.returnPoints[0].Rvalue[i]));
                         }
                     }
 
@@ -465,7 +473,7 @@ let makeAnalyzer = arch => {
                             }
                         }
                     if(changes.length)
-                        console.log('Changes', changes.join(', '));
+                        this.log('Changes ' + changes.join(', '));
                     changedR0.forEach((x, i) => {
                         targetBlock.R0[i].value = x;
                     });
@@ -482,7 +490,6 @@ let makeAnalyzer = arch => {
             let isTailJump = !savesPC && eq(valueof(returnPC), this.retPC);
             if(!newPC.known) {
                 if(newPC === this.retPC) {
-                    console.log('return;');
                     this.addReturnPoint(this);
                     return this.retPC;
                 } else if(newPC.fn === 'Function') { // HACK required for imported functions.
@@ -492,7 +499,7 @@ let makeAnalyzer = arch => {
                     if(savesPC)
                         return target;
                     if(isTailJump) {
-                        console.error('Tail-jumping to function -> '+inspect(newPC));
+                        this.log('Tail-jumping to function -> ' + inspect(newPC));
                         if(target.returnPoints.length) {
                             // HACK this fakes a return following the current instruction.
                             this.returns = true;
@@ -504,7 +511,7 @@ let makeAnalyzer = arch => {
                     }
                     throw new Error('Cannot tail-jump to function -> '+inspect(newPC));
                 } else if(savesPC || isTailJump) {
-                    console.error('Unknown '+(savesPC?'call':'tail-jump')+', assuming arguments');
+                    this.log('Unknown ' + (savesPC ? 'call' : 'tail-jump') + ', assuming arguments');
                     let target = new Block({returns: true});
                     target.addReturnPoint(target);
 
@@ -523,17 +530,17 @@ let makeAnalyzer = arch => {
                         if(pc > v.PCnext)
                             k += pc - v.PCnext;
                         if(k > 12) { // HACK use a less magic value.
-                            console.error(`!!stack[${j}]${v.bitsof} (${k}) =`, inspect(v.value));
+                            this.log(`!!stack[${j}]${v.bitsof} (${k}) =`, inspect(v.value));
                             break;
                         }
-                        console.error(`stack[${j}]${v.bitsof} (${k}) =`, inspect(v.value));
+                        this.log(`stack[${j}]${v.bitsof} (${k}) = ${inspect(v.value)}`);
                         j += v.bitsof/8;
                         pc = v.PC;
                     }
                     target.stackMaxAccess += j - i;
 
                     if(isTailJump) { // FIXME duplicated code.
-                        console.error('Assuming callee cleans the stack ('+(j-i)+')');
+                        this.log('Assuming callee cleans the stack (' + (j - i) + ')');
                         target.Rvalue[R.indexOf(SP)/*HACK clean this up*/] = target.Rvalue[R.indexOf(SP)/*HACK clean this up*/].add(new SP.type(j-i));
 
                         // HACK this fakes a return following the current instruction.
@@ -551,7 +558,7 @@ let makeAnalyzer = arch => {
                             if(op.op === '=' && op.a === SP)
                                 return;
                         }
-                        console.error('Assuming callee cleans the stack ('+(j-i)+')');
+                        this.log('Assuming callee cleans the stack (' + (j - i) + ')');
                         this.op(Mov(SP, SP.add(new SP.type(j-i))));
                     });
 
@@ -564,20 +571,14 @@ let makeAnalyzer = arch => {
             this.saveContext();
 
             let target = analyzer.getBlockFromCache(newPC);
-            let addr = '0x'+newPC.toString(16).padLeft(8, '0');
-            let fnName = analyzer.namedFunctions[newPC];
-            if(fnName)
-                addr = `${fnName}${savesPC ? '()' : ''} /*${addr}*/`;
-            else if(savesPC)
-                addr += '()';
-            if(!savesPC)
-                console.log('=> '+addr);
+            if(savesPC)
+                this.log(analyzer.formatAddress(newPC, true));
 
             if(target) {
                 if(!savesPC) {
                     if(target.functionBlocks !== this.functionBlocks)
-                        console.error('Warning: jumped to block of different function (maybe tail-jump/call?)');
-                    else
+                        this.warning('Jumped to block of different function (maybe tail-jump/call?)');
+                    else // TODO mark as under-analyzed.
                         target.linkedFrom.push(this);
                     if(target.returnPoints !== this.returnPoints)
                         for(let x of target.returnPoints)
@@ -585,12 +586,10 @@ let makeAnalyzer = arch => {
                     if(target.functionCalls !== this.functionCalls)
                         for(let x of target.functionCalls)
                             this.addFunctionCall(x);
-                } else
-                    console.log(addr + ' {}');
+                }
             } else {
                 target = new Block({start: newPC});
                 if(savesPC) {
-                    console.group(addr);
                     target.restoreContext();
                     target.op(Mov(returnPC, target.retPC));
                     target.saveContext();
@@ -599,8 +598,6 @@ let makeAnalyzer = arch => {
                 let newTarget = analyzer.getBlock(target);
                 if(newTarget !== target)
                     throw new Error('Got different block even though it wasn\'t cached');
-                if(savesPC)
-                    console.groupEnd();
             }
 
             this.restoreContext();
@@ -609,7 +606,7 @@ let makeAnalyzer = arch => {
                 if(!target.returnPoints.length)
                     throw new AnalysisPauseError('no return points');
                 else
-                    console.error(`Got inProgress block, with ${target.returnPoints.length} return points`);
+                    this.error(`Got inProgress block, with ${target.returnPoints.length} return points`);
             }
             return target;
         }
@@ -617,6 +614,53 @@ let makeAnalyzer = arch => {
         finalize() {
             if(this.functionBlocks[0] !== this) // HACK, detects first analyzed block in a function.
                 return;
+
+            let outputBlock = block => {
+                if(!block.output)
+                    return;
+
+                let {output} = block;
+                block.output = null;
+
+                for(let x of output)
+                    console.log(x);
+
+                if(block.returns)
+                    return console.log('return;');
+                if(block.linkIf) {
+                    let ifGoesToElse = block.linkIf.link === block.link;
+                    if(!block.linkIf.output)
+                        console.log('if(' + inspect(block.linkCond) + ') => ' + analyzer.formatAddress(block.linkIf.start) + ';');
+                    else {
+                        let noWrap = block.linkIf.output.length <= 1 && (ifGoesToElse || block.linkIf.returns);
+                        console.group('if(' + inspect(block.linkCond) + ')', !noWrap);
+                        if(ifGoesToElse)
+                            block.linkIf.link = null;
+                        outputBlock(block.linkIf);
+                        if(ifGoesToElse)
+                            block.linkIf.link = block.link;
+                        console.groupEnd(!noWrap);
+                    }
+                    if(block.link) {
+                        if(!block.link.output)
+                            console.log('else => ' + analyzer.formatAddress(block.link.start) + ';');
+                        else {
+                            let groupElse = !(ifGoesToElse || block.linkIf.returns);
+                            if(groupElse)
+                                console.group('else');
+                            outputBlock(block.link);
+                            if(groupElse)
+                                console.groupEnd();
+                        }
+                    }
+                } else if(block.link) {
+                    if(!block.link.output)
+                        console.log('=> ' + analyzer.formatAddress(block.link.start));
+                    else
+                        outputBlock(block.link);
+                }
+            };
+
             for(let block of this.functionBlocks) {
                 let nLinks = block.linkedFrom.length;
                 numLinksCounters[nLinks] = (numLinksCounters[nLinks] || 0) + 1;
@@ -650,6 +694,10 @@ let makeAnalyzer = arch => {
                                         delete stack[i];
                                 }
             }
+
+            console.group(analyzer.formatAddress(this.start, true));
+            outputBlock(this);
+            console.groupEnd();
         }
     };
 
@@ -706,6 +754,16 @@ let makeAnalyzer = arch => {
             return (this.showAddress ? 2 + 8 + 1 : 0) + (this.showBytes ? this.showBytesPadding : 0);
         }
 
+        formatAddress(x, isFunction) {
+            let addr = '0x' + x.toString(16).padLeft(8, '0');
+            let fnName = this.namedFunctions[x];
+            if(fnName)
+                addr = `${fnName}${isFunction ? '()' : ''} /*${addr}*/`;
+            else if(isFunction)
+                addr += '()';
+            return addr;
+        }
+
         getBlockFromCache(start) {
             if(typeof start !== 'number' || start < this.codeBase || start >= this.codeBase+this.codeBuffer.length)
                 throw new Error('Block starting outside of codeBuffer bounds');
@@ -735,7 +793,12 @@ let makeAnalyzer = arch => {
             try {
                 this.decodeBlock(block);
             } catch(e) {
-                console.error(process.env.DEBUG_TRACE ? e.stack : ''+e);
+                e = process.env.DEBUG_TRACE ? e.stack : ''+e;
+                if(block.inProgress) {
+                    block.log(e);
+                    block.finalize();
+                } else
+                    console.error(e);
             }
             return block;
         }
@@ -750,9 +813,9 @@ let makeAnalyzer = arch => {
                     err = e;
                 }
                 if(!r || err) {
-                    console.error('Failed at', this.codeBuffer.slice(i));
+                    block.error('Failed at ' + this.codeBuffer.slice(i).inspect());
                     if(arch.legacyDisasm)
-                        console.error(arch.legacyDisasm(this.codeBase+i, this.codeBuffer.slice(i, i+16)).trim());
+                        block.log(arch.legacyDisasm(this.codeBase+i, this.codeBuffer.slice(i, i+16)).trim());
                 }
                 if(err) throw err;
                 if(!r) return;
@@ -768,8 +831,8 @@ let makeAnalyzer = arch => {
                 for(var j = 0; j < r.length; j++)
                     if(block.op(r[j], !j, j === r.length - 1)) {
                         block.saveContext();
-                        block.finalize();
                         block.inProgress = false;
+                        block.finalize();
                         return;
                     }
 
@@ -779,8 +842,8 @@ let makeAnalyzer = arch => {
                 i += bytes;
             }
             block.saveContext();
-            block.finalize();
             block.inProgress = false;
+            block.finalize();
         }
     });
 };
@@ -1024,7 +1087,7 @@ let makeAnalyzer = arch => {
         console.log('Analyzing '+symbol.name+'@'+symbol.addr.toString(16).padLeft(8, '0'));
         // FIXME this is duplicated, move into Block.
         mainBlock.restoreContext();
-        mainBlock.op(arch.valueof(arch.Mov(arch.returnPC, mainBlock.retPC)));
+        mainBlock.op(arch.Mov(arch.returnPC, mainBlock.retPC));
         mainBlock.saveContext();
         try {
             analyzer.getBlock(mainBlock);
