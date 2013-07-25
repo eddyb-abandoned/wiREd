@@ -151,7 +151,8 @@ let makeAnalyzer = arch => {
             if(same('functionBlocks')) {
                 this.functionBlocks = sources[0].functionBlocks;
                 this.functionBlocks.push(this);
-            }
+            } else
+                throw new Error('Attempting to merge blocks from different functions.');
             this.linkedFrom.push(...sources);
 
             let stackFramesCommon = commonFrames(sources.map(x => x.stackFrames));
