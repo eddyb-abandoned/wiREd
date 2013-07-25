@@ -78,7 +78,7 @@ let makeAnalyzer = arch => {
     }
 
     class Block extends EventEmitter {
-        constructor(options={}) {
+        constructor(options) {
             super();
 
             //this.setMaxListeners(64);
@@ -104,8 +104,9 @@ let makeAnalyzer = arch => {
             this.retPC = new Unknown(PC.bitsof);
             this.retPC.inspect = retPCinspectMethod;
 
-            for(let i in options)
-                this[i] = options[i];
+            if(options)
+                for(let i in options)
+                    this[i] = options[i];
         }
 
         addReturnPoint(x) {
