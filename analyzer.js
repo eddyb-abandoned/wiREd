@@ -104,15 +104,15 @@ let makeAnalyzer = arch => {
             this.retPC = new Unknown(PC.bitsof);
             this.retPC.inspect = retPCinspectMethod;
 
-            this.output = [];
+            this.buffered = [];
 
             if(options)
                 for(let i in options)
                     this[i] = options[i];
         }
 
-        log(x) {
-            this.output.push(x);
+        log(message) {
+            this.buffered.push({type: 'log', message});
         }
         warning(x) {
             this.log('Warning: ' + x);
@@ -280,30 +280,14 @@ let makeAnalyzer = arch => {
 
         /// Analyze a single op. Returns true in case of early return.
         op(op, first, last) {
-            let s = '', slice;
-
-            if(analyzer.showOriginal)
-                s = ' // ' + inspect(op);
-
-            if(process.env.DEBUG_OP)
-                this.log(s);
-
-            let v = valueof(op);
-            s = inspect(v) + s;
-
+            let output = {type: 'op', first, last, op, value: null};
             if(first) {
-                if(analyzer.showLegacyAsm && arch.legacyDisasm || analyzer.showBytes)
-                    slice = analyzer.codeBuffer.slice(this.PC - analyzer.codeBase, this.PCnext - analyzer.codeBase);
-                if(analyzer.showLegacyAsm && arch.legacyDisasm)
-                    s += ' // '+arch.legacyDisasm(this.PC, slice).trim();
+                output.PC = this.PC;
+                output.PCnext = this.PCnext;
             }
+            this.buffered.push(output);
 
-            if(analyzer.showBytes)
-                s = (!first ? (last ? '└' : '├').padLeft(2 + (this.PCnext - this.PC)*2) : '0x'+slice.toString('hex')).padRight(analyzer.showBytesPadding, first ? ' ' : '─') + s;
-
-            if(analyzer.showAddress)
-                s = (!first ? ''.padLeft(2 + 8) : '0x'+this.PC.toString(16).padLeft(8, '0')) + ' ' + s;
-
+            let v = output.value = valueof(op);
 
             if(v.fn === 'If' && last) {
                 if(v.cond.bitsof === 1 && v.cond.known && !v.cond._A)
@@ -352,10 +336,13 @@ let makeAnalyzer = arch => {
                     }
                     if(elseSources.length > 1)
                         this.linkIf.link = this.link;
+                    if(this.buffered[this.buffered.length - 1] === output)
+                        this.buffered.pop();
+                    else
+                        this.buffered.splice(this.buffered.lastIndexOf(output), 1);
                     return true;
                 }
             }
-            this.log(s); // TODO make this .op or something.
 
             if(v.op === '=') {
                 if(v.a instanceof PC.lvalueBase) // HACK maybe use op.a === PC?
@@ -611,55 +598,83 @@ let makeAnalyzer = arch => {
             return target;
         }
 
+        output() {
+            if(!this.buffered)
+                return;
+
+            let {buffered} = this;
+            this.buffered = null;
+
+            for(let x of buffered) {
+                if(x.type === 'log')
+                    console.log(x.message);
+                else if(x.type === 'op') {
+                    let s = '', {first, last, op, value} = x;
+
+                    if(analyzer.showOriginal)
+                        s = ' // ' + inspect(op);
+
+                    if(value)
+                        s = inspect(value) + s;
+
+                    let slice;
+                    if(first) {
+                        if(analyzer.showLegacyAsm && arch.legacyDisasm || analyzer.showBytes)
+                            slice = analyzer.codeBuffer.slice(x.PC - analyzer.codeBase, x.PCnext - analyzer.codeBase);
+                        if(analyzer.showLegacyAsm && arch.legacyDisasm)
+                            s += ' // ' + arch.legacyDisasm(x.PC, slice).trim();
+                    }
+
+                    if(analyzer.showBytes)
+                        s = (first ? '0x' + slice.toString('hex') : (last ? '└' : '├').padLeft(2 + (x.PCnext - x.PC) * 2)).padRight(analyzer.showBytesPadding, first ? ' ' : '─') + s;
+
+                    if(analyzer.showAddress)
+                        s = (first ? '0x' + x.PC.toString(16).padLeft(8, '0'): ''.padLeft(2 + 8)) + ' ' + s;
+
+                    console.log(s);
+                } else
+                    console.log(x);
+            }
+
+            if(this.returns)
+                return console.log('return;');
+            if(this.linkIf) {
+                let ifGoesToElse = this.linkIf.link === this.link;
+                if(!this.linkIf.buffered)
+                    console.log('if(' + inspect(this.linkCond) + ') => ' + analyzer.formatAddress(this.linkIf.start) + ';');
+                else {
+                    let noWrap = this.linkIf.buffered.length <= 1 && (ifGoesToElse || this.linkIf.returns);
+                    console.group('if(' + inspect(this.linkCond) + ')', !noWrap);
+                    if(ifGoesToElse)
+                        this.linkIf.link = null;
+                    this.linkIf.output();
+                    if(ifGoesToElse)
+                        this.linkIf.link = this.link;
+                    console.groupEnd(!noWrap);
+                }
+                if(this.link) {
+                    if(!this.link.buffered)
+                        console.log('else => ' + analyzer.formatAddress(this.link.start) + ';');
+                    else {
+                        let groupElse = !(ifGoesToElse || this.linkIf.returns);
+                        if(groupElse)
+                            console.group('else');
+                        this.link.output();
+                        if(groupElse)
+                            console.groupEnd();
+                    }
+                }
+            } else if(this.link) {
+                if(!this.link.buffered)
+                    console.log('=> ' + analyzer.formatAddress(this.link.start));
+                else
+                    this.link.output();
+            }
+        }
+
         finalize() {
             if(this.functionBlocks[0] !== this) // HACK, detects first analyzed block in a function.
                 return;
-
-            let outputBlock = block => {
-                if(!block.output)
-                    return;
-
-                let {output} = block;
-                block.output = null;
-
-                for(let x of output)
-                    console.log(x);
-
-                if(block.returns)
-                    return console.log('return;');
-                if(block.linkIf) {
-                    let ifGoesToElse = block.linkIf.link === block.link;
-                    if(!block.linkIf.output)
-                        console.log('if(' + inspect(block.linkCond) + ') => ' + analyzer.formatAddress(block.linkIf.start) + ';');
-                    else {
-                        let noWrap = block.linkIf.output.length <= 1 && (ifGoesToElse || block.linkIf.returns);
-                        console.group('if(' + inspect(block.linkCond) + ')', !noWrap);
-                        if(ifGoesToElse)
-                            block.linkIf.link = null;
-                        outputBlock(block.linkIf);
-                        if(ifGoesToElse)
-                            block.linkIf.link = block.link;
-                        console.groupEnd(!noWrap);
-                    }
-                    if(block.link) {
-                        if(!block.link.output)
-                            console.log('else => ' + analyzer.formatAddress(block.link.start) + ';');
-                        else {
-                            let groupElse = !(ifGoesToElse || block.linkIf.returns);
-                            if(groupElse)
-                                console.group('else');
-                            outputBlock(block.link);
-                            if(groupElse)
-                                console.groupEnd();
-                        }
-                    }
-                } else if(block.link) {
-                    if(!block.link.output)
-                        console.log('=> ' + analyzer.formatAddress(block.link.start));
-                    else
-                        outputBlock(block.link);
-                }
-            };
 
             for(let block of this.functionBlocks) {
                 let nLinks = block.linkedFrom.length;
@@ -696,7 +711,7 @@ let makeAnalyzer = arch => {
             }
 
             console.group(analyzer.formatAddress(this.start, true));
-            outputBlock(this);
+            this.output();
             console.groupEnd();
         }
     };
@@ -712,6 +727,7 @@ let makeAnalyzer = arch => {
     Block.prototype.Rvalue = null;
     Block.prototype.R0 = null;
     Block.prototype.retPC = null;
+    Block.prototype.buffered = null;
     Block.prototype.start = 0;
     Block.prototype.returns = false;
     Block.prototype.link = null;
