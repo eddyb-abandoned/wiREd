@@ -209,7 +209,7 @@ let makeAnalyzer = arch => {
                 offset = SP.b._A;
                 SP = SP.a;
             }
-            for(let i = 0; i < this.stackFrames.length; i++) {
+            for(let i = this.stackFrames.length - 1; i >= 0; i--) {
                 let frame = this.stackFrames[i];
                 if(SP === frame.base)
                     return [frame, offset];
@@ -367,8 +367,8 @@ let makeAnalyzer = arch => {
                         if(base.op === '+' && base.b.known)
                             base = base.a;
                         this.stackFrames.push({base, down: [], up: []});
-                    } else if(frame !== this.stackFrames[this.stackFrames.length-1])
-                        this.stackFrames.splice(this.stackFrames.indexOf(frame)+1);
+                    } else if(frame !== this.stackFrames[this.stackFrames.length - 1])
+                        this.stackFrames.splice(this.stackFrames.lastIndexOf(frame) + 1);
                 }
                 let needsFreeze = (x, d=0)=>d >= 8 || x.fn === 'Mem' && /*HACK for forwarding arguments*/!(x.addr.op === '+' && x.addr.a === this.stackFrames[0].base && x.addr.b.known && x.addr.b._A > 0)  || x.a && needsFreeze(x.a, d+1) || x.b && needsFreeze(x.b, d+1) || x.args && x.args.some(x => needsFreeze(x, d+1));
                 if(v.a === SP.lvalue && v.b.known) {
