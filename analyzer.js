@@ -358,9 +358,9 @@ let makeAnalyzer = arch => {
             this.log(s); // TODO make this .op or something.
 
             if(v.op === '=') {
-                if(v.a === PC.lvalue)
+                if(v.a instanceof PC.lvalueBase) // HACK maybe use op.a === PC?
                     this.PCwritten = true;
-                else if(v.a === SP.lvalue && !v.b.known) {
+                else if(v.a instanceof SP.lvalueBase && !v.b.known) { // HACK maybe use op.a === SP?
                     let [frame, offset] = this.SPdiffAll(v.b);
                     if(!frame) {
                         let base = v.b;
@@ -371,7 +371,7 @@ let makeAnalyzer = arch => {
                         this.stackFrames.splice(this.stackFrames.lastIndexOf(frame) + 1);
                 }
                 let needsFreeze = (x, d=0)=>d >= 8 || x.fn === 'Mem' && /*HACK for forwarding arguments*/!(x.addr.op === '+' && x.addr.a === this.stackFrames[0].base && x.addr.b.known && x.addr.b._A > 0)  || x.a && needsFreeze(x.a, d+1) || x.b && needsFreeze(x.b, d+1) || x.args && x.args.some(x => needsFreeze(x, d+1));
-                if(v.a === SP.lvalue && v.b.known) {
+                if(v.a instanceof SP.lvalueBase && v.b.known) { // HACK maybe use op.a === SP?
                     this.warning('Ignoring known SP = '+inspect(v.b));
                     if(v.a.freeze)
                         v.a.freeze(v.b);

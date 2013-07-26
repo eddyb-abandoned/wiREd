@@ -463,10 +463,8 @@ var Register${bits} = Register[${bits}] = exports.Register${bits} = function Reg
         this.name = name;
     else
         name = this.name;
-    this.lvalue = {
-        inspect: function() {
-            return name + (self.nthValue ? self.nthValue.toSubString() : '');
-        },
+    this.lvalueBase = function() {};
+    this.lvalueBase.prototype = {
         freeze: function() {
             self.value = new RegisterFrozen${bits}(name + (self.nthValue++).toSubString(), self.type);
         },
@@ -475,6 +473,9 @@ var Register${bits} = Register[${bits}] = exports.Register${bits} = function Reg
         },
         set value(v) {
             self.value = v;
+        },
+        inspect: function() {
+            return name /*+ (self.nthValue ? self.nthValue.toSubString() : '')*/;
         }
     };
 }
@@ -484,6 +485,17 @@ Register${bits}.prototype.name = '<${bits}>';
 Register${bits}.prototype.nthValue = 0;
 Register${bits}.prototype.value = null;
 Register${bits}.prototype.lvalue = null;
+Object.defineProperties(Register${bits}.prototype, {
+    lvalue: {
+        get: function() {
+            var lvalue = new this.lvalueBase, name = this.name + (this.nthValue ? this.nthValue.toSubString() : '');
+            lvalue.inspect = function inspect() {
+                return name;
+            };
+            return lvalue;
+        }
+    }
+});
 Register${bits}.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };`;

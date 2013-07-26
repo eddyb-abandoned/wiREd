@@ -2351,10 +2351,8 @@ var Register1 = Register[1] = exports.Register1 = function Register1(name) {
         this.name = name;
     else
         name = this.name;
-    this.lvalue = {
-        inspect: function() {
-            return name + (self.nthValue ? self.nthValue.toSubString() : '');
-        },
+    this.lvalueBase = function() {};
+    this.lvalueBase.prototype = {
         freeze: function() {
             self.value = new RegisterFrozen1(name + (self.nthValue++).toSubString(), self.type);
         },
@@ -2363,6 +2361,9 @@ var Register1 = Register[1] = exports.Register1 = function Register1(name) {
         },
         set value(v) {
             self.value = v;
+        },
+        inspect: function() {
+            return name /*+ (self.nthValue ? self.nthValue.toSubString() : '')*/;
         }
     };
 }
@@ -2372,6 +2373,17 @@ Register1.prototype.name = '<1>';
 Register1.prototype.nthValue = 0;
 Register1.prototype.value = null;
 Register1.prototype.lvalue = null;
+Object.defineProperties(Register1.prototype, {
+    lvalue: {
+        get: function() {
+            var lvalue = new this.lvalueBase, name = this.name + (this.nthValue ? this.nthValue.toSubString() : '');
+            lvalue.inspect = function inspect() {
+                return name;
+            };
+            return lvalue;
+        }
+    }
+});
 Register1.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2394,10 +2406,8 @@ var Register8 = Register[8] = exports.Register8 = function Register8(name) {
         this.name = name;
     else
         name = this.name;
-    this.lvalue = {
-        inspect: function() {
-            return name + (self.nthValue ? self.nthValue.toSubString() : '');
-        },
+    this.lvalueBase = function() {};
+    this.lvalueBase.prototype = {
         freeze: function() {
             self.value = new RegisterFrozen8(name + (self.nthValue++).toSubString(), self.type);
         },
@@ -2406,6 +2416,9 @@ var Register8 = Register[8] = exports.Register8 = function Register8(name) {
         },
         set value(v) {
             self.value = v;
+        },
+        inspect: function() {
+            return name /*+ (self.nthValue ? self.nthValue.toSubString() : '')*/;
         }
     };
 }
@@ -2415,6 +2428,17 @@ Register8.prototype.name = '<8>';
 Register8.prototype.nthValue = 0;
 Register8.prototype.value = null;
 Register8.prototype.lvalue = null;
+Object.defineProperties(Register8.prototype, {
+    lvalue: {
+        get: function() {
+            var lvalue = new this.lvalueBase, name = this.name + (this.nthValue ? this.nthValue.toSubString() : '');
+            lvalue.inspect = function inspect() {
+                return name;
+            };
+            return lvalue;
+        }
+    }
+});
 Register8.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2437,10 +2461,8 @@ var Register16 = Register[16] = exports.Register16 = function Register16(name) {
         this.name = name;
     else
         name = this.name;
-    this.lvalue = {
-        inspect: function() {
-            return name + (self.nthValue ? self.nthValue.toSubString() : '');
-        },
+    this.lvalueBase = function() {};
+    this.lvalueBase.prototype = {
         freeze: function() {
             self.value = new RegisterFrozen16(name + (self.nthValue++).toSubString(), self.type);
         },
@@ -2449,6 +2471,9 @@ var Register16 = Register[16] = exports.Register16 = function Register16(name) {
         },
         set value(v) {
             self.value = v;
+        },
+        inspect: function() {
+            return name /*+ (self.nthValue ? self.nthValue.toSubString() : '')*/;
         }
     };
 }
@@ -2458,6 +2483,17 @@ Register16.prototype.name = '<16>';
 Register16.prototype.nthValue = 0;
 Register16.prototype.value = null;
 Register16.prototype.lvalue = null;
+Object.defineProperties(Register16.prototype, {
+    lvalue: {
+        get: function() {
+            var lvalue = new this.lvalueBase, name = this.name + (this.nthValue ? this.nthValue.toSubString() : '');
+            lvalue.inspect = function inspect() {
+                return name;
+            };
+            return lvalue;
+        }
+    }
+});
 Register16.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2480,10 +2516,8 @@ var Register32 = Register[32] = exports.Register32 = function Register32(name) {
         this.name = name;
     else
         name = this.name;
-    this.lvalue = {
-        inspect: function() {
-            return name + (self.nthValue ? self.nthValue.toSubString() : '');
-        },
+    this.lvalueBase = function() {};
+    this.lvalueBase.prototype = {
         freeze: function() {
             self.value = new RegisterFrozen32(name + (self.nthValue++).toSubString(), self.type);
         },
@@ -2492,6 +2526,9 @@ var Register32 = Register[32] = exports.Register32 = function Register32(name) {
         },
         set value(v) {
             self.value = v;
+        },
+        inspect: function() {
+            return name /*+ (self.nthValue ? self.nthValue.toSubString() : '')*/;
         }
     };
 }
@@ -2501,6 +2538,17 @@ Register32.prototype.name = '<32>';
 Register32.prototype.nthValue = 0;
 Register32.prototype.value = null;
 Register32.prototype.lvalue = null;
+Object.defineProperties(Register32.prototype, {
+    lvalue: {
+        get: function() {
+            var lvalue = new this.lvalueBase, name = this.name + (this.nthValue ? this.nthValue.toSubString() : '');
+            lvalue.inspect = function inspect() {
+                return name;
+            };
+            return lvalue;
+        }
+    }
+});
 Register32.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2523,10 +2571,8 @@ var Register64 = Register[64] = exports.Register64 = function Register64(name) {
         this.name = name;
     else
         name = this.name;
-    this.lvalue = {
-        inspect: function() {
-            return name + (self.nthValue ? self.nthValue.toSubString() : '');
-        },
+    this.lvalueBase = function() {};
+    this.lvalueBase.prototype = {
         freeze: function() {
             self.value = new RegisterFrozen64(name + (self.nthValue++).toSubString(), self.type);
         },
@@ -2535,6 +2581,9 @@ var Register64 = Register[64] = exports.Register64 = function Register64(name) {
         },
         set value(v) {
             self.value = v;
+        },
+        inspect: function() {
+            return name /*+ (self.nthValue ? self.nthValue.toSubString() : '')*/;
         }
     };
 }
@@ -2544,6 +2593,17 @@ Register64.prototype.name = '<64>';
 Register64.prototype.nthValue = 0;
 Register64.prototype.value = null;
 Register64.prototype.lvalue = null;
+Object.defineProperties(Register64.prototype, {
+    lvalue: {
+        get: function() {
+            var lvalue = new this.lvalueBase, name = this.name + (this.nthValue ? this.nthValue.toSubString() : '');
+            lvalue.inspect = function inspect() {
+                return name;
+            };
+            return lvalue;
+        }
+    }
+});
 Register64.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2566,10 +2626,8 @@ var Register80 = Register[80] = exports.Register80 = function Register80(name) {
         this.name = name;
     else
         name = this.name;
-    this.lvalue = {
-        inspect: function() {
-            return name + (self.nthValue ? self.nthValue.toSubString() : '');
-        },
+    this.lvalueBase = function() {};
+    this.lvalueBase.prototype = {
         freeze: function() {
             self.value = new RegisterFrozen80(name + (self.nthValue++).toSubString(), self.type);
         },
@@ -2578,6 +2636,9 @@ var Register80 = Register[80] = exports.Register80 = function Register80(name) {
         },
         set value(v) {
             self.value = v;
+        },
+        inspect: function() {
+            return name /*+ (self.nthValue ? self.nthValue.toSubString() : '')*/;
         }
     };
 }
@@ -2587,6 +2648,17 @@ Register80.prototype.name = '<80>';
 Register80.prototype.nthValue = 0;
 Register80.prototype.value = null;
 Register80.prototype.lvalue = null;
+Object.defineProperties(Register80.prototype, {
+    lvalue: {
+        get: function() {
+            var lvalue = new this.lvalueBase, name = this.name + (this.nthValue ? this.nthValue.toSubString() : '');
+            lvalue.inspect = function inspect() {
+                return name;
+            };
+            return lvalue;
+        }
+    }
+});
 Register80.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2609,10 +2681,8 @@ var Register128 = Register[128] = exports.Register128 = function Register128(nam
         this.name = name;
     else
         name = this.name;
-    this.lvalue = {
-        inspect: function() {
-            return name + (self.nthValue ? self.nthValue.toSubString() : '');
-        },
+    this.lvalueBase = function() {};
+    this.lvalueBase.prototype = {
         freeze: function() {
             self.value = new RegisterFrozen128(name + (self.nthValue++).toSubString(), self.type);
         },
@@ -2621,6 +2691,9 @@ var Register128 = Register[128] = exports.Register128 = function Register128(nam
         },
         set value(v) {
             self.value = v;
+        },
+        inspect: function() {
+            return name /*+ (self.nthValue ? self.nthValue.toSubString() : '')*/;
         }
     };
 }
@@ -2630,6 +2703,17 @@ Register128.prototype.name = '<128>';
 Register128.prototype.nthValue = 0;
 Register128.prototype.value = null;
 Register128.prototype.lvalue = null;
+Object.defineProperties(Register128.prototype, {
+    lvalue: {
+        get: function() {
+            var lvalue = new this.lvalueBase, name = this.name + (this.nthValue ? this.nthValue.toSubString() : '');
+            lvalue.inspect = function inspect() {
+                return name;
+            };
+            return lvalue;
+        }
+    }
+});
 Register128.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
@@ -2652,10 +2736,8 @@ var Register256 = Register[256] = exports.Register256 = function Register256(nam
         this.name = name;
     else
         name = this.name;
-    this.lvalue = {
-        inspect: function() {
-            return name + (self.nthValue ? self.nthValue.toSubString() : '');
-        },
+    this.lvalueBase = function() {};
+    this.lvalueBase.prototype = {
         freeze: function() {
             self.value = new RegisterFrozen256(name + (self.nthValue++).toSubString(), self.type);
         },
@@ -2664,6 +2746,9 @@ var Register256 = Register[256] = exports.Register256 = function Register256(nam
         },
         set value(v) {
             self.value = v;
+        },
+        inspect: function() {
+            return name /*+ (self.nthValue ? self.nthValue.toSubString() : '')*/;
         }
     };
 }
@@ -2673,6 +2758,17 @@ Register256.prototype.name = '<256>';
 Register256.prototype.nthValue = 0;
 Register256.prototype.value = null;
 Register256.prototype.lvalue = null;
+Object.defineProperties(Register256.prototype, {
+    lvalue: {
+        get: function() {
+            var lvalue = new this.lvalueBase, name = this.name + (this.nthValue ? this.nthValue.toSubString() : '');
+            lvalue.inspect = function inspect() {
+                return name;
+            };
+            return lvalue;
+        }
+    }
+});
 Register256.prototype.inspect = function() {
     return /*typeof this.name === 'string' ?*/ this.name /*: '(R)'+inspect(this.name)*/;
 };
