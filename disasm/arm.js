@@ -267,7 +267,7 @@ for(let double of [false, true]) {
     };
 
     // vldm vstm FIXME: almost duplicated from ldm stm
-    _`0PUDWLRn__Vd__    Imm_____`((P, U, D, W, L, Rn, Vd, imm8, regs=Vlist(Vd, imm8), t=new Register32, a=t.add(i32(U ? bits/8 : -bits/8)), m=Mem[bits](t))=>
+    _`0PUDWLRn__Vd__    000Imm__`((P, U, D, W, L, Rn, Vd, imm8, regs=Vlist(Vd, imm8), t=new Register32, a=t.add(i32(U ? bits/8 : -bits/8)), m=Mem[bits](t))=>
         [Mov(t, Rn), ...(U ? regs : regs.slice().reverse()).map(([r, cond])=>If(cond, [P&&Mov(t, a), L?Mov(r, m):Mov(m, r), !P&&Mov(t, a)])), W && Mov(Rn, t)]);
 }
 
