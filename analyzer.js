@@ -605,11 +605,38 @@ let makeAnalyzer = arch => {
             let {buffered} = this;
             this.buffered = null;
 
+            let first = true, lastPC = this.start, lastPCnext = this.start;
+            let wrapLine = (s, last=false) => {
+                let slice;
+                if(first) {
+                    if(analyzer.showLegacyAsm && arch.legacyDisasm || analyzer.showBytes)
+                        slice = analyzer.codeBuffer.slice(lastPC - analyzer.codeBase, lastPCnext - analyzer.codeBase);
+                    if(analyzer.showLegacyAsm && arch.legacyDisasm)
+                        s += ' // ' + arch.legacyDisasm(lastPC, slice).trim();
+                }
+
+                if(analyzer.showBytes)
+                    s = (first ? '0x' + slice.toString('hex') : (last ? '└' : '├').padLeft(2 + (lastPCnext - lastPC) * 2)).padRight(analyzer.showBytesPadding, first ? ' ' : '─') + s;
+
+                if(analyzer.showAddress)
+                    s = (first ? '0x' + lastPC.toString(16).padLeft(8, '0') : ''.padLeft(2 + 8)) + ' ' + s;
+
+                first = false;
+
+                return s;
+            };
+            let log = x => console.log(wrapLine(x));
+
             for(let x of buffered) {
                 if(x.type === 'log')
-                    console.log(x.message);
+                    log(x.message + ';');
                 else if(x.type === 'op') {
-                    let s = '', {first, last, op, value} = x;
+                    let s = '', {last, op, value} = x;
+                    if(x.first) {
+                        first = true;
+                        lastPC = x.PC;
+                        lastPCnext = x.PCnext;
+                    }
 
                     if(analyzer.showOriginal)
                         s = ' // ' + inspect(op);
@@ -617,27 +644,13 @@ let makeAnalyzer = arch => {
                     if(value)
                         s = inspect(value) + s;
 
-                    let slice;
-                    if(first) {
-                        if(analyzer.showLegacyAsm && arch.legacyDisasm || analyzer.showBytes)
-                            slice = analyzer.codeBuffer.slice(x.PC - analyzer.codeBase, x.PCnext - analyzer.codeBase);
-                        if(analyzer.showLegacyAsm && arch.legacyDisasm)
-                            s += ' // ' + arch.legacyDisasm(x.PC, slice).trim();
-                    }
-
-                    if(analyzer.showBytes)
-                        s = (first ? '0x' + slice.toString('hex') : (last ? '└' : '├').padLeft(2 + (x.PCnext - x.PC) * 2)).padRight(analyzer.showBytesPadding, first ? ' ' : '─') + s;
-
-                    if(analyzer.showAddress)
-                        s = (first ? '0x' + x.PC.toString(16).padLeft(8, '0'): ''.padLeft(2 + 8)) + ' ' + s;
-
-                    console.log(s);
+                    console.log(wrapLine(s, last) + ';');
                 } else
                     console.log(x);
             }
 
             if(this.returns)
-                return console.log('return;');
+                return log('return;');
             if(this.linkIf) {
                 let ifGoesToElse = this.linkIf.link === this.link;
                 if(!this.linkIf.buffered)
